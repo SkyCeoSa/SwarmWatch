@@ -5,10 +5,10 @@ Safe memory snapshotting with regex secret redaction and GZIP compression, enabl
 
 **Blocked by:** 03 (Public Developer Surface)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] `SafeStateSerializer` safely handles non-serializable objects via `__repr__` and masks API keys (`sk-...`, etc.).
-- [ ] State snapshots over 2MB are GZIP compressed.
-- [ ] `step_back()` creates an isolated `fork-1` branch without corrupting original `main` branch.
-- [ ] `swarmwatch.sync_state()` yields mutated state on forked branch.
+- [x] `SafeStateSerializer` safely handles non-serializable objects via `__repr__` and masks API keys (`sk-...`, etc.).
+- [x] State snapshots over 2MB are GZIP compressed.
+- [x] `step_back()` creates an isolated `fork-1` branch without corrupting original `main` branch.
+- [x] `swarmwatch.sync_state()` yields mutated state on forked branch.

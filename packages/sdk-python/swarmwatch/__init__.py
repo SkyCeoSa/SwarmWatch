@@ -15,6 +15,11 @@ from swarmwatch.core import (
     span,
     flush,
     shutdown,
+    sync_state,
+)
+from swarmwatch.serializer import (
+    SafeStateSerializer,
+    TimeMachine,
 )
 
 from swarmwatch.circuit import (
@@ -44,6 +49,9 @@ __all__ = [
     "SwarmCircuitBreakException",
     "compute_shannon_entropy",
     "compute_lexical_similarity",
+    "SafeStateSerializer",
+    "TimeMachine",
+    "sync_state",
     "init",
     "get_client",
     "agent",

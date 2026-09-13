@@ -217,7 +217,28 @@ class SQLiteStorageAdapter(StorageAdapter):
     async def get_swarm_spans(self, swarm_id: str, branch_id: str = "main") -> List[SwarmSpan]:
         return self.query_spans(swarm_id=swarm_id, branch_id=branch_id)
 
+    def save_snapshot_sync(self, snapshot: StateSnapshot) -> None:
+        conn = self._get_connection()
+        raw_json = json.dumps(snapshot.state_data).encode("utf-8")
+        compressed_bytes = gzip.compress(raw_json)
+        with conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO snapshots (
+                    id, span_id, branch_id, state_hash, state_data_compressed, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                snapshot.id,
+                snapshot.span_id,
+                snapshot.branch_id,
+                snapshot.state_hash,
+                compressed_bytes,
+                snapshot.created_at.isoformat()
+            ))
+
     async def save_snapshot(self, snapshot: StateSnapshot) -> None:
+        self.save_snapshot_sync(snapshot)
+
+    def _unused_async_save_snapshot(self, snapshot: StateSnapshot) -> None:
         conn = self._get_connection()
         # Compress state payload using gzip
         raw_json = json.dumps(snapshot.state_data).encode("utf-8")

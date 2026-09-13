@@ -214,6 +214,26 @@ class SwarmClient:
 
         return decorator
 
+    def sync_state(self, state_data: Dict[str, Any], branch_id: Optional[str] = None) -> Any:
+        current_span = current_span_var.get()
+        span_id = current_span.id if current_span else str(uuid.uuid4())
+        branch = branch_id or (current_span.branch_id if current_span else "main")
+        from swarmwatch.serializer import SafeStateSerializer
+        from swarmwatch.schema import StateSnapshot
+        serializer = SafeStateSerializer()
+        sanitized = serializer.sanitize(state_data)
+        state_hash = serializer.compute_hash(sanitized)
+        snap = StateSnapshot(
+            id=str(uuid.uuid4()),
+            span_id=span_id,
+            branch_id=branch,
+            state_hash=state_hash,
+            state_data=sanitized,
+            created_at=datetime.now(timezone.utc),
+        )
+        self.transport._call_storage("save_snapshot", snap)
+        return snap
+
     def flush(self) -> None:
         self.transport.flush()
 
@@ -277,6 +297,10 @@ def agent(
     branch_id: str = "main",
 ) -> Callable:
     return get_client().agent(name=name, role=role, target=target, branch_id=branch_id)
+
+
+def sync_state(state_data: Dict[str, Any], branch_id: Optional[str] = None) -> Any:
+    return get_client().sync_state(state_data, branch_id=branch_id)
 
 
 def flush() -> None:
