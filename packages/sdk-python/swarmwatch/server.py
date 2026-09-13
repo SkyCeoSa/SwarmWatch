@@ -55,78 +55,96 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <title>SwarmWatch Live Observability & Time Machine</title>
   <style>
     :root {
-      --bg: #090d16;
-      --card-bg: #121826;
-      --border: #1f293d;
+      --bg: #07090e;
+      --card-bg: #0e131f;
+      --border: #1a2234;
       --accent: #38bdf8;
-      --accent-glow: rgba(56, 189, 248, 0.25);
-      --warning: #fbbf24;
-      --danger: #f87171;
-      --text: #f3f4f6;
-      --text-muted: #9ca3af;
+      --accent-glow: rgba(56, 189, 248, 0.35);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; }
     body { background: var(--bg); color: var(--text); overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
     header { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
-    .logo { font-size: 1.25rem; font-weight: 700; color: var(--accent); letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
-    .status-badge { font-size: 0.75rem; background: rgba(56, 189, 248, 0.15); color: var(--accent); padding: 4px 10px; border-radius: 9999px; border: 1px solid var(--accent); }
-    .metrics { display: flex; gap: 24px; font-size: 0.875rem; color: var(--text-muted); }
-    .metric-val { color: var(--text); font-weight: 600; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo { font-size: 1.25rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; text-shadow: 0 0 16px var(--accent-glow); }
+    .badge { font-size: 0.75rem; background: rgba(56, 189, 248, 0.12); color: var(--accent); padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .metrics { display: flex; gap: 28px; font-size: 0.85rem; color: var(--text-muted); align-items: center; }
+    .metric-val { color: var(--text); font-weight: 700; margin-left: 4px; }
+    .entropy-pill { padding: 2px 8px; border-radius: 4px; font-weight: bold; background: rgba(16, 185, 129, 0.15); color: var(--success); }
     main { flex: 1; display: flex; position: relative; overflow: hidden; }
-    #swimlane-canvas { flex: 1; background: radial-gradient(circle at 50% 50%, #0d1527 0%, var(--bg) 100%); cursor: crosshair; }
-    #side-panel { width: 380px; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; overflow-y: auto; gap: 16px; }
-    .panel-title { font-size: 1rem; font-weight: 600; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-    .json-viewer { background: #060911; padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-family: monospace; font-size: 0.75rem; color: #a5f3fc; overflow-x: auto; max-height: 250px; }
-    .btn { background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-    .btn:hover { background: #7dd3fc; box-shadow: 0 0 12px var(--accent-glow); }
+    #swimlane-canvas { flex: 1; background: radial-gradient(circle at 40% 40%, #0d1527 0%, var(--bg) 100%); cursor: default; }
+    #side-panel { width: 400px; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; overflow-y: auto; gap: 16px; box-shadow: -8px 0 24px rgba(0,0,0,0.5); }
+    .panel-title { font-size: 1rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .field-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .field-value { font-size: 0.85rem; color: var(--accent); font-family: monospace; word-break: break-all; }
+    .json-viewer { background: #05070c; padding: 12px; border-radius: 6px; border: 1px solid var(--border); font-family: monospace; font-size: 0.75rem; color: #a5f3fc; overflow-x: auto; max-height: 240px; }
+    .btn { background: var(--accent); color: #07090e; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn:hover { background: #7dd3fc; box-shadow: 0 0 16px var(--accent-glow); transform: translateY(-1px); }
+    .btn-danger { background: #331518; color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.4); }
+    .btn-danger:hover { background: var(--danger); color: #fff; box-shadow: 0 0 16px rgba(239, 68, 68, 0.4); }
   </style>
 </head>
 <body>
   <header>
-    <div class="logo">
-      <span>👁️ SwarmWatch</span>
-      <span class="status-badge" id="ws-status">Connecting...</span>
+    <div class="brand">
+      <div class="logo">👁️ SwarmWatch</div>
+      <div class="badge" id="ws-status">Connecting...</div>
     </div>
     <div class="metrics">
-      <div>Active Agents: <span class="metric-val" id="agent-count">0</span></div>
-      <div>Total Spans: <span class="metric-val" id="span-count">0</span></div>
-      <div>Entropy Index: <span class="metric-val" id="entropy-val" style="color: #34d399;">1.00</span></div>
-      <div>Branch: <span class="metric-val" id="current-branch">main</span></div>
+      <div>Agents: <span class="metric-val" id="agent-count">0</span></div>
+      <div>Spans: <span class="metric-val" id="span-count">0</span></div>
+      <div>Entropy Health: <span class="entropy-pill" id="entropy-val">1.00</span></div>
+      <div>Active Branch: <span class="metric-val" style="color: var(--accent);" id="current-branch">main</span></div>
     </div>
   </header>
   <main>
     <canvas id="swimlane-canvas"></canvas>
     <div id="side-panel">
-      <div class="panel-title">Inspector & Time-Machine</div>
-      <div>
-        <label style="font-size: 0.75rem; color: var(--text-muted);">Selected Span ID</label>
-        <div id="selected-span-id" style="font-family: monospace; font-size: 0.85rem; color: var(--accent);">None</div>
+      <div class="panel-title">
+        <span>Inspector & Time-Machine</span>
+        <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);" id="span-status-badge">Live</span>
       </div>
       <div>
-        <label style="font-size: 0.75rem; color: var(--text-muted);">Causality Flow</label>
-        <div id="selected-flow" style="font-size: 0.85rem; margin-top: 4px;">-</div>
+        <div class="field-label">Selected Span ID</div>
+        <div class="field-value" id="selected-span-id">Click any span node or message arrow</div>
       </div>
       <div>
-        <label style="font-size: 0.75rem; color: var(--text-muted);">Payload</label>
-        <pre class="json-viewer" id="selected-payload">Click on any message arrow or node to inspect</pre>
+        <div class="field-label">Causality Flow</div>
+        <div class="field-value" id="selected-flow">-</div>
       </div>
-      <button class="btn" id="btn-fork">Fork & Rewind from Here</button>
+      <div>
+        <div class="field-label">Type & Duration</div>
+        <div class="field-value" id="selected-meta">-</div>
+      </div>
+      <div>
+        <div class="field-label">Input / Output Payloads</div>
+        <pre class="json-viewer" id="selected-payload">{\n  "status": "Ready for live inspection"\n}</pre>
+      </div>
+      <button class="btn" id="btn-fork">⚡ Fork Execution Branch Here</button>
+      <button class="btn btn-danger" id="btn-pause">⏸️ Pause Swarm</button>
     </div>
   </main>
   <script>
     const canvas = document.getElementById("swimlane-canvas");
     const ctx = canvas.getContext("2d");
     let width, height;
+
     function resize() {
-      width = canvas.width = canvas.parentElement.clientWidth - 380;
+      width = canvas.width = canvas.parentElement.clientWidth - 400;
       height = canvas.height = canvas.parentElement.clientHeight;
     }
     window.addEventListener("resize", resize);
     resize();
 
-    const agents = ["Planner", "Coder", "Evaluator", "Tools"];
+    const agents = new Set(["Director", "Planner", "Coder", "Reviewer"]);
     const spans = [];
+    const interactiveElements = [];
     let selectedSpan = null;
+    let isPaused = false;
 
     // Connect WebSocket
     const swarmId = new URLSearchParams(window.location.search).get("swarm_id") || "default-swarm";
@@ -135,62 +153,182 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      document.getElementById("ws-status").innerText = "LIVE (WebSocket)";
-      document.getElementById("ws-status").style.color = "#34d399";
+      document.getElementById("ws-status").innerText = "LIVE (WebSocket 10ms)";
+      document.getElementById("ws-status").style.borderColor = "#10b981";
+      document.getElementById("ws-status").style.color = "#10b981";
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "span_update") {
-        spans.push(data.span);
+        const s = data.span;
+        spans.push(s);
+        if (s.source_agent) agents.add(s.source_agent);
+        if (s.target_agent) agents.add(s.target_agent);
         document.getElementById("span-count").innerText = spans.length;
-        if (data.span.entropy_score !== undefined) {
-          document.getElementById("entropy-val").innerText = data.span.entropy_score.toFixed(2);
+        document.getElementById("agent-count").innerText = agents.size;
+
+        if (s.entropy_score !== undefined) {
+          const pill = document.getElementById("entropy-val");
+          pill.innerText = s.entropy_score.toFixed(2);
+          if (s.entropy_score < 0.4) {
+            pill.style.background = "rgba(239, 68, 68, 0.2)";
+            pill.style.color = "#ef4444";
+          } else if (s.entropy_score < 0.7) {
+            pill.style.background = "rgba(245, 158, 11, 0.2)";
+            pill.style.color = "#f59e0b";
+          } else {
+            pill.style.background = "rgba(16, 185, 129, 0.2)";
+            pill.style.color = "#10b981";
+          }
+        }
+      } else if (data.type === "command_ack") {
+        if (data.command === "CMD_PAUSE") {
+          isPaused = true;
+          document.getElementById("btn-pause").innerText = "▶️ Resume Swarm";
+        } else if (data.command === "CMD_RESUME") {
+          isPaused = false;
+          document.getElementById("btn-pause").innerText = "⏸️ Pause Swarm";
+        } else if (data.command === "CMD_FORK_BRANCH") {
+          document.getElementById("current-branch").innerText = data.new_branch_id;
+          alert(`Branch successfully forked: ${data.new_branch_id}`);
         }
       }
     };
 
-    // 60FPS Render Loop
-    let animOffset = 0;
+    document.getElementById("btn-pause").onclick = () => {
+      const cmd = isPaused ? "CMD_RESUME" : "CMD_PAUSE";
+      ws.send(JSON.stringify({ command: cmd }));
+    };
+
+    document.getElementById("btn-fork").onclick = () => {
+      if (!selectedSpan) {
+        alert("Please select a span first to fork from.");
+        return;
+      }
+      ws.send(JSON.stringify({
+        command: "CMD_FORK_BRANCH",
+        target_span_id: selectedSpan.id,
+        new_branch_id: `fork-${Math.floor(Math.random() * 1000)}`
+      }));
+    };
+
+    // Canvas Click Interaction
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      for (const el of interactiveElements) {
+        if (Math.hypot(clickX - el.x, clickY - el.y) < el.r + 8) {
+          selectSpan(el.span);
+          return;
+        }
+      }
+    });
+
+    function selectSpan(s) {
+      selectedSpan = s;
+      document.getElementById("selected-span-id").innerText = s.id;
+      document.getElementById("selected-flow").innerText = `${s.source_agent} → ${s.target_agent}`;
+      document.getElementById("selected-meta").innerText = `${s.span_type} | ${s.duration_ms.toFixed(1)}ms | Entropy: ${(s.entropy_score || 1).toFixed(2)}`;
+      document.getElementById("selected-payload").innerText = JSON.stringify({
+        inputs: s.input_payload,
+        outputs: s.output_payload,
+      }, null, 2);
+    }
+
+    // 60FPS Render Loop with Amir-Minimal Aesthetics
+    let t = 0;
     function render() {
       ctx.clearRect(0, 0, width, height);
-      animOffset = (animOffset + 0.05) % 1;
+      t += 0.02;
+      interactiveElements.length = 0;
 
-      // Draw Swimlane Tracks
-      const colWidth = width / (agents.length + 1);
-      agents.forEach((agent, i) => {
+      const agentList = Array.from(agents);
+      const colWidth = width / (agentList.length + 1);
+      const agentX = {};
+
+      // Draw Swimlane Tracks & Glowing Headers
+      agentList.forEach((agent, i) => {
         const x = (i + 1) * colWidth;
-        ctx.strokeStyle = "#1a2333";
+        agentX[agent] = x;
+
+        // Vertical Track Guideline
+        ctx.strokeStyle = "rgba(26, 34, 52, 0.7)";
         ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
+        ctx.setLineDash([4, 6]);
         ctx.beginPath();
         ctx.moveTo(x, 60);
         ctx.lineTo(x, height);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Header Node
-        ctx.fillStyle = "#1e293b";
+        // Agent Header Capsule
+        ctx.fillStyle = "#0e131f";
         ctx.beginPath();
-        ctx.roundRect(x - 50, 20, 100, 32, 6);
+        ctx.roundRect(x - 60, 18, 120, 36, 18);
         ctx.fill();
-        ctx.strokeStyle = "#38bdf8";
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        ctx.fillStyle = "#f3f4f6";
-        ctx.font = "12px sans-serif";
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "600 12px monospace";
         ctx.textAlign = "center";
         ctx.fillText(agent, x, 40);
       });
 
-      document.getElementById("agent-count").innerText = agents.length;
+      // Draw Message Flow Nodes and Bezier Arrows
+      const startY = 90;
+      const stepY = 55;
+      const visibleSpans = spans.slice(-12);
+
+      visibleSpans.forEach((s, idx) => {
+        const y = startY + idx * stepY;
+        const x1 = agentX[s.source_agent] || (width / 2);
+        const x2 = agentX[s.target_agent] || (x1 + 80);
+
+        // Curved Bezier Connection
+        ctx.strokeStyle = s.id === selectedSpan?.id ? "#38bdf8" : "rgba(56, 189, 248, 0.3)";
+        ctx.lineWidth = s.id === selectedSpan?.id ? 2.5 : 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x1, y);
+        const midX = (x1 + x2) / 2;
+        ctx.bezierCurveTo(midX, y - 15, midX, y + 15, x2, y);
+        ctx.stroke();
+
+        // Pulsing Particle along curve
+        const progress = ((t * 0.5 + idx * 0.25) % 1);
+        const px = (1 - progress) * (1 - progress) * x1 + 2 * (1 - progress) * progress * midX + progress * progress * x2;
+        const py = y + Math.sin(progress * Math.PI) * -10;
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.shadowColor = "rgba(56, 189, 248, 0.8)";
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(px, py, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Interactive Target Node
+        ctx.fillStyle = s.id === selectedSpan?.id ? "#38bdf8" : "#0e131f";
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x2, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        interactiveElements.push({ x: x2, y, r: 8, span: s });
+      });
+
       requestAnimationFrame(render);
     }
     render();
   </script>
 </body>
-</html>
-"""
+</html>"""
 
 
 def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:

@@ -160,6 +160,69 @@ class SwarmWatchCallbackHandler(BaseCallbackHandler):
         )
         client.transport.emit_span(span)
 
+    def on_llm_start(
+        self,
+        serialized: Optional[Dict[str, Any]],
+        prompts: List[str],
+        *,
+        run_id: Any,
+        parent_run_id: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> None:
+        name = (serialized.get("name") if serialized else None) or "LLM"
+        str_run_id = str(run_id)
+        self._runs[str_run_id] = {
+            "name": name,
+            "inputs": {"prompts": prompts},
+            "start_time": datetime.now(timezone.utc),
+            "perf_start": time.perf_counter(),
+            "parent_id": str(parent_run_id) if parent_run_id else None,
+            "is_llm": True,
+        }
+
+    def on_llm_end(
+        self,
+        response: Any,
+        *,
+        run_id: Any,
+        **kwargs: Any,
+    ) -> None:
+        str_run_id = str(run_id)
+        run_info = self._runs.pop(str_run_id, None)
+        if not run_info:
+            return
+
+        end_time = datetime.now(timezone.utc)
+        duration_ms = max(0.001, (time.perf_counter() - run_info["perf_start"]) * 1000.0)
+
+        # Extract text from LLMResult if possible
+        output_payload: Dict[str, Any] = {}
+        if hasattr(response, "generations") and response.generations:
+            gens = response.generations
+            texts = [getattr(g, "text", str(g)) for sublist in gens for g in (sublist if isinstance(sublist, list) else [sublist])]
+            output_payload["generations"] = texts
+        else:
+            output_payload["output"] = str(response)
+
+        client = swarmwatch.get_client()
+        span = SwarmSpan(
+            id=str(uuid.uuid4()),
+            swarm_id=self.swarm_id,
+            branch_id=self.branch_id,
+            parent_span_id=run_info["parent_id"],
+            source_agent=run_info["name"],
+            target_agent="llm",
+            span_type="llm_turn",
+            input_payload=run_info["inputs"],
+            output_payload=output_payload,
+            token_count=0,
+            entropy_score=1.0,
+            start_time=run_info["start_time"],
+            end_time=end_time,
+            duration_ms=duration_ms,
+        )
+        client.transport.emit_span(span)
+
     def inspect_output(
         self,
         output_text: str,
