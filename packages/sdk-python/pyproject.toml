@@ -12,6 +12,9 @@ dependencies = [
     "pydantic>=2.0",
 ]
 
+[project.scripts]
+swarmwatch = "swarmwatch.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["swarmwatch*"]

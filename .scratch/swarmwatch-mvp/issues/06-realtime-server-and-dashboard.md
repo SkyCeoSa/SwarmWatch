@@ -5,10 +5,10 @@ The FastAPI server serving REST ingestion, real-time bi-directional WebSocket on
 
 **Blocked by:** 01, 04, 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] FastAPI boots and serves WebSocket endpoint streaming live graph updates with <10ms latency.
-- [ ] Client commands (`CMD_PAUSE`, `CMD_FORK_BRANCH`) are accepted over WebSocket.
-- [ ] WebGL/Swimlane view renders actor tracks and animated message arrows at 60fps.
-- [ ] CLI command `swarmwatch ui` launches server and opens dashboard in browser.
+- [x] FastAPI boots and serves WebSocket endpoint streaming live graph updates with <10ms latency.
+- [x] Client commands (`CMD_PAUSE`, `CMD_FORK_BRANCH`) are accepted over WebSocket.
+- [x] WebGL/Swimlane view renders actor tracks and animated message arrows at 60fps.
+- [x] CLI command `swarmwatch ui` launches server and opens dashboard in browser.
