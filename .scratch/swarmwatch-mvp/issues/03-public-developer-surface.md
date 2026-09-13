@@ -5,10 +5,10 @@ The clean, ergonomic developer API surface. Developers can annotate agents with 
 
 **Blocked by:** 02 (In-Process SDK Transport & Bounded Queue Worker)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] `@swarmwatch.agent(role="...", swarm="...")` wraps sync and async functions cleanly.
-- [ ] `with swarmwatch.span(...)` correctly resolves and tracks parent-child span hierarchy.
-- [ ] Exceptions in user agent code are captured in span metadata and re-raised without masking.
-- [ ] Native `swarmwatch.init()` establishes the singleton client cleanly.
+- [x] `@swarmwatch.agent(role="...", swarm="...")` wraps sync and async functions cleanly.
+- [x] `with swarmwatch.span(...)` correctly resolves and tracks parent-child span hierarchy.
+- [x] Exceptions in user agent code are captured in span metadata and re-raised without masking.
+- [x] Native `swarmwatch.init()` establishes the singleton client cleanly.

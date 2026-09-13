@@ -7,6 +7,7 @@ and safe shutdown handling with atexit.
 
 import atexit
 import asyncio
+import concurrent.futures
 import inspect
 import logging
 import queue
@@ -92,12 +93,30 @@ class TelemetryTransport:
             return False
 
     def _call_storage(self, method_name: str, *args, **kwargs):
+        # 1. If storage class defines an explicit sync method (e.g. save_spans_sync), prefer it directly
+        sync_method_name = f"{method_name}_sync"
+        if hasattr(type(self.storage), sync_method_name):
+            return getattr(self.storage, sync_method_name)(*args, **kwargs)
+
+        # 2. Invoke method
         method = getattr(self.storage, method_name)
         res = method(*args, **kwargs)
+
+        # 3. If result is a coroutine, resolve it safely across sync/async callers
         if inspect.iscoroutine(res):
-            if self._loop is None or self._loop.is_closed():
-                self._loop = asyncio.new_event_loop()
-            return self._loop.run_until_complete(res)
+            try:
+                running_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                running_loop = None
+
+            if running_loop and running_loop.is_running():
+                # Running inside an active async loop (e.g. pytest or async endpoint)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    return pool.submit(asyncio.run, res).result()
+            else:
+                if self._loop is None or self._loop.is_closed():
+                    self._loop = asyncio.new_event_loop()
+                return self._loop.run_until_complete(res)
         return res
 
     def _flush_batch(self, batch: List[SwarmSpan]) -> None:

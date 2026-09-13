@@ -1,11 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-SwarmWatch: Universal Multi-Agent Observability, Circuit-Breaker, and Time-Machine Platform.
+SwarmWatch: Universal Observability, Entropy Circuit Breaker & Time-Machine Debugging for Multi-Agent Systems.
 """
-__version__ = "0.1.0"
 
 from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent
 from swarmwatch.storage import StorageAdapter, SQLiteStorageAdapter
+from swarmwatch.transport import TelemetryTransport, TransportConfig
+from swarmwatch.core import (
+    SwarmClient,
+    SpanContext,
+    init,
+    get_client,
+    agent,
+    span,
+    flush,
+    shutdown,
+)
 
 __all__ = [
     "SwarmSpan",
@@ -13,4 +23,14 @@ __all__ = [
     "CircuitEvent",
     "StorageAdapter",
     "SQLiteStorageAdapter",
+    "TelemetryTransport",
+    "TransportConfig",
+    "SwarmClient",
+    "SpanContext",
+    "init",
+    "get_client",
+    "agent",
+    "span",
+    "flush",
+    "shutdown",
 ]
