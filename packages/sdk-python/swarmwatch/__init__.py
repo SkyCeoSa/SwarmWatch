@@ -17,6 +17,16 @@ from swarmwatch.core import (
     shutdown,
 )
 
+from swarmwatch.circuit import (
+    EntropyCircuitBreaker,
+    CircuitPolicy,
+    CircuitPreset,
+    CircuitDecision,
+    SwarmCircuitBreakException,
+    compute_shannon_entropy,
+    compute_lexical_similarity,
+)
+
 __all__ = [
     "SwarmSpan",
     "StateSnapshot",
@@ -27,6 +37,13 @@ __all__ = [
     "TransportConfig",
     "SwarmClient",
     "SpanContext",
+    "EntropyCircuitBreaker",
+    "CircuitPolicy",
+    "CircuitPreset",
+    "CircuitDecision",
+    "SwarmCircuitBreakException",
+    "compute_shannon_entropy",
+    "compute_lexical_similarity",
     "init",
     "get_client",
     "agent",
