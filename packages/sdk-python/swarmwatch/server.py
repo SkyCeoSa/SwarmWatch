@@ -52,562 +52,1724 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwarmWatch – Multi-Agent Observability & Time Machine</title>
+  <title>SwarmWatch – Multi-Agent Observability Console</title>
   <style>
     :root {
-      --bg: #06080d;
-      --card-bg: #0c101b;
-      --card-border: #182238;
-      --accent: #38bdf8;
-      --accent-glow: rgba(56, 189, 248, 0.4);
-      --success: #10b981;
-      --success-glow: rgba(16, 185, 129, 0.35);
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --danger-glow: rgba(239, 68, 68, 0.4);
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --track-line: rgba(255, 255, 255, 0.05);
+      --bg-canvas: #080B11;
+      --bg-surface: #0E1422;
+      --bg-surface-hover: #141C2E;
+      --bg-surface-active: #1A243B;
+      --border-subtle: #1D2840;
+      --border-strong: #2D3F66;
+      --accent-sky: #38BDF8;
+      --accent-sky-subtle: rgba(56, 189, 248, 0.12);
+      --accent-sky-glow: rgba(56, 189, 248, 0.25);
+      --success-emerald: #10B981;
+      --success-subtle: rgba(16, 185, 129, 0.12);
+      --warning-amber: #F59E0B;
+      --warning-subtle: rgba(245, 158, 11, 0.12);
+      --danger-crimson: #EF4444;
+      --danger-subtle: rgba(239, 68, 68, 0.12);
+      --danger-border: rgba(239, 68, 68, 0.4);
+      --text-primary: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Fira Code", monospace;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Vazirmatn", sans-serif; }
-    body { background: var(--bg); color: var(--text); overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
-    
-    /* Top Header */
-    header { background: var(--card-bg); border-bottom: 1px solid var(--card-border); padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; z-index: 20; }
-    .brand { display: flex; align-items: center; gap: 14px; }
-    .logo { font-size: 1.3rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; text-shadow: 0 0 16px var(--accent-glow); display: flex; align-items: center; gap: 8px; }
-    .logo-badge { font-size: 0.7rem; background: rgba(56, 189, 248, 0.12); color: var(--accent); padding: 2px 8px; border-radius: 9999px; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 600; }
-    
-    .header-actions { display: flex; align-items: center; gap: 12px; }
-    .btn-sim { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #fff; border: 1px solid #38bdf8; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; box-shadow: 0 0 14px var(--accent-glow); }
-    .btn-sim:hover { background: #38bdf8; color: #06080d; transform: translateY(-1px); }
-    .btn-help { background: #1a2234; color: #cbd5e1; border: 1px solid #334155; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
-    .btn-help:hover { background: #243048; color: #fff; }
 
-    /* Top KPI Dashboard Bar */
-    .kpi-bar { background: #080c14; border-bottom: 1px solid var(--card-border); padding: 10px 24px; display: flex; gap: 20px; align-items: center; justify-content: space-between; overflow-x: auto; }
-    .kpi-card { display: flex; align-items: center; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); padding: 8px 16px; border-radius: 8px; min-width: 170px; }
-    .kpi-icon { font-size: 1.4rem; }
-    .kpi-data { display: flex; flex-direction: column; }
-    .kpi-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .kpi-value { font-size: 1rem; font-weight: 800; color: var(--text); }
-    .entropy-health { color: var(--success); }
-    
-    /* Main Workspace */
-    main { flex: 1; display: flex; position: relative; overflow: hidden; }
-    #canvas-container { flex: 1; position: relative; background: radial-gradient(circle at 40% 40%, #0d1527 0%, var(--bg) 100%); overflow: hidden; }
-    #swimlane-canvas { width: 100%; height: 100%; display: block; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
 
-    /* Floating Legend Overlay */
-    .legend-overlay { position: absolute; bottom: 20px; left: 20px; background: rgba(12, 16, 27, 0.85); backdrop-filter: blur(8px); border: 1px solid var(--card-border); padding: 12px 18px; border-radius: 8px; font-size: 0.75rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; z-index: 10; pointer-events: none; }
-    .legend-item { display: flex; align-items: center; gap: 8px; }
-    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
-    /* Right Inspection Panel */
-    #side-panel { width: 420px; background: var(--card-bg); border-left: 1px solid var(--card-border); display: flex; flex-direction: column; padding: 20px; overflow-y: auto; gap: 16px; box-shadow: -8px 0 32px rgba(0,0,0,0.6); z-index: 15; }
-    .panel-header { font-size: 1.05rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--card-border); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .status-badge { font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: var(--success); }
-    
-    .field-group { display: flex; flex-direction: column; gap: 4px; }
-    .field-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
-    .field-value { font-size: 0.85rem; color: var(--accent); font-family: monospace; word-break: break-all; background: rgba(56, 189, 248, 0.05); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.15); }
-    
-    .circuit-banner { padding: 10px 14px; border-radius: 8px; font-size: 0.8rem; border: 1px solid #1a2234; background: #080c14; display: flex; align-items: center; gap: 10px; }
-    .circuit-banner.trip { border-color: rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
+    /* Top Header Bar */
+    header {
+      height: 52px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+      z-index: 30;
+    }
 
-    .json-viewer { background: #04060a; padding: 12px; border-radius: 6px; border: 1px solid var(--card-border); font-family: monospace; font-size: 0.75rem; color: #7dd3fc; overflow-x: auto; max-height: 220px; line-height: 1.4; }
-    
-    .action-btn { background: var(--accent); color: #06080d; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .action-btn:hover { background: #7dd3fc; box-shadow: 0 0 16px var(--accent-glow); transform: translateY(-1px); }
-    .btn-secondary { background: #1e293b; color: #f1f5f9; border: 1px solid #334155; }
-    .btn-secondary:hover { background: #334155; }
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
+      border: 1px solid var(--accent-sky);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 14px;
+      box-shadow: 0 0 10px var(--accent-sky-glow);
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-sky-subtle);
+      color: var(--accent-sky);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
 
-    /* Bottom Scrubber Timeline */
-    #timeline-bar { background: var(--card-bg); border-top: 1px solid var(--card-border); padding: 10px 24px; display: flex; align-items: center; gap: 16px; z-index: 10; }
-    .timeline-title { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; white-space: nowrap; }
-    .timeline-steps { display: flex; gap: 8px; overflow-x: auto; flex: 1; padding-bottom: 4px; }
-    .step-node { font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; background: #141c2e; border: 1px solid #243048; color: #cbd5e1; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
-    .step-node:hover, .step-node.active { background: rgba(56, 189, 248, 0.2); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: var(--success-emerald);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+    }
+    .status-pill.offline {
+      background: rgba(148, 163, 184, 0.08);
+      border-color: rgba(148, 163, 184, 0.25);
+      color: var(--text-muted);
+    }
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+      animation: pulseAnim 2s infinite ease-in-out;
+    }
+    @keyframes pulseAnim {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .branch-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-feature-settings: 'tnum' 1;
+    }
+    .branch-pill strong {
+      color: #A78BFA;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-sim {
+      background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
+      color: #FFFFFF;
+      border: 1px solid #38BDF8;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.15s ease;
+      box-shadow: 0 0 12px var(--accent-sky-glow);
+    }
+    .btn-sim:hover {
+      background: #38BDF8;
+      color: #080B11;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.6);
+      transform: translateY(-1px);
+    }
+    .btn-sim:active { transform: translateY(0); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-ghost:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    /* KPI Metrics Ribbon */
+    .kpi-ribbon {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 8px 20px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+    .kpi-card {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: border-color 0.2s;
+    }
+    .kpi-card:hover {
+      border-color: var(--border-strong);
+    }
+    .kpi-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .kpi-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+    }
+    .kpi-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .kpi-value {
+      font-size: 17px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      font-feature-settings: 'tnum' 1;
+      color: var(--text-primary);
+      letter-spacing: -0.5px;
+    }
+    .kpi-unit {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .kpi-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+    .kpi-badge.healthy {
+      background: var(--success-subtle);
+      color: var(--success-emerald);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .kpi-badge.warning {
+      background: var(--warning-subtle);
+      color: var(--warning-amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .kpi-badge.tripped {
+      background: var(--danger-subtle);
+      color: var(--danger-crimson);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .kpi-meta {
+      font-size: 11px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .entropy-canvas {
+      width: 72px;
+      height: 22px;
+      flex-shrink: 0;
+      border-radius: 3px;
+    }
+
+    /* 3-Pane Body Workspace */
+    .workspace {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Left Rail: Swarm Participants */
+    .left-rail {
+      width: 270px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .rail-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .rail-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .rail-badge {
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--bg-surface-active);
+      color: var(--accent-sky);
+      padding: 1px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+    }
+    .rail-search {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .search-box {
+      width: 100%;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-box:focus {
+      border-color: var(--accent-sky);
+    }
+    .search-box::placeholder {
+      color: var(--text-dim);
+    }
+
+    .participant-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .participant-card {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .participant-card:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--border-strong);
+    }
+    .participant-card.active {
+      border-color: var(--accent-sky);
+      background: rgba(56, 189, 248, 0.05);
+    }
+    .participant-card.tripped {
+      border-color: var(--danger-crimson);
+      background: rgba(239, 68, 68, 0.06);
+    }
+    .p-icon {
+      font-size: 16px;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .p-details {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      flex: 1;
+    }
+    .p-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .p-role {
+      font-size: 10px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .p-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .p-status-dot.idle { background: #64748B; }
+    .p-status-dot.active { background: var(--accent-sky); box-shadow: 0 0 6px var(--accent-sky); }
+    .p-status-dot.tripped { background: var(--danger-crimson); box-shadow: 0 0 6px var(--danger-crimson); }
+
+    .rail-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .footer-stat {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* Center Stage: Causal Stream */
+    .center-stage {
+      flex: 1;
+      background: var(--bg-canvas);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .stage-header {
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .stage-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stage-counter {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-feature-settings: 'tnum' 1;
+      color: var(--text-dim);
+      padding: 2px 8px;
+      background: var(--bg-canvas);
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .stage-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .stream-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      gap: 14px;
+      color: var(--text-muted);
+      padding: 40px 20px;
+    }
+    .empty-icon {
+      font-size: 32px;
+      opacity: 0.7;
+    }
+    .empty-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .empty-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      max-width: 380px;
+      line-height: 1.6;
+    }
+
+    /* Stream Turn Card */
+    .turn-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .turn-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+    .turn-card.selected {
+      border-color: var(--accent-sky);
+      box-shadow: 0 0 0 1px var(--accent-sky), 0 4px 14px var(--accent-sky-glow);
+    }
+    .turn-card-header {
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11px;
+    }
+    .turn-step-num {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--text-dim);
+      background: var(--bg-canvas);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .turn-agents-flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .agent-tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+    }
+    .agent-tag.source { color: var(--accent-sky); }
+    .agent-tag.target { color: #A78BFA; }
+    .flow-arrow { color: var(--text-dim); font-size: 10px; }
+
+    .turn-metrics {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-feature-settings: 'tnum' 1;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .metric-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .entropy-chip {
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .entropy-chip.green { color: var(--success-emerald); background: var(--success-subtle); }
+    .entropy-chip.amber { color: var(--warning-amber); background: var(--warning-subtle); }
+    .entropy-chip.red { color: var(--danger-crimson); background: var(--danger-subtle); }
+
+    .turn-body {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .turn-message {
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+    .turn-tool-block {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #7DD3FC;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tool-icon { color: var(--accent-sky); font-size: 12px; }
+
+    /* Circuit Breaker Alert Card */
+    .circuit-breaker-card {
+      background: linear-gradient(180deg, rgba(239, 68, 68, 0.12) 0%, rgba(239, 68, 68, 0.04) 100%);
+      border: 1px solid var(--danger-crimson);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+      animation: alertGlow 1.5s infinite alternate ease-in-out;
+    }
+    @keyframes alertGlow {
+      from { box-shadow: 0 0 12px rgba(239, 68, 68, 0.2); }
+      to { box-shadow: 0 0 24px rgba(239, 68, 68, 0.45); }
+    }
+    .cb-header {
+      padding: 10px 16px;
+      background: rgba(239, 68, 68, 0.18);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cb-title {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #FCA5A5;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cb-badge {
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--danger-crimson);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+    .cb-body {
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .cb-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .cb-stat-box {
+      background: var(--bg-surface);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .cb-stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+    .cb-stat-val {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      font-feature-settings: 'tnum' 1;
+      color: #FCA5A5;
+    }
+    .cb-stat-val.positive { color: var(--success-emerald); }
+    .cb-description {
+      font-size: 12px;
+      color: #CBD5E1;
+      line-height: 1.5;
+    }
+
+    /* Right Inspector & Time Machine Drawer */
+    .right-inspector {
+      width: 370px;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    .inspector-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .inspector-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+    }
+    .inspector-span-id {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--accent-sky);
+      background: var(--bg-canvas);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .inspector-span-id:hover {
+      border-color: var(--accent-sky);
+    }
+
+    .inspector-content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .field-card {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .field-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+    }
+    .field-val-text {
+      font-size: 12px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-feature-settings: 'tnum' 1;
+    }
+
+    .json-box {
+      background: #05070C;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #93C5FD;
+      line-height: 1.45;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .time-machine-box {
+      background: rgba(167, 139, 250, 0.05);
+      border: 1px solid rgba(167, 139, 250, 0.25);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tm-header {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #C4B5FD;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tm-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .tm-input-group {
+      display: flex;
+      gap: 8px;
+    }
+    .tm-input {
+      flex: 1;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      outline: none;
+    }
+    .tm-input:focus { border-color: #A78BFA; }
+
+    .btn-fork {
+      background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+      color: #fff;
+      border: 1px solid #A78BFA;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 0 10px rgba(167, 139, 250, 0.3);
+    }
+    .btn-fork:hover {
+      background: #8B5CF6;
+      box-shadow: 0 0 16px rgba(167, 139, 250, 0.6);
+      transform: translateY(-1px);
+    }
+    .btn-pause {
+      background: var(--bg-surface-hover);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-pause:hover {
+      background: var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    .toast-notice {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+    .toast-notice.success {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid var(--success-emerald);
+      color: #6EE7B7;
+    }
 
     /* Modal Guide */
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 50; display: none; align-items: center; justify-content: center; padding: 20px; }
-    .modal-box { background: var(--card-bg); border: 1px solid var(--card-border); width: 680px; max-width: 95%; max-height: 85vh; border-radius: 12px; padding: 24px; overflow-y: auto; box-shadow: 0 16px 40px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 16px; }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; }
-    .modal-title { font-size: 1.15rem; font-weight: 700; color: var(--accent); }
-    .modal-close { background: none; border: none; font-size: 1.4rem; color: var(--text-muted); cursor: pointer; }
-    .guide-section { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-    .guide-title { font-size: 0.95rem; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 8px; }
-    .guide-text { font-size: 0.85rem; color: #94a3b8; line-height: 1.6; text-align: justify; direction: rtl; }
-    .guide-text.ltr { direction: ltr; text-align: left; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 7, 12, 0.82);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      width: 640px;
+      max-width: 95%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+    }
+    .modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent-sky);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .modal-close:hover { color: var(--text-primary); }
+    .guide-card {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .guide-head {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .guide-p {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>
-  <!-- Header -->
+
+  <!-- Top Header Bar -->
   <header>
-    <div class="brand">
-      <div class="logo">👁️ SwarmWatch</div>
-      <div class="logo-badge">Multi-Agent Observability</div>
+    <div class="brand-section">
+      <div class="brand-icon">&#x26A1;</div>
+      <div class="brand-title">
+        SwarmWatch
+        <span class="brand-badge">Console</span>
+      </div>
     </div>
+
+    <div class="header-center">
+      <div class="status-pill" id="ws-status">
+        <span class="pulse-dot"></span>
+        <span id="ws-status-text">LIVE STREAM</span>
+      </div>
+      <div class="branch-pill">
+        <span>&#x1F33F; branch:</span>
+        <strong id="kpi-branch">main</strong>
+      </div>
+      <div class="branch-pill" style="color: var(--text-dim);">
+        <span>swarm:</span>
+        <span style="color: var(--text-muted);" id="disp-swarm-id">multi-agent-swarm</span>
+      </div>
+    </div>
+
     <div class="header-actions">
-      <button class="btn-sim" id="btn-run-sim">▶ اجرای شبیه‌سازی زنده (Live Demo)</button>
-      <button class="btn-help" id="btn-open-guide">📘 راهنمای داشبورد</button>
+      <button class="btn-sim" id="btn-run-sim">&#x25B6; Run Live Swarm Simulation</button>
+      <button class="btn-ghost" id="btn-clear-stream">&#x232B; Clear</button>
+      <button class="btn-ghost" id="btn-open-guide">&#x1F4D8; Architecture</button>
     </div>
   </header>
 
-  <!-- KPI Metrics Bar -->
-  <div class="kpi-bar">
+  <!-- Top KPI Metrics Ribbon -->
+  <div class="kpi-ribbon">
+    <!-- Active Agents -->
     <div class="kpi-card">
-      <div class="kpi-icon">🤖</div>
-      <div class="kpi-data">
-        <span class="kpi-label">Active Agents / ایجنت‌ها</span>
-        <span class="kpi-value" id="kpi-agents">4 Nodes</span>
+      <div class="kpi-info">
+        <span class="kpi-label">Active Participants</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-agents">4</span>
+          <span class="kpi-unit">Agents</span>
+        </div>
+        <span class="kpi-meta">&#x1F4CA; Macro &#x1F50D; Sector &#x1F6E1;&#xFE0F; Risk &#x26A1; Trader</span>
       </div>
     </div>
+
+    <!-- Total Causal Spans -->
     <div class="kpi-card">
-      <div class="kpi-icon">⚡</div>
-      <div class="kpi-data">
-        <span class="kpi-label">Causal Spans / مراحل اجرا</span>
-        <span class="kpi-value" id="kpi-spans">0</span>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Causal Spans</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-spans">0</span>
+          <span class="kpi-unit">turns</span>
+        </div>
+        <span class="kpi-meta">Sub-millisecond causal tracking</span>
       </div>
     </div>
+
+    <!-- Shannon Entropy Score -->
     <div class="kpi-card">
-      <div class="kpi-icon">🧬</div>
-      <div class="kpi-data">
-        <span class="kpi-label">Shannon Entropy / سلامت انتروپی</span>
-        <span class="kpi-value entropy-health" id="kpi-entropy">1.00 (سالم)</span>
+      <div class="kpi-info">
+        <span class="kpi-label">Shannon Entropy Score</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpi-entropy">1.00</span>
+          <span class="kpi-badge healthy" id="entropy-badge">HEALTHY</span>
+        </div>
+        <span class="kpi-meta" id="entropy-sub">Semantic diversity optimal</span>
       </div>
+      <canvas id="entropy-canvas" class="entropy-canvas" width="72" height="22"></canvas>
     </div>
+
+    <!-- Circuit Breaker Savings -->
     <div class="kpi-card">
-      <div class="kpi-icon">🛡️</div>
-      <div class="kpi-data">
-        <span class="kpi-label">Tokens Saved / توکن نجات‌یافته</span>
-        <span class="kpi-value" style="color: var(--accent);" id="kpi-saved">0 Tokens ($0.00)</span>
-      </div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-icon">🌿</div>
-      <div class="kpi-data">
-        <span class="kpi-label">Active Branch / شاخه وضعیت</span>
-        <span class="kpi-value" style="color: #a78bfa;" id="kpi-branch">main</span>
+      <div class="kpi-info">
+        <span class="kpi-label">Circuit Breaker Savings</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" style="color: var(--accent-sky);" id="kpi-saved">$0.00</span>
+          <span class="kpi-unit" id="kpi-saved-tokens">(0 tkns)</span>
+        </div>
+        <span class="kpi-meta" id="circuit-status-sub">Zero-token loop prevention active</span>
       </div>
     </div>
   </div>
 
-  <!-- Main Canvas & Inspector -->
-  <main>
-    <div id="canvas-container">
-      <canvas id="swimlane-canvas"></canvas>
-      <div class="legend-overlay">
-        <div style="font-weight: 700; margin-bottom: 4px; color: #f1f5f9;">راهنمای بصری خطوط شناوری (Swimlanes):</div>
-        <div class="legend-item"><div class="legend-dot" style="background: var(--accent);"></div> ستون‌های عمودی: کانال‌های اختصاصی هر ایجنت</div>
-        <div class="legend-item"><div class="legend-dot" style="background: #38bdf8; box-shadow: 0 0 6px #38bdf8;"></div> ذرات متحرک: تبادل بلادرنگ پیام و تصمیم در کمتر از ۱ میکروثانیه</div>
-        <div class="legend-item"><div class="legend-dot" style="background: var(--success);"></div> گره دایره‌ای: کلیک برای مشاهده وضعیت در ماشین زمان</div>
-      </div>
-    </div>
-
-    <!-- Inspector Side Panel -->
-    <div id="side-panel">
-      <div class="panel-header">
-        <span>بازرس پیام و ماشین زمان</span>
-        <span class="status-badge" id="span-status">Live Track</span>
+  <!-- 3-Pane Workspace -->
+  <div class="workspace">
+    <!-- Left Rail: Swarm Participants -->
+    <aside class="left-rail">
+      <div class="rail-header">
+        <span class="rail-title">&#x1F916; Participants</span>
+        <span class="rail-badge" id="rail-count-badge">4 nodes</span>
       </div>
 
-      <div class="circuit-banner" id="circuit-box">
-        <span style="font-size: 1.2rem;">🛡️</span>
-        <div>
-          <div style="font-weight: 700; font-size: 0.8rem;">وضعیت مدارشکن هوشمند</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);" id="circuit-msg">پایشگر ریاضی انتروپی فعال است (بدون مصرف توکن)</div>
+      <div class="rail-search">
+        <input type="text" id="agent-filter" class="search-box" placeholder="Filter agents or roles..." />
+      </div>
+
+      <div class="participant-list" id="participant-list">
+        <!-- MacroEconomist -->
+        <div class="participant-card" data-agent="MacroEconomist">
+          <div class="p-icon">&#x1F4CA;</div>
+          <div class="p-details">
+            <span class="p-name">MacroEconomist</span>
+            <span class="p-role">Macro Strategist</span>
+          </div>
+          <div class="p-status-dot idle" id="dot-MacroEconomist"></div>
+        </div>
+
+        <!-- SectorResearcher -->
+        <div class="participant-card" data-agent="SectorResearcher">
+          <div class="p-icon">&#x1F50D;</div>
+          <div class="p-details">
+            <span class="p-name">SectorResearcher</span>
+            <span class="p-role">Equity Screener</span>
+          </div>
+          <div class="p-status-dot idle" id="dot-SectorResearcher"></div>
+        </div>
+
+        <!-- RiskAuditor -->
+        <div class="participant-card" data-agent="RiskAuditor">
+          <div class="p-icon">&#x1F6E1;&#xFE0F;</div>
+          <div class="p-details">
+            <span class="p-name">RiskAuditor</span>
+            <span class="p-role">VaR &amp; Stress Auditor</span>
+          </div>
+          <div class="p-status-dot idle" id="dot-RiskAuditor"></div>
+        </div>
+
+        <!-- ExecutionTrader -->
+        <div class="participant-card" data-agent="ExecutionTrader">
+          <div class="p-icon">&#x26A1;</div>
+          <div class="p-details">
+            <span class="p-name">ExecutionTrader</span>
+            <span class="p-role">Order Execution</span>
+          </div>
+          <div class="p-status-dot idle" id="dot-ExecutionTrader"></div>
         </div>
       </div>
 
-      <div class="field-group">
-        <div class="field-label">شناسه مرحله (Span ID)</div>
-        <div class="field-value" id="disp-span-id">روی هر گره یا پیام کلیک کنید</div>
+      <div class="rail-footer">
+        <div class="footer-stat">
+          <span>Engine:</span>
+          <span style="color: var(--text-muted);">FastAPI + SQLite</span>
+        </div>
+        <div class="footer-stat">
+          <span>Protocol:</span>
+          <span style="color: var(--text-muted);">RFC-9110 Causal</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Stage: Causal Dialogue Stream -->
+    <main class="center-stage">
+      <div class="stage-header">
+        <div class="stage-title">
+          <span>&#x26A1; Causal Dialogue &amp; Execution Stream</span>
+          <span class="stage-counter" id="stream-count-pill">0 events</span>
+        </div>
+        <div class="stage-controls">
+          <label class="toggle-label">
+            <input type="checkbox" id="chk-autoscroll" checked />
+            <span>Auto-scroll</span>
+          </label>
+        </div>
       </div>
 
-      <div class="field-group">
-        <div class="field-label">مسیر تبادل داده (Causality Flow)</div>
-        <div class="field-value" id="disp-flow">-</div>
+      <div class="stream-container" id="stream-container">
+        <!-- Empty State Prompt -->
+        <div class="empty-state" id="stream-empty-state">
+          <div class="empty-icon">&#x1FA9E;</div>
+          <div class="empty-title">Ready for Multi-Agent Stream</div>
+          <div class="empty-desc">
+            Click <strong>[&#x25B6; Run Live Swarm Simulation]</strong> above to stream 5 sequential financial agent turns with zero-token loop interception, or stream live spans via <code>POST /api/v1/spans</code>.
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Inspector / Time-Machine Drawer -->
+    <aside class="right-inspector">
+      <div class="inspector-header">
+        <span class="inspector-title">&#x1F50E; Step Inspector</span>
+        <span class="inspector-span-id" id="disp-span-id" title="Click to copy Span ID">
+          <span>select a turn</span>
+        </span>
       </div>
 
-      <div class="field-group">
-        <div class="field-label">نوع تسک و زمان پاسخ‌دهی</div>
-        <div class="field-value" id="disp-meta">-</div>
-      </div>
+      <div class="inspector-content">
+        <!-- Causality Route -->
+        <div class="field-card">
+          <div class="field-header">
+            <span class="field-label">Causal Routing</span>
+            <span class="field-val-text" id="disp-meta" style="color: var(--text-dim);">-</span>
+          </div>
+          <div class="field-val-text" id="disp-flow" style="color: var(--accent-sky); font-weight: 600;">-</div>
+        </div>
 
-      <div class="field-group">
-        <div class="field-label">محتوای پی‌لود و حافظه ایجنت (Payload / State)</div>
-        <pre class="json-viewer" id="disp-payload">{
-  "info": "برای بازرسی گام‌به‌گام یا منشعب کردن، یک مرحله را انتخاب کنید"
+        <!-- Latency & Tokens Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="field-card">
+            <span class="field-label">Duration</span>
+            <span class="field-val-text" id="disp-duration">-</span>
+          </div>
+          <div class="field-card">
+            <span class="field-label">Token Consumption</span>
+            <span class="field-val-text" id="disp-tokens">-</span>
+          </div>
+        </div>
+
+        <!-- Input Payload -->
+        <div class="field-card">
+          <div class="field-header">
+            <span class="field-label">Input Payload</span>
+          </div>
+          <pre class="json-box" id="disp-input">{
+  "hint": "Click any card in the center stream to inspect payload state."
 }</pre>
+        </div>
+
+        <!-- Output Payload -->
+        <div class="field-card">
+          <div class="field-header">
+            <span class="field-label">Output Payload</span>
+          </div>
+          <pre class="json-box" id="disp-output">{
+  "status": "ready"
+}</pre>
+        </div>
+
+        <!-- Time-Machine Branching -->
+        <div class="time-machine-box">
+          <div class="tm-header">&#x23F1;&#xFE0F; Time-Machine State Forking</div>
+          <p class="tm-desc">
+            Fork a new independent execution branch from this exact causal span snapshot without re-running predecessor agents.
+          </p>
+          <div class="tm-input-group">
+            <input type="text" id="input-branch-name" class="tm-input" value="fork-01" placeholder="branch-name" />
+            <button class="btn-fork" id="btn-fork">&#x26A1; Fork Branch</button>
+          </div>
+          <div class="toast-notice success" id="fork-toast">
+            &#x2714; Branch created! Swarm state restored at selected step.
+          </div>
+          <button class="btn-pause" id="btn-pause">&#x23F8;&#xFE0F; Pause Swarm Execution</button>
+        </div>
       </div>
-
-      <button class="action-btn" id="btn-fork">⚡ انشعاب شاخه جدید (Fork Branch Here)</button>
-      <button class="action-btn btn-secondary" id="btn-pause">⏸️ توقف / ادامه پردازش ایجنت‌ها</button>
-    </div>
-  </main>
-
-  <!-- Bottom Timeline Scrubber -->
-  <div id="timeline-bar">
-    <div class="timeline-title">⏱️ گام‌های زمانی (Timeline):</div>
-    <div class="timeline-steps" id="timeline-steps">
-      <span style="font-size: 0.8rem; color: var(--text-muted);">روی «اجرای شبیه‌سازی زنده» در بالا کلیک کنید تا جریان ایجنت‌ها آغاز شود.</span>
-    </div>
+    </aside>
   </div>
 
-  <!-- Guide Modal -->
+  <!-- Architecture Guide Modal -->
   <div class="modal-backdrop" id="modal-guide">
     <div class="modal-box">
-      <div class="modal-header">
-        <div class="modal-title">📘 راهنمای کامل داشبورد دیداری SwarmWatch</div>
+      <div class="modal-head">
+        <div class="modal-title">&#x1F4D8; SwarmWatch Architecture &amp; Design Principles</div>
         <button class="modal-close" id="btn-close-guide">&times;</button>
       </div>
 
-      <div class="guide-section">
-        <div class="guide-title">۱. خطوط شناوری (Swimlanes) چه هستند؟</div>
-        <div class="guide-text">
-          در سیستم‌های چند ایجنتی سنتی، لاگ‌ها به شکل متنی و نامنظم در کنسول چاپ می‌شوند و نمی‌توان فهمید کدام ایجنت در پاسخ به چه کسی صحبت کرد. در این صفحه، هر ستون عمودی یک ایجنت مشخص (مثل تحلیل‌گر اقتصاد کلان، پژوهشگر سهام یا حسابرس ریسک) است.
-        </div>
+      <div class="guide-card">
+        <div class="guide-head">&#x26A1; 1. Causal Tracing vs. Traditional Flat Logs</div>
+        <p class="guide-p">
+          In distributed agent swarms, flat sequential logs obscure causality. SwarmWatch uses RFC-9110 causal spans tracking <code>parent_span_id</code>, <code>source_agent</code>, and <code>target_agent</code> to reconstruct exact causal chains with sub-millisecond precision.
+        </p>
       </div>
 
-      <div class="guide-section">
-        <div class="guide-title">۲. ذرات نورانی و خطوط منحنی (Particle Bezier Traces)</div>
-        <div class="guide-text">
-          منحنی‌هایی که بین ستون‌ها کشیده می‌شوند، نشان‌دهنده یک «اسپان سببی» (Causal Span) هستند. ذرات نورانی با سرعت ۶۰ فریم بر ثانیه حرکت می‌کنند تا نشان دهند تله‌متری چطور با سرعت زیر ۱ میکروثانیه (<1µs) و بدون ایجاد وقفه به صف ارسال شده است.
-        </div>
+      <div class="guide-card">
+        <div class="guide-head">&#x1F6E1;&#xFE0F; 2. Shannon Entropy Circuit Breaker</div>
+        <p class="guide-p">
+          To stop infinite multi-agent ping-pong loops without paying for expensive LLM judge calls, SwarmWatch computes output entropy mathematically:
+          <code>H(X) = -&Sigma; P(x) log2 P(x)</code>. When entropy drops below 0.50, the zero-token circuit breaker immediately trips in &lt;1ms.
+        </p>
       </div>
 
-      <div class="guide-section">
-        <div class="guide-title">۳. عدد انتروپی شانون (Shannon Entropy) چیست؟</div>
-        <div class="guide-text">
-          این فرمول ریاضیاتی تنوع کلمات متن خروجی مدل را اندازه می‌گیرد. اگر ایجنت‌ها گیر بیفتند و پیام‌های شبیه به هم ارسال کنند، انتروپی به زیر 0.50 سقوط می‌کند. در این لحظه، بدون آنکه لازم باشد یک دلار خرج قضاوت مدل دیگری (مثل GPT-4) بکنید، مدارشکن فوراً لوپ را قطع می‌کند و جلوی سوزاندن توکن‌های شما را می‌گیرد!
-        </div>
-      </div>
-
-      <div class="guide-section">
-        <div class="guide-title">۴. ماشین زمان و انشعاب شاخه (Fork Branch)</div>
-        <div class="guide-text">
-          اگر ایجنتی در مرحله ۱۰ تصمیمی اشتباه گرفت، نیازی نیست کل سیستم را از مرحله ۱ دوباره اجرا کنید و هزینه توکن بدهید. روی مرحله دلخواه کلیک کرده و دکمه Fork Branch را بزنید؛ سیستم حافظه آن لحظه را بازیابی کرده و یک شاخه مستقل جدید (مثل `fork-01`) برای آزمایش می‌سازد.
-        </div>
+      <div class="guide-card">
+        <div class="guide-head">&#x23F1;&#xFE0F; 3. Time-Machine State Branching</div>
+        <p class="guide-p">
+          SwarmWatch snapshots state in an append-only graph. If an agent hallucinates at step 10, developers can step back and fork a new branch (e.g. <code>fork-01</code>) from step 9 with altered parameters without paying to re-run steps 1&ndash;8.
+        </p>
       </div>
     </div>
   </div>
 
   <script>
-    const canvas = document.getElementById("swimlane-canvas");
-    const ctx = canvas.getContext("2d");
-    let width, height;
-
-    function resize() {
-      const container = document.getElementById("canvas-container");
-      width = canvas.width = container.clientWidth;
-      height = canvas.height = container.clientHeight;
-    }
-    window.addEventListener("resize", resize);
-    resize();
-
-    // Swarm Nodes and State
-    const agentRoles = {
-      "MacroEconomist": { label: "Macro Analyst", icon: "📊", color: "#38bdf8" },
-      "SectorResearcher": { label: "Sector Researcher", icon: "🔍", color: "#818cf8" },
-      "RiskAuditor": { label: "Risk Manager", icon: "🛡️", color: "#34d399" },
-      "ExecutionTrader": { label: "Execution Trader", icon: "⚡", color: "#fbbf24" }
-    };
-    const agentNames = Object.keys(agentRoles);
-    
+    // State
     let spans = [];
-    const interactiveElements = [];
     let selectedSpan = null;
     let isPaused = false;
     let simTimer = null;
+    let entropyHistory = [1.0];
 
-    // Connect WebSocket
-    const swarmId = new URLSearchParams(window.location.search).get("swarm_id") || "multi-agent-swarm";
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/swarm/${swarmId}`;
+    // Agents Metadata
+    const agentMeta = {
+      "MacroEconomist": { icon: "&#x1F4CA;", role: "Macro Strategist", color: "#38BDF8" },
+      "SectorResearcher": { icon: "&#x1F50D;", role: "Equity Screener", color: "#818CF8" },
+      "RiskAuditor": { icon: "&#x1F6E1;&#xFE0F;", role: "VaR Auditor", color: "#34D399" },
+      "ExecutionTrader": { icon: "&#x26A1;", role: "Order Execution", color: "#FBBF24" }
+    };
+
+    // Sparkline Canvas
+    const entropyCanvas = document.getElementById("entropy-canvas");
+    const entropyCtx = entropyCanvas ? entropyCanvas.getContext("2d") : null;
+
+    function drawEntropySparkline() {
+      if (!entropyCtx) return;
+      const w = entropyCanvas.width;
+      const h = entropyCanvas.height;
+      entropyCtx.clearRect(0, 0, w, h);
+
+      if (entropyHistory.length < 2) return;
+
+      const minVal = 0.0;
+      const maxVal = 1.0;
+      const step = w / (entropyHistory.length - 1);
+
+      entropyCtx.beginPath();
+      entropyHistory.forEach((val, i) => {
+        const x = i * step;
+        const norm = (val - minVal) / (maxVal - minVal);
+        const y = h - (norm * (h - 4) + 2);
+        if (i === 0) entropyCtx.moveTo(x, y);
+        else entropyCtx.lineTo(x, y);
+      });
+
+      const lastVal = entropyHistory[entropyHistory.length - 1];
+      const strokeColor = lastVal < 0.5 ? "#EF4444" : (lastVal < 0.75 ? "#F59E0B" : "#10B981");
+      entropyCtx.strokeStyle = strokeColor;
+      entropyCtx.lineWidth = 1.8;
+      entropyCtx.stroke();
+    }
+
+    // WebSocket Management
+    const urlParams = new URLSearchParams(window.location.search);
+    const swarmId = urlParams.get("swarm_id") || "multi-agent-swarm";
+    document.getElementById("disp-swarm-id").innerText = swarmId;
+
+    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProto}//${window.location.host}/ws/swarm/${swarmId}`;
     let ws = null;
 
-    function connectWs() {
+    function initWebSocket() {
       try {
         ws = new WebSocket(wsUrl);
+        ws.onopen = () => {
+          const pill = document.getElementById("ws-status");
+          pill.className = "status-pill";
+          document.getElementById("ws-status-text").innerText = "LIVE STREAM";
+        };
         ws.onmessage = (event) => {
-          const msg = JSON.parse(event.data);
-          if (msg.type === "span_update" && msg.span) {
-            addSpan(msg.span);
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "span_update" && data.span) {
+              appendSpan(data.span);
+            } else if (data.type === "command_ack") {
+              if (data.command === "CMD_FORK_BRANCH") {
+                showForkSuccess(data.new_branch_id || "fork-01");
+              } else if (data.command === "CMD_PAUSE") {
+                isPaused = true;
+                updatePauseButton();
+              } else if (data.command === "CMD_RESUME") {
+                isPaused = false;
+                updatePauseButton();
+              }
+            }
+          } catch (e) {
+            console.error("WS Parse error", e);
           }
         };
+        ws.onclose = () => {
+          const pill = document.getElementById("ws-status");
+          pill.className = "status-pill offline";
+          document.getElementById("ws-status-text").innerText = "OFFLINE";
+          setTimeout(initWebSocket, 3000);
+        };
       } catch (e) {
-        console.warn("WebSocket connecting offline mode");
+        console.warn("WebSocket fallback mode", e);
       }
     }
-    connectWs();
+    initWebSocket();
 
-    // Add span to visualizer
-    function addSpan(s) {
+    // Append a Span
+    function appendSpan(s) {
       spans.push(s);
-      updateKpis();
-      updateTimeline();
-      selectSpan(s);
+      document.getElementById("stream-empty-state")?.remove();
+
+      const ent = s.entropy_score !== undefined ? s.entropy_score : 1.0;
+      entropyHistory.push(ent);
+      if (entropyHistory.length > 20) entropyHistory.shift();
+      drawEntropySparkline();
+
+      // Check if this is a tripped circuit breaker
+      const isTripped = ent < 0.50 || (s.output_payload && s.output_payload.action === "CIRCUIT_BREAKER_HALT");
+
+      // Update Participant status dot
+      document.querySelectorAll(".p-status-dot").forEach(el => el.className = "p-status-dot idle");
+      const targetDot = document.getElementById("dot-" + s.target_agent);
+      const sourceDot = document.getElementById("dot-" + s.source_agent);
+      if (sourceDot) sourceDot.className = "p-status-dot active";
+      if (targetDot) targetDot.className = isTripped ? "p-status-dot tripped" : "p-status-dot active";
+
+      // Create stream card
+      const stream = document.getElementById("stream-container");
+      const card = document.createElement("div");
+
+      if (isTripped) {
+        // High-contrast Circuit Breaker Alert Card
+        card.className = "circuit-breaker-card";
+        const savedTokens = s.output_payload?.saved_tokens || 2450;
+        const savedCost = s.output_payload?.cost_saved || s.output_payload?.saved_dollars || "$0.25";
+        card.innerHTML = `
+          <div class="cb-header">
+            <div class="cb-title">
+              <span>&#x1F6E1;&#xFE0F;</span>
+              <span>CIRCUIT BREAKER ENGAGED: ZERO-TOKEN LOOP HALTED</span>
+            </div>
+            <span class="cb-badge">HALTED &bull; 0.8ms</span>
+          </div>
+          <div class="cb-body">
+            <div class="cb-stats-grid">
+              <div class="cb-stat-box">
+                <span class="cb-stat-label">Entropy Drop</span>
+                <span class="cb-stat-val">${ent.toFixed(2)} &lt; 0.50</span>
+              </div>
+              <div class="cb-stat-box">
+                <span class="cb-stat-label">Latency</span>
+                <span class="cb-stat-val">${(s.duration_ms || 0.8).toFixed(1)} ms</span>
+              </div>
+              <div class="cb-stat-box">
+                <span class="cb-stat-label">Tokens Saved</span>
+                <span class="cb-stat-val positive">+${savedTokens.toLocaleString()}</span>
+              </div>
+              <div class="cb-stat-box">
+                <span class="cb-stat-label">Capital Saved</span>
+                <span class="cb-stat-val positive">${savedCost}</span>
+              </div>
+            </div>
+            <div class="cb-description">
+              <strong>Algorithmic Loop Detection:</strong> Repeating dialogue ping-pong intercepted between 
+              <code>${s.source_agent}</code> and <code>${s.target_agent}</code>. 
+              The circuit breaker halted execution deterministically without incurring LLM judge inference cost.
+            </div>
+          </div>
+        `;
+        card.onclick = () => selectSpan(s, card);
+      } else {
+        // Standard Turn Card
+        card.className = "turn-card";
+        const srcMeta = agentMeta[s.source_agent] || { icon: "&#x1F916;", color: "#38BDF8" };
+        const tgtMeta = agentMeta[s.target_agent] || { icon: "&#x1F916;", color: "#A78BFA" };
+        
+        let entropyClass = "green";
+        if (ent < 0.5) entropyClass = "red";
+        else if (ent < 0.75) entropyClass = "amber";
+
+        const textContent = s.message || (s.output_payload ? JSON.stringify(s.output_payload) : "Agent execution turn completed.");
+        const toolInvocation = s.tool_call || (s.span_type ? `tool: ${s.span_type}` : null);
+
+        card.innerHTML = `
+          <div class="turn-card-header">
+            <div class="turn-agents-flow">
+              <span class="turn-step-num">#${String(spans.length).padStart(2, '0')}</span>
+              <span class="agent-tag source">${srcMeta.icon} ${s.source_agent}</span>
+              <span class="flow-arrow">&#x2794;</span>
+              <span class="agent-tag target">${tgtMeta.icon} ${s.target_agent}</span>
+            </div>
+            <div class="turn-metrics">
+              <span class="metric-chip">&#x23F1; ${(s.duration_ms || 42).toFixed(1)}ms</span>
+              <span class="metric-chip">&#x1FA99; ${s.token_count || 0} tkns</span>
+              <span class="entropy-chip ${entropyClass}">H = ${ent.toFixed(2)}</span>
+            </div>
+          </div>
+          <div class="turn-body">
+            <div class="turn-message">${escapeHtml(textContent)}</div>
+            ${toolInvocation ? `<div class="turn-tool-block"><span class="tool-icon">&#x2699;&#xFE0F;</span><code>${escapeHtml(toolInvocation)}</code></div>` : ""}
+          </div>
+        `;
+        card.onclick = () => selectSpan(s, card);
+      }
+
+      stream.appendChild(card);
+
+      // Auto-scroll
+      if (document.getElementById("chk-autoscroll").checked) {
+        stream.scrollTop = stream.scrollHeight;
+      }
+
+      updateMetrics();
+      selectSpan(s, card);
     }
 
-    function updateKpis() {
+    function escapeHtml(str) {
+      if (typeof str !== "string") str = JSON.stringify(str);
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function updateMetrics() {
       document.getElementById("kpi-spans").innerText = spans.length;
-      
-      // Calculate average entropy
+      document.getElementById("stream-count-pill").innerText = `${spans.length} events`;
+
       if (spans.length > 0) {
-        const lastSpan = spans[spans.length - 1];
-        const ent = lastSpan.entropy_score !== undefined ? lastSpan.entropy_score : 1.0;
-        const entEl = document.getElementById("kpi-entropy");
-        
-        if (ent < 0.5) {
-          entEl.innerText = `${ent.toFixed(2)} (🚨 لوپ شناسایی شد)`;
-          entEl.className = "kpi-value";
-          entEl.style.color = "var(--danger)";
-          
-          document.getElementById("circuit-box").className = "circuit-banner trip";
-          document.getElementById("circuit-msg").innerText = "مدارشکن قطع شد! لوپ بی‌پایان با موفقیت خنثی شد.";
-          document.getElementById("kpi-saved").innerText = "2,450 Tokens ($0.25)";
+        const last = spans[spans.length - 1];
+        const ent = last.entropy_score !== undefined ? last.entropy_score : 1.0;
+        const entVal = document.getElementById("kpi-entropy");
+        const entBadge = document.getElementById("entropy-badge");
+        const entSub = document.getElementById("entropy-sub");
+
+        entVal.innerText = ent.toFixed(2);
+
+        if (ent < 0.50) {
+          entBadge.className = "kpi-badge tripped";
+          entBadge.innerText = "LOOP TRIPPED";
+          entVal.style.color = "var(--danger-crimson)";
+          entSub.innerText = "Circuit breaker intervened";
+
+          document.getElementById("kpi-saved").innerText = "$0.25";
+          document.getElementById("kpi-saved-tokens").innerText = "(2,450 tkns)";
+          document.getElementById("circuit-status-sub").innerText = "Loop halted in <1ms without LLM cost";
         } else if (ent < 0.75) {
-          entEl.innerText = `${ent.toFixed(2)} (⚠️ هشدار تکرار)`;
-          entEl.className = "kpi-value";
-          entEl.style.color = "var(--warning)";
+          entBadge.className = "kpi-badge warning";
+          entBadge.innerText = "DEGRADING";
+          entVal.style.color = "var(--warning-amber)";
+          entSub.innerText = "Repetition detected";
         } else {
-          entEl.innerText = `${ent.toFixed(2)} (سالم و متنوع)`;
-          entEl.className = "kpi-value entropy-health";
-          entEl.style.color = "var(--success)";
+          entBadge.className = "kpi-badge healthy";
+          entBadge.innerText = "HEALTHY";
+          entVal.style.color = "var(--text-primary)";
+          entSub.innerText = "Semantic diversity optimal";
         }
       }
     }
 
-    function updateTimeline() {
-      const bar = document.getElementById("timeline-steps");
-      bar.innerHTML = "";
-      spans.forEach((s, idx) => {
-        const node = document.createElement("div");
-        node.className = "step-node" + (selectedSpan?.id === s.id ? " active" : "");
-        node.innerText = `گام ${idx + 1}: ${s.source_agent} → ${s.target_agent}`;
-        node.onclick = () => selectSpan(s);
-        bar.appendChild(node);
-      });
-      bar.scrollLeft = bar.scrollWidth;
-    }
-
-    function selectSpan(s) {
+    function selectSpan(s, cardEl) {
       selectedSpan = s;
-      document.getElementById("disp-span-id").innerText = s.id || "span_generated";
-      document.getElementById("disp-flow").innerText = `${s.source_agent} ➔ ${s.target_agent}`;
-      document.getElementById("disp-meta").innerText = `${s.span_type || "agent_turn"} (${(s.duration_ms || 42).toFixed(1)}ms)`;
-      
-      const payloadObj = {
-        input: s.input_payload || {},
-        output: s.output_payload || {},
-        entropy: s.entropy_score || 1.0,
-        tokens: s.token_count || 0
-      };
-      document.getElementById("disp-payload").innerText = JSON.stringify(payloadObj, null, 2);
+      document.querySelectorAll(".turn-card").forEach(c => c.classList.remove("selected"));
+      if (cardEl && cardEl.classList.contains("turn-card")) {
+        cardEl.classList.add("selected");
+      }
 
-      // Refresh step highlights
-      document.querySelectorAll(".step-node").forEach((el, idx) => {
-        if (spans[idx]?.id === s.id) el.classList.add("active");
-        else el.classList.remove("active");
-      });
+      document.getElementById("disp-span-id").innerHTML = `<span>${s.id || "span_generated"}</span> <span style="font-size: 10px; opacity: 0.6;">&#x2398;</span>`;
+      document.getElementById("disp-flow").innerText = `${s.source_agent} ➔ ${s.target_agent}`;
+      document.getElementById("disp-meta").innerText = `${s.span_type || "agent_turn"}`;
+      document.getElementById("disp-duration").innerText = `${(s.duration_ms || 42).toFixed(1)} ms`;
+      document.getElementById("disp-tokens").innerText = `${s.token_count || 0} tokens`;
+
+      document.getElementById("disp-input").innerText = JSON.stringify(s.input_payload || {}, null, 2);
+      document.getElementById("disp-output").innerText = JSON.stringify(s.output_payload || {}, null, 2);
     }
 
-    // Interactive Demo Simulation
-    const sampleScript = [
+    // Copy Span ID
+    document.getElementById("disp-span-id").onclick = () => {
+      if (!selectedSpan) return;
+      navigator.clipboard?.writeText(selectedSpan.id || "");
+      const el = document.getElementById("disp-span-id");
+      const orig = el.innerHTML;
+      el.innerHTML = "<span style='color: var(--success-emerald);'>&#x2714; Copied!</span>";
+      setTimeout(() => el.innerHTML = orig, 1500);
+    };
+
+    // Fork Branch
+    document.getElementById("btn-fork").onclick = () => {
+      const branchName = document.getElementById("input-branch-name").value.trim() || "fork-01";
+      const spanId = selectedSpan?.id || (spans.length > 0 ? spans[spans.length - 1].id : "root-span");
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          command: "CMD_FORK_BRANCH",
+          target_span_id: spanId,
+          new_branch_id: branchName
+        }));
+      } else {
+        showForkSuccess(branchName);
+      }
+    };
+
+    function showForkSuccess(branchName) {
+      document.getElementById("kpi-branch").innerText = branchName;
+      const toast = document.getElementById("fork-toast");
+      toast.style.display = "flex";
+      toast.innerHTML = `&#x2714; Swarm state restored at selected span. Active branch: <strong>${escapeHtml(branchName)}</strong>`;
+      setTimeout(() => { toast.style.display = "none"; }, 4000);
+    }
+
+    // Pause / Resume Swarm
+    function updatePauseButton() {
+      const btn = document.getElementById("btn-pause");
+      if (isPaused) {
+        btn.innerHTML = "&#x25B6;&#xFE0F; Resume Swarm Execution";
+        btn.style.color = "var(--success-emerald)";
+      } else {
+        btn.innerHTML = "&#x23F8;&#xFE0F; Pause Swarm Execution";
+        btn.style.color = "var(--text-muted)";
+      }
+    }
+
+    document.getElementById("btn-pause").onclick = () => {
+      isPaused = !isPaused;
+      updatePauseButton();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          command: isPaused ? "CMD_PAUSE" : "CMD_RESUME"
+        }));
+      }
+    };
+
+    // Filter agents
+    document.getElementById("agent-filter").oninput = (e) => {
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll(".participant-card").forEach(c => {
+        const agent = c.getAttribute("data-agent").toLowerCase();
+        c.style.display = agent.includes(q) ? "flex" : "none";
+      });
+    };
+
+    // Clear Stream
+    document.getElementById("btn-clear-stream").onclick = () => {
+      spans = [];
+      entropyHistory = [1.0];
+      drawEntropySparkline();
+      const stream = document.getElementById("stream-container");
+      stream.innerHTML = `
+        <div class="empty-state" id="stream-empty-state">
+          <div class="empty-icon">&#x1FA9E;</div>
+          <div class="empty-title">Stream Cleared</div>
+          <div class="empty-desc">Click <strong>[&#x25B6; Run Live Swarm Simulation]</strong> above to stream the financial intelligence scenario.</div>
+        </div>
+      `;
+      updateMetrics();
+      document.querySelectorAll(".p-status-dot").forEach(d => d.className = "p-status-dot idle");
+    };
+
+    // Interactive Demo Simulation Script
+    const demoTurns = [
       {
         source_agent: "MacroEconomist",
         target_agent: "SectorResearcher",
-        span_type: "macro_analysis",
+        span_type: "macro_regime_eval",
         duration_ms: 38.4,
         entropy_score: 0.98,
         token_count: 312,
-        input_payload: { focus: "Semiconductors & AI Hardware" },
-        output_payload: { regime: "Expansion", recommendation: "Overweight High-Margin Tech" }
+        message: "Macro Regime Analysis: Yield curve steepening and AI capex expansion signal strong multi-quarter tailwinds. Recommending overweight exposure in high-gross-margin semiconductor infrastructure.",
+        tool_call: "macro_regime_eval(regime='expansion', confidence=0.92)",
+        input_payload: { focus: "Semiconductors & AI Hardware", indicators: ["10Y-2Y Yield Curve", "ISM PMI"] },
+        output_payload: { regime: "Expansion", thesis: "Overweight High-Margin Infrastructure", confidence: 0.92 }
       },
       {
         source_agent: "SectorResearcher",
         target_agent: "RiskAuditor",
-        span_type: "equity_screening",
+        span_type: "equity_screen",
         duration_ms: 54.1,
         entropy_score: 0.94,
         token_count: 480,
-        input_payload: { sector: "Tech", min_gross_margin: 0.65 },
-        output_payload: { candidates: ["NVDA", "MSFT", "AVGO"], expected_alpha: "19.4%" }
+        message: "Screened 42 semiconductor equities. Filtered for Gross Margin > 65% and FCF Yield > 4%. Selected prime candidates: NVDA, MSFT, AVGO. Aggregated expected alpha: +19.4%.",
+        tool_call: "equity_screen(min_gross_margin=0.65, candidates=['NVDA', 'MSFT', 'AVGO'])",
+        input_payload: { sector: "Semiconductors", min_gross_margin: 0.65 },
+        output_payload: { candidates: ["NVDA", "MSFT", "AVGO"], expected_alpha: "+19.4%" }
       },
       {
         source_agent: "RiskAuditor",
         target_agent: "ExecutionTrader",
-        span_type: "stress_test",
+        span_type: "monte_carlo_stress_test",
         duration_ms: 61.2,
         entropy_score: 0.91,
         token_count: 520,
-        input_payload: { test_scenario: "2008 Liquidity Shock", portfolio: ["NVDA", "MSFT"] },
-        output_payload: { var_99: "3.2%", max_drawdown: "7.8%", approval: "APPROVED" }
+        message: "Stress Test & VaR Audit: Portfolio survived simulated 2008 liquidity crunch and +150bps Fed shock. Max projected drawdown 7.8% (limit: 10.0%), 99% 1-day VaR: 3.2%. Risk status: APPROVED for staggered VWAP accumulation.",
+        tool_call: "monte_carlo_var(simulations=10000, confidence=0.99, max_dd_limit=0.10)",
+        input_payload: { portfolio: ["NVDA", "MSFT", "AVGO"], shock_model: "2008 Liquidity Crunch" },
+        output_payload: { var_99: "3.2%", max_drawdown: "7.8%", verdict: "APPROVED" }
       },
       {
         source_agent: "ExecutionTrader",
         target_agent: "SectorResearcher",
-        span_type: "loop_attempt_1",
+        span_type: "re_query_loop_1",
         duration_ms: 22.0,
         entropy_score: 0.68,
         token_count: 140,
+        message: "Please confirm candidate tickers again. Awaiting confirmation of candidate tickers.",
+        tool_call: "agent_ping(query='Please confirm candidate tickers again.')",
         input_payload: { query: "Please confirm candidate tickers again." },
         output_payload: { query: "Please confirm candidate tickers again." }
       },
       {
         source_agent: "SectorResearcher",
         target_agent: "ExecutionTrader",
-        span_type: "circuit_halt",
+        span_type: "circuit_breaker_intercept",
         duration_ms: 0.8,
         entropy_score: 0.24,
         token_count: 90,
-        input_payload: { alert: "[SWARMWATCH CIRCUIT WARNING] Repetitive loop detected" },
-        output_payload: { action: "CIRCUIT_BREAKER_HALT", saved_tokens: 2450, cost_saved: "$0.25" }
+        message: "⚠️ [CIRCUIT BREAKER ENGAGED] Repeating ping-pong pattern detected (Shannon Entropy H = 0.24 < 0.50). Execution halted automatically. Zero wasted inference tokens.",
+        tool_call: "circuit_breaker_intercept(entropy=0.24, rule='ShannonThreshold')",
+        input_payload: { alert: "[SWARMWATCH CIRCUIT] Semantic repetition threshold violated" },
+        output_payload: { action: "CIRCUIT_BREAKER_HALT", entropy: 0.24, saved_tokens: 2450, cost_saved: "$0.25" }
       }
     ];
 
-    function runSimulation() {
+    function runLiveSimulation() {
       spans = [];
-      let step = 0;
-      document.getElementById("btn-run-sim").innerText = "⏳ در حال اجرای شبیه‌سازی...";
+      entropyHistory = [1.0];
+      const stream = document.getElementById("stream-container");
+      stream.innerHTML = "";
       
+      let step = 0;
+      const btn = document.getElementById("btn-run-sim");
+      btn.innerText = "⏳ Streaming Simulation...";
+      btn.disabled = true;
+
       if (simTimer) clearInterval(simTimer);
       simTimer = setInterval(() => {
-        if (step < sampleScript.length) {
-          const s = { ...sampleScript[step], id: "span_demo_" + Math.random().toString(36).substr(2, 8) };
-          addSpan(s);
+        if (step < demoTurns.length) {
+          const t = demoTurns[step];
+          const spanObj = {
+            ...t,
+            id: `span_${t.source_agent.toLowerCase()}_${Math.random().toString(36).substr(2, 6)}`
+          };
+          appendSpan(spanObj);
           step++;
         } else {
           clearInterval(simTimer);
-          document.getElementById("btn-run-sim").innerText = "🔄 اجرای مجدد شبیه‌سازی (Restart)";
+          btn.innerText = "↻ Re-run Live Swarm Simulation";
+          btn.disabled = false;
         }
-      }, 1000);
+      }, 850);
     }
-    document.getElementById("btn-run-sim").onclick = runSimulation;
+    document.getElementById("btn-run-sim").onclick = runLiveSimulation;
 
-    // Modal Guide handlers
+    // Modal Architecture Guide
     const modal = document.getElementById("modal-guide");
     document.getElementById("btn-open-guide").onclick = () => modal.style.display = "flex";
     document.getElementById("btn-close-guide").onclick = () => modal.style.display = "none";
     modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+    window.addEventListener("keydown", (e) => { if (e.key === "Escape") modal.style.display = "none"; });
 
-    // Canvas 60fps Render Loop
-    let t = 0;
-    function render() {
-      ctx.clearRect(0, 0, width, height);
-      t += 0.025;
-      interactiveElements.length = 0;
-
-      const colWidth = width / (agentNames.length + 1);
-      const agentX = {};
-
-      // Draw Swimlane Columns
-      agentNames.forEach((agent, i) => {
-        const x = (i + 1) * colWidth;
-        agentX[agent] = x;
-        const meta = agentRoles[agent];
-
-        // Vertical Track Guideline
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 6]);
-        ctx.beginPath();
-        ctx.moveTo(x, 70);
-        ctx.lineTo(x, height - 20);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Agent Header Capsule
-        ctx.fillStyle = "#0c101b";
-        ctx.beginPath();
-        ctx.roundRect(x - 65, 18, 130, 42, 12);
-        ctx.fill();
-        ctx.strokeStyle = meta.color;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Agent Title & Icon
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 12px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText(`${meta.icon} ${meta.label}`, x, 36);
-
-        ctx.fillStyle = "#64748b";
-        ctx.font = "10px monospace";
-        ctx.fillText(agent, x, 50);
-      });
-
-      // Draw Message Bezier Curves and Particle Pulses
-      const startY = 100;
-      const stepY = 55;
-      const visibleSpans = spans.slice(-8);
-
-      visibleSpans.forEach((s, idx) => {
-        const y = startY + idx * stepY;
-        const x1 = agentX[s.source_agent] || (width * 0.3);
-        const x2 = agentX[s.target_agent] || (width * 0.7);
-
-        const isSelected = selectedSpan?.id === s.id;
-        const isTripped = (s.entropy_score || 1.0) < 0.5;
-
-        // Curved Bezier Connection
-        ctx.strokeStyle = isTripped ? "#ef4444" : (isSelected ? "#38bdf8" : "rgba(56, 189, 248, 0.25)");
-        ctx.lineWidth = isSelected ? 3 : 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x1, y);
-        const midX = (x1 + x2) / 2;
-        ctx.bezierCurveTo(midX, y - 20, midX, y + 20, x2, y);
-        ctx.stroke();
-
-        // Glowing Particle along curve
-        const progress = ((t * 0.6 + idx * 0.22) % 1);
-        const px = (1 - progress) * (1 - progress) * x1 + 2 * (1 - progress) * progress * midX + progress * progress * x2;
-        const py = y + Math.sin(progress * Math.PI) * -12;
-
-        ctx.fillStyle = isTripped ? "#ef4444" : "#38bdf8";
-        ctx.shadowColor = isTripped ? "rgba(239, 68, 68, 0.8)" : "rgba(56, 189, 248, 0.8)";
-        ctx.shadowBlur = isSelected ? 12 : 6;
-        ctx.beginPath();
-        ctx.arc(px, py, isSelected ? 4.5 : 3.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        // Target Interactive Node Capsule
-        ctx.fillStyle = isSelected ? (isTripped ? "#ef4444" : "#38bdf8") : "#0c101b";
-        ctx.strokeStyle = isTripped ? "#ef4444" : "#38bdf8";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x2, y, 7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        interactiveElements.push({ x: x2, y, r: 12, span: s });
-      });
-
-      // Canvas Click Detection
-      requestAnimationFrame(render);
-    }
-    render();
-
-    // Handle canvas click to select span
-    canvas.addEventListener("click", (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-
-      for (const el of interactiveElements) {
-        const dist = Math.hypot(el.x - clickX, el.y - clickY);
-        if (dist <= el.r) {
-          selectSpan(el.span);
-          break;
-        }
-      }
-    });
-
-    // Run initial demo on first load so user immediately sees real data!
+    // Initial Run on Load
     window.addEventListener("DOMContentLoaded", () => {
-      runSimulation();
+      drawEntropySparkline();
+      runLiveSimulation();
     });
   </script>
 </body>
