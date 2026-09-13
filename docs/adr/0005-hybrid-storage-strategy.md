@@ -1,4 +1,4 @@
-# ADR-0001: Hybrid Storage Strategy (SQLite for Local Dev, ClickHouse for Scale)
+# ADR 0005: Hybrid Storage Strategy (SQLite for Local Dev, ClickHouse for Scale)
 
 ## Status
 Accepted

@@ -1,18 +1,22 @@
 # SwarmWatch Engineering & Agent Guidelines
 
-This repository follows Matt Pocock's software engineering and agent principles:
-- Plan, don't just do (Wayfinder decision tree)
-- TDD & strict test seams
-- High-level modularity and deep interfaces (John Ousterhout Philosophy of Software Design)
-- Zero-entropy clean codebases
+This repository strictly adheres to Matt Pocock's software engineering and autonomous agent principles:
+- **Domain Modeling**: Ubiquitous language defined in [CONTEXT.md](./CONTEXT.md). All code, variables, and tests must use these exact terms.
+- **Architecture Decisions**: Significant, hard-to-reverse architectural choices documented in sequential ADRs under [docs/adr/](./docs/adr/).
+- **Deep Modules & Seams**: Narrow interfaces hiding deep implementations documented in [ARCHITECTURE.md](./ARCHITECTURE.md).
+- **Test-Driven Development (TDD)**: 100% green test suite across all adapters, storage lifecycle, and transport queue. Run tests via:
+  ```powershell
+  .venv\Scripts\pytest.exe packages\sdk-python\tests\
+  ```
+- **Console & Design Contract**: High-density Impeccable console documented in [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Must pass zero-finding detector:
+  ```powershell
+  impeccable.cmd detect --json dashboard.html
+  ```
 
-## Agent skills
+## Context Pointers
 
-### Issue tracker
-Local markdown issues tracked in `.scratch/`. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-Standard canonical roles mapped in `docs/agents/triage-labels.md`.
-
-### Domain docs
-Single-context domain architecture with `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+- [CONTEXT.md](./CONTEXT.md): Ubiquitous domain vocabulary and core concepts. Consult whenever naming new entities or APIs.
+- [ARCHITECTURE.md](./ARCHITECTURE.md): Deep module interfaces, seams, and system invariants.
+- [docs/adr/](./docs/adr/): Sequential Architecture Decision Records (ADR 0001 through 0006).
+- [PRODUCT.md](./PRODUCT.md): Product thesis, user stories, and craft floor requirements.
+- [DESIGN.md](./DESIGN.md): Design tokens, typography, layout, and component rules.
