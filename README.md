@@ -5,7 +5,7 @@
 [![CI Status](https://github.com/SkyCeoSa/SwarmWatch/actions/workflows/ci.yml/badge.svg)](https://github.com/SkyCeoSa/SwarmWatch/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://python.org)
-[![Tests: 100% Passed](https://img.shields.io/badge/Tests-24%2F24%20Passed-success.svg)](https://github.com/SkyCeoSa/SwarmWatch)
+[![Tests: 100% Passed](https://img.shields.io/badge/Tests-27%2F27%20Passed-success.svg)](https://github.com/SkyCeoSa/SwarmWatch)
 [![Telemetry Overhead](https://img.shields.io/badge/Telemetry%20Overhead-%3C1%C2%B5s-orange.svg)](https://github.com/SkyCeoSa/SwarmWatch)
 [![LangGraph Compatible](https://img.shields.io/badge/Adapter-LangGraph-blueviolet.svg)](https://github.com/SkyCeoSa/SwarmWatch)
 [![CrewAI Compatible](https://img.shields.io/badge/Adapter-CrewAI-red.svg)](https://github.com/SkyCeoSa/SwarmWatch)
@@ -41,7 +41,7 @@ flowchart TB
     end
 
     subgraph ObservabilityUI["SwarmWatch Real-Time Plane"]
-        SW -->|"WebSocket / REST"| UI["Amir-Minimal 60fps Canvas UI<br/>(Live Swimlanes & Time-Machine Inspector)"]
+        SW -->|"WebSocket / REST"| UI["Impeccable Developer Console<br/>(Live Streaming & Time-Machine Inspector)"]
         UI -.->|"Fork Branch / Pause"| BackgroundWorker
     end
 ```
@@ -56,8 +56,22 @@ flowchart TB
   1. *Step 1 (Warning)*: Injects a `[SWARMWATCH CIRCUIT WARNING]` hint into agent message context.
   2. *Step 2 (Hard Halt)*: Safely raises `SwarmCircuitBreakException` if looping persists, halting token burn immediately.
 - **Git-like Time Machine & State Branching**: Snapshots full memory states with automatic secret redaction (`sk-...`, bearer tokens, passwords) and GZIP compression. Rewind to any prior span and fork new branches (`fork-01`, `fork-02`) cleanly.
-- **Sub-Microsecond In-Process Queue**: Emits spans via thread-safe bounded buffers, flushes asynchronously to SQLite WAL, and drains cleanly on shutdown via `atexit` sentinels.
-- **Amir-Minimal 60fps Canvas Dashboard**: Ultra-smooth real-time swimlane tracks, glowing bezier particle traces, agent execution inspector, and branch-forking controls.
+- **Impeccable High-Density Developer Console**: Austere deep dark slate console (`#080B11` canvas, `#0E1422` surface, `#1D2840` borders, tabular mono numerals) providing real-time causal dialogue streaming, live Shannon entropy tracking, and Time-Machine branch forking.
+
+---
+
+## 📚 Canonical Reference Handbook
+
+For exhaustive technical specifications, market research, deep module seams, and operational runbooks, consult the **[SwarmWatch Reference Handbook](./docs/reference/INDEX.md)**:
+
+- [01. Research & Market Landscape](./docs/reference/01-RESEARCH.md)
+- [02. Project Roadmap & Milestones](./docs/reference/02-ROADMAP.md)
+- [03. Project Policies & Engineering Standards](./docs/reference/03-POLICIES.md)
+- [04. Mandatory Workflows & Skills](./docs/reference/04-WORKFLOWS-AND-SKILLS.md)
+- [05. System Architecture & Seams](./docs/reference/05-ARCHITECTURE-AND-SEAMS.md)
+- [06. Domain Glossary & Ubiquitous Language](./docs/reference/06-DOMAIN-GLOSSARY.md)
+- [07. Operations & Developer Runbook](./docs/reference/07-OPERATIONS-RUNBOOK.md)
+- [08. Commercialization & Open-Core Model](./docs/reference/08-COMMERCIALIZATION-AND-OPEN-CORE.md)
 
 ---
 
@@ -204,9 +218,9 @@ packages/sdk-python/tests/test_transport_queue.py::test_transport_with_real_sqli
 
 ```
 SwarmWatch/
-├── .github/
-│   └── workflows/
-│       └── ci.yml               # Free GitHub Actions multi-version test matrix (Py 3.10 - 3.12)
+├── docs/
+│   ├── reference/               # Canonical Reference Handbook (01-08)
+│   └── adr/                     # Sequential Architecture Decision Records (0001-0006)
 ├── packages/
 │   └── sdk-python/
 │       ├── pyproject.toml       # Modern packaging metadata with optional extras [langgraph, crewai, all]
@@ -217,15 +231,20 @@ SwarmWatch/
 │       │   ├── core.py          # @swarmwatch.agent & with swarmwatch.span(...) context
 │       │   ├── circuit.py       # Zero-Token Shannon Entropy Circuit Breaker ($H_{norm}$)
 │       │   ├── serializer.py    # Safe state serializer & Time-Machine DAG branching
-│       │   ├── server.py        # REST API, WebSocket control plane & 60fps Canvas UI
+│       │   ├── server.py        # REST API, WebSocket control plane & Impeccable console
 │       │   ├── cli.py           # CLI runner: `swarmwatch ui`
 │       │   └── adapters/        # Framework Adapters
 │       │       ├── langgraph.py # LangGraph & LangChain callback handler + patch_graph
 │       │       └── crewai.py    # CrewAI step_callback & task_callback listener
-│       └── tests/               # 24 unit & integration tests (100% green)
+│       └── tests/               # 27 unit & integration tests (100% green)
 ├── examples/
 │   ├── multi_agent_demo.py      # End-to-end 4-agent autonomous software engineering simulation
 │   └── langgraph_crewai_demo.py # Multi-framework integration with circuit loop tripping
+├── dashboard.html               # High-density Impeccable Developer Console
+├── CONTEXT.md                   # Ubiquitous Language Domain Model
+├── ARCHITECTURE.md              # Deep Module Architecture & Seams
+├── PRODUCT.md                   # Console Thesis & User Stories
+├── DESIGN.md                    # Design Tokens & Craft Floor Specification
 └── CONTRIBUTING.md              # Contributor guide & commit conventions
 ```
 

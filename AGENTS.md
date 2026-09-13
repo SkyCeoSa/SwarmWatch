@@ -15,6 +15,7 @@ This repository strictly adheres to Matt Pocock's software engineering and auton
 
 ## Context Pointers
 
+- **[docs/reference/INDEX.md](./docs/reference/INDEX.md)**: **Canonical Reference Handbook** (Research, Roadmap, Policies, Workflows, Seams, Glossary, Runbook, and Monetization). **Consult this first in any new session.**
 - [CONTEXT.md](./CONTEXT.md): Ubiquitous domain vocabulary and core concepts. Consult whenever naming new entities or APIs.
 - [ARCHITECTURE.md](./ARCHITECTURE.md): Deep module interfaces, seams, and system invariants.
 - [docs/adr/](./docs/adr/): Sequential Architecture Decision Records (ADR 0001 through 0006).
