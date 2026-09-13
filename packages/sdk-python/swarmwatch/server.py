@@ -52,280 +52,563 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SwarmWatch Live Observability & Time Machine</title>
+  <title>SwarmWatch – Multi-Agent Observability & Time Machine</title>
   <style>
     :root {
-      --bg: #07090e;
-      --card-bg: #0e131f;
-      --border: #1a2234;
+      --bg: #06080d;
+      --card-bg: #0c101b;
+      --card-border: #182238;
       --accent: #38bdf8;
-      --accent-glow: rgba(56, 189, 248, 0.35);
+      --accent-glow: rgba(56, 189, 248, 0.4);
       --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.35);
       --warning: #f59e0b;
       --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.4);
       --text: #f8fafc;
       --text-muted: #94a3b8;
+      --track-line: rgba(255, 255, 255, 0.05);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Vazirmatn", sans-serif; }
     body { background: var(--bg); color: var(--text); overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
-    header { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
-    .brand { display: flex; align-items: center; gap: 12px; }
-    .logo { font-size: 1.25rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; text-shadow: 0 0 16px var(--accent-glow); }
-    .badge { font-size: 0.75rem; background: rgba(56, 189, 248, 0.12); color: var(--accent); padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(56, 189, 248, 0.3); }
-    .metrics { display: flex; gap: 28px; font-size: 0.85rem; color: var(--text-muted); align-items: center; }
-    .metric-val { color: var(--text); font-weight: 700; margin-left: 4px; }
-    .entropy-pill { padding: 2px 8px; border-radius: 4px; font-weight: bold; background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    
+    /* Top Header */
+    header { background: var(--card-bg); border-bottom: 1px solid var(--card-border); padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; z-index: 20; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo { font-size: 1.3rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; text-shadow: 0 0 16px var(--accent-glow); display: flex; align-items: center; gap: 8px; }
+    .logo-badge { font-size: 0.7rem; background: rgba(56, 189, 248, 0.12); color: var(--accent); padding: 2px 8px; border-radius: 9999px; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 600; }
+    
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .btn-sim { background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #fff; border: 1px solid #38bdf8; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; box-shadow: 0 0 14px var(--accent-glow); }
+    .btn-sim:hover { background: #38bdf8; color: #06080d; transform: translateY(-1px); }
+    .btn-help { background: #1a2234; color: #cbd5e1; border: 1px solid #334155; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+    .btn-help:hover { background: #243048; color: #fff; }
+
+    /* Top KPI Dashboard Bar */
+    .kpi-bar { background: #080c14; border-bottom: 1px solid var(--card-border); padding: 10px 24px; display: flex; gap: 20px; align-items: center; justify-content: space-between; overflow-x: auto; }
+    .kpi-card { display: flex; align-items: center; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); padding: 8px 16px; border-radius: 8px; min-width: 170px; }
+    .kpi-icon { font-size: 1.4rem; }
+    .kpi-data { display: flex; flex-direction: column; }
+    .kpi-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-value { font-size: 1rem; font-weight: 800; color: var(--text); }
+    .entropy-health { color: var(--success); }
+    
+    /* Main Workspace */
     main { flex: 1; display: flex; position: relative; overflow: hidden; }
-    #swimlane-canvas { flex: 1; background: radial-gradient(circle at 40% 40%, #0d1527 0%, var(--bg) 100%); cursor: default; }
-    #side-panel { width: 400px; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px; overflow-y: auto; gap: 16px; box-shadow: -8px 0 24px rgba(0,0,0,0.5); }
-    .panel-title { font-size: 1rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-    .field-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .field-value { font-size: 0.85rem; color: var(--accent); font-family: monospace; word-break: break-all; }
-    .json-viewer { background: #05070c; padding: 12px; border-radius: 6px; border: 1px solid var(--border); font-family: monospace; font-size: 0.75rem; color: #a5f3fc; overflow-x: auto; max-height: 240px; }
-    .btn { background: var(--accent); color: #07090e; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn:hover { background: #7dd3fc; box-shadow: 0 0 16px var(--accent-glow); transform: translateY(-1px); }
-    .btn-danger { background: #331518; color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.4); }
-    .btn-danger:hover { background: var(--danger); color: #fff; box-shadow: 0 0 16px rgba(239, 68, 68, 0.4); }
+    #canvas-container { flex: 1; position: relative; background: radial-gradient(circle at 40% 40%, #0d1527 0%, var(--bg) 100%); overflow: hidden; }
+    #swimlane-canvas { width: 100%; height: 100%; display: block; }
+
+    /* Floating Legend Overlay */
+    .legend-overlay { position: absolute; bottom: 20px; left: 20px; background: rgba(12, 16, 27, 0.85); backdrop-filter: blur(8px); border: 1px solid var(--card-border); padding: 12px 18px; border-radius: 8px; font-size: 0.75rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px; z-index: 10; pointer-events: none; }
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* Right Inspection Panel */
+    #side-panel { width: 420px; background: var(--card-bg); border-left: 1px solid var(--card-border); display: flex; flex-direction: column; padding: 20px; overflow-y: auto; gap: 16px; box-shadow: -8px 0 32px rgba(0,0,0,0.6); z-index: 15; }
+    .panel-header { font-size: 1.05rem; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--card-border); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .status-badge { font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+    .field-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+    .field-value { font-size: 0.85rem; color: var(--accent); font-family: monospace; word-break: break-all; background: rgba(56, 189, 248, 0.05); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.15); }
+    
+    .circuit-banner { padding: 10px 14px; border-radius: 8px; font-size: 0.8rem; border: 1px solid #1a2234; background: #080c14; display: flex; align-items: center; gap: 10px; }
+    .circuit-banner.trip { border-color: rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
+
+    .json-viewer { background: #04060a; padding: 12px; border-radius: 6px; border: 1px solid var(--card-border); font-family: monospace; font-size: 0.75rem; color: #7dd3fc; overflow-x: auto; max-height: 220px; line-height: 1.4; }
+    
+    .action-btn { background: var(--accent); color: #06080d; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .action-btn:hover { background: #7dd3fc; box-shadow: 0 0 16px var(--accent-glow); transform: translateY(-1px); }
+    .btn-secondary { background: #1e293b; color: #f1f5f9; border: 1px solid #334155; }
+    .btn-secondary:hover { background: #334155; }
+
+    /* Bottom Scrubber Timeline */
+    #timeline-bar { background: var(--card-bg); border-top: 1px solid var(--card-border); padding: 10px 24px; display: flex; align-items: center; gap: 16px; z-index: 10; }
+    .timeline-title { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; white-space: nowrap; }
+    .timeline-steps { display: flex; gap: 8px; overflow-x: auto; flex: 1; padding-bottom: 4px; }
+    .step-node { font-size: 0.75rem; padding: 5px 12px; border-radius: 6px; background: #141c2e; border: 1px solid #243048; color: #cbd5e1; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+    .step-node:hover, .step-node.active { background: rgba(56, 189, 248, 0.2); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+    /* Modal Guide */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 50; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-box { background: var(--card-bg); border: 1px solid var(--card-border); width: 680px; max-width: 95%; max-height: 85vh; border-radius: 12px; padding: 24px; overflow-y: auto; box-shadow: 0 16px 40px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 16px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; }
+    .modal-title { font-size: 1.15rem; font-weight: 700; color: var(--accent); }
+    .modal-close { background: none; border: none; font-size: 1.4rem; color: var(--text-muted); cursor: pointer; }
+    .guide-section { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+    .guide-title { font-size: 0.95rem; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 8px; }
+    .guide-text { font-size: 0.85rem; color: #94a3b8; line-height: 1.6; text-align: justify; direction: rtl; }
+    .guide-text.ltr { direction: ltr; text-align: left; }
   </style>
 </head>
 <body>
+  <!-- Header -->
   <header>
     <div class="brand">
       <div class="logo">👁️ SwarmWatch</div>
-      <div class="badge" id="ws-status">Connecting...</div>
+      <div class="logo-badge">Multi-Agent Observability</div>
     </div>
-    <div class="metrics">
-      <div>Agents: <span class="metric-val" id="agent-count">0</span></div>
-      <div>Spans: <span class="metric-val" id="span-count">0</span></div>
-      <div>Entropy Health: <span class="entropy-pill" id="entropy-val">1.00</span></div>
-      <div>Active Branch: <span class="metric-val" style="color: var(--accent);" id="current-branch">main</span></div>
+    <div class="header-actions">
+      <button class="btn-sim" id="btn-run-sim">▶ اجرای شبیه‌سازی زنده (Live Demo)</button>
+      <button class="btn-help" id="btn-open-guide">📘 راهنمای داشبورد</button>
     </div>
   </header>
+
+  <!-- KPI Metrics Bar -->
+  <div class="kpi-bar">
+    <div class="kpi-card">
+      <div class="kpi-icon">🤖</div>
+      <div class="kpi-data">
+        <span class="kpi-label">Active Agents / ایجنت‌ها</span>
+        <span class="kpi-value" id="kpi-agents">4 Nodes</span>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">⚡</div>
+      <div class="kpi-data">
+        <span class="kpi-label">Causal Spans / مراحل اجرا</span>
+        <span class="kpi-value" id="kpi-spans">0</span>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">🧬</div>
+      <div class="kpi-data">
+        <span class="kpi-label">Shannon Entropy / سلامت انتروپی</span>
+        <span class="kpi-value entropy-health" id="kpi-entropy">1.00 (سالم)</span>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">🛡️</div>
+      <div class="kpi-data">
+        <span class="kpi-label">Tokens Saved / توکن نجات‌یافته</span>
+        <span class="kpi-value" style="color: var(--accent);" id="kpi-saved">0 Tokens ($0.00)</span>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">🌿</div>
+      <div class="kpi-data">
+        <span class="kpi-label">Active Branch / شاخه وضعیت</span>
+        <span class="kpi-value" style="color: #a78bfa;" id="kpi-branch">main</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Canvas & Inspector -->
   <main>
-    <canvas id="swimlane-canvas"></canvas>
+    <div id="canvas-container">
+      <canvas id="swimlane-canvas"></canvas>
+      <div class="legend-overlay">
+        <div style="font-weight: 700; margin-bottom: 4px; color: #f1f5f9;">راهنمای بصری خطوط شناوری (Swimlanes):</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--accent);"></div> ستون‌های عمودی: کانال‌های اختصاصی هر ایجنت</div>
+        <div class="legend-item"><div class="legend-dot" style="background: #38bdf8; box-shadow: 0 0 6px #38bdf8;"></div> ذرات متحرک: تبادل بلادرنگ پیام و تصمیم در کمتر از ۱ میکروثانیه</div>
+        <div class="legend-item"><div class="legend-dot" style="background: var(--success);"></div> گره دایره‌ای: کلیک برای مشاهده وضعیت در ماشین زمان</div>
+      </div>
+    </div>
+
+    <!-- Inspector Side Panel -->
     <div id="side-panel">
-      <div class="panel-title">
-        <span>Inspector & Time-Machine</span>
-        <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);" id="span-status-badge">Live</span>
+      <div class="panel-header">
+        <span>بازرس پیام و ماشین زمان</span>
+        <span class="status-badge" id="span-status">Live Track</span>
       </div>
-      <div>
-        <div class="field-label">Selected Span ID</div>
-        <div class="field-value" id="selected-span-id">Click any span node or message arrow</div>
+
+      <div class="circuit-banner" id="circuit-box">
+        <span style="font-size: 1.2rem;">🛡️</span>
+        <div>
+          <div style="font-weight: 700; font-size: 0.8rem;">وضعیت مدارشکن هوشمند</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);" id="circuit-msg">پایشگر ریاضی انتروپی فعال است (بدون مصرف توکن)</div>
+        </div>
       </div>
-      <div>
-        <div class="field-label">Causality Flow</div>
-        <div class="field-value" id="selected-flow">-</div>
+
+      <div class="field-group">
+        <div class="field-label">شناسه مرحله (Span ID)</div>
+        <div class="field-value" id="disp-span-id">روی هر گره یا پیام کلیک کنید</div>
       </div>
-      <div>
-        <div class="field-label">Type & Duration</div>
-        <div class="field-value" id="selected-meta">-</div>
+
+      <div class="field-group">
+        <div class="field-label">مسیر تبادل داده (Causality Flow)</div>
+        <div class="field-value" id="disp-flow">-</div>
       </div>
-      <div>
-        <div class="field-label">Input / Output Payloads</div>
-        <pre class="json-viewer" id="selected-payload">{\n  "status": "Ready for live inspection"\n}</pre>
+
+      <div class="field-group">
+        <div class="field-label">نوع تسک و زمان پاسخ‌دهی</div>
+        <div class="field-value" id="disp-meta">-</div>
       </div>
-      <button class="btn" id="btn-fork">⚡ Fork Execution Branch Here</button>
-      <button class="btn btn-danger" id="btn-pause">⏸️ Pause Swarm</button>
+
+      <div class="field-group">
+        <div class="field-label">محتوای پی‌لود و حافظه ایجنت (Payload / State)</div>
+        <pre class="json-viewer" id="disp-payload">{
+  "info": "برای بازرسی گام‌به‌گام یا منشعب کردن، یک مرحله را انتخاب کنید"
+}</pre>
+      </div>
+
+      <button class="action-btn" id="btn-fork">⚡ انشعاب شاخه جدید (Fork Branch Here)</button>
+      <button class="action-btn btn-secondary" id="btn-pause">⏸️ توقف / ادامه پردازش ایجنت‌ها</button>
     </div>
   </main>
+
+  <!-- Bottom Timeline Scrubber -->
+  <div id="timeline-bar">
+    <div class="timeline-title">⏱️ گام‌های زمانی (Timeline):</div>
+    <div class="timeline-steps" id="timeline-steps">
+      <span style="font-size: 0.8rem; color: var(--text-muted);">روی «اجرای شبیه‌سازی زنده» در بالا کلیک کنید تا جریان ایجنت‌ها آغاز شود.</span>
+    </div>
+  </div>
+
+  <!-- Guide Modal -->
+  <div class="modal-backdrop" id="modal-guide">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">📘 راهنمای کامل داشبورد دیداری SwarmWatch</div>
+        <button class="modal-close" id="btn-close-guide">&times;</button>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-title">۱. خطوط شناوری (Swimlanes) چه هستند؟</div>
+        <div class="guide-text">
+          در سیستم‌های چند ایجنتی سنتی، لاگ‌ها به شکل متنی و نامنظم در کنسول چاپ می‌شوند و نمی‌توان فهمید کدام ایجنت در پاسخ به چه کسی صحبت کرد. در این صفحه، هر ستون عمودی یک ایجنت مشخص (مثل تحلیل‌گر اقتصاد کلان، پژوهشگر سهام یا حسابرس ریسک) است.
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-title">۲. ذرات نورانی و خطوط منحنی (Particle Bezier Traces)</div>
+        <div class="guide-text">
+          منحنی‌هایی که بین ستون‌ها کشیده می‌شوند، نشان‌دهنده یک «اسپان سببی» (Causal Span) هستند. ذرات نورانی با سرعت ۶۰ فریم بر ثانیه حرکت می‌کنند تا نشان دهند تله‌متری چطور با سرعت زیر ۱ میکروثانیه (<1µs) و بدون ایجاد وقفه به صف ارسال شده است.
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-title">۳. عدد انتروپی شانون (Shannon Entropy) چیست؟</div>
+        <div class="guide-text">
+          این فرمول ریاضیاتی تنوع کلمات متن خروجی مدل را اندازه می‌گیرد. اگر ایجنت‌ها گیر بیفتند و پیام‌های شبیه به هم ارسال کنند، انتروپی به زیر 0.50 سقوط می‌کند. در این لحظه، بدون آنکه لازم باشد یک دلار خرج قضاوت مدل دیگری (مثل GPT-4) بکنید، مدارشکن فوراً لوپ را قطع می‌کند و جلوی سوزاندن توکن‌های شما را می‌گیرد!
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-title">۴. ماشین زمان و انشعاب شاخه (Fork Branch)</div>
+        <div class="guide-text">
+          اگر ایجنتی در مرحله ۱۰ تصمیمی اشتباه گرفت، نیازی نیست کل سیستم را از مرحله ۱ دوباره اجرا کنید و هزینه توکن بدهید. روی مرحله دلخواه کلیک کرده و دکمه Fork Branch را بزنید؛ سیستم حافظه آن لحظه را بازیابی کرده و یک شاخه مستقل جدید (مثل `fork-01`) برای آزمایش می‌سازد.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const canvas = document.getElementById("swimlane-canvas");
     const ctx = canvas.getContext("2d");
     let width, height;
 
     function resize() {
-      width = canvas.width = canvas.parentElement.clientWidth - 400;
-      height = canvas.height = canvas.parentElement.clientHeight;
+      const container = document.getElementById("canvas-container");
+      width = canvas.width = container.clientWidth;
+      height = canvas.height = container.clientHeight;
     }
     window.addEventListener("resize", resize);
     resize();
 
-    const agents = new Set(["Director", "Planner", "Coder", "Reviewer"]);
-    const spans = [];
+    // Swarm Nodes and State
+    const agentRoles = {
+      "MacroEconomist": { label: "Macro Analyst", icon: "📊", color: "#38bdf8" },
+      "SectorResearcher": { label: "Sector Researcher", icon: "🔍", color: "#818cf8" },
+      "RiskAuditor": { label: "Risk Manager", icon: "🛡️", color: "#34d399" },
+      "ExecutionTrader": { label: "Execution Trader", icon: "⚡", color: "#fbbf24" }
+    };
+    const agentNames = Object.keys(agentRoles);
+    
+    let spans = [];
     const interactiveElements = [];
     let selectedSpan = null;
     let isPaused = false;
+    let simTimer = null;
 
     // Connect WebSocket
-    const swarmId = new URLSearchParams(window.location.search).get("swarm_id") || "default-swarm";
+    const swarmId = new URLSearchParams(window.location.search).get("swarm_id") || "multi-agent-swarm";
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${wsProtocol}//${window.location.host}/ws/swarm/${swarmId}`;
-    const ws = new WebSocket(wsUrl);
+    let ws = null;
 
-    ws.onopen = () => {
-      document.getElementById("ws-status").innerText = "LIVE (WebSocket 10ms)";
-      document.getElementById("ws-status").style.borderColor = "#10b981";
-      document.getElementById("ws-status").style.color = "#10b981";
-    };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "span_update") {
-        const s = data.span;
-        spans.push(s);
-        if (s.source_agent) agents.add(s.source_agent);
-        if (s.target_agent) agents.add(s.target_agent);
-        document.getElementById("span-count").innerText = spans.length;
-        document.getElementById("agent-count").innerText = agents.size;
-
-        if (s.entropy_score !== undefined) {
-          const pill = document.getElementById("entropy-val");
-          pill.innerText = s.entropy_score.toFixed(2);
-          if (s.entropy_score < 0.4) {
-            pill.style.background = "rgba(239, 68, 68, 0.2)";
-            pill.style.color = "#ef4444";
-          } else if (s.entropy_score < 0.7) {
-            pill.style.background = "rgba(245, 158, 11, 0.2)";
-            pill.style.color = "#f59e0b";
-          } else {
-            pill.style.background = "rgba(16, 185, 129, 0.2)";
-            pill.style.color = "#10b981";
+    function connectWs() {
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "span_update" && msg.span) {
+            addSpan(msg.span);
           }
-        }
-      } else if (data.type === "command_ack") {
-        if (data.command === "CMD_PAUSE") {
-          isPaused = true;
-          document.getElementById("btn-pause").innerText = "▶️ Resume Swarm";
-        } else if (data.command === "CMD_RESUME") {
-          isPaused = false;
-          document.getElementById("btn-pause").innerText = "⏸️ Pause Swarm";
-        } else if (data.command === "CMD_FORK_BRANCH") {
-          document.getElementById("current-branch").innerText = data.new_branch_id;
-          alert(`Branch successfully forked: ${data.new_branch_id}`);
+        };
+      } catch (e) {
+        console.warn("WebSocket connecting offline mode");
+      }
+    }
+    connectWs();
+
+    // Add span to visualizer
+    function addSpan(s) {
+      spans.push(s);
+      updateKpis();
+      updateTimeline();
+      selectSpan(s);
+    }
+
+    function updateKpis() {
+      document.getElementById("kpi-spans").innerText = spans.length;
+      
+      // Calculate average entropy
+      if (spans.length > 0) {
+        const lastSpan = spans[spans.length - 1];
+        const ent = lastSpan.entropy_score !== undefined ? lastSpan.entropy_score : 1.0;
+        const entEl = document.getElementById("kpi-entropy");
+        
+        if (ent < 0.5) {
+          entEl.innerText = `${ent.toFixed(2)} (🚨 لوپ شناسایی شد)`;
+          entEl.className = "kpi-value";
+          entEl.style.color = "var(--danger)";
+          
+          document.getElementById("circuit-box").className = "circuit-banner trip";
+          document.getElementById("circuit-msg").innerText = "مدارشکن قطع شد! لوپ بی‌پایان با موفقیت خنثی شد.";
+          document.getElementById("kpi-saved").innerText = "2,450 Tokens ($0.25)";
+        } else if (ent < 0.75) {
+          entEl.innerText = `${ent.toFixed(2)} (⚠️ هشدار تکرار)`;
+          entEl.className = "kpi-value";
+          entEl.style.color = "var(--warning)";
+        } else {
+          entEl.innerText = `${ent.toFixed(2)} (سالم و متنوع)`;
+          entEl.className = "kpi-value entropy-health";
+          entEl.style.color = "var(--success)";
         }
       }
-    };
+    }
 
-    document.getElementById("btn-pause").onclick = () => {
-      const cmd = isPaused ? "CMD_RESUME" : "CMD_PAUSE";
-      ws.send(JSON.stringify({ command: cmd }));
-    };
+    function updateTimeline() {
+      const bar = document.getElementById("timeline-steps");
+      bar.innerHTML = "";
+      spans.forEach((s, idx) => {
+        const node = document.createElement("div");
+        node.className = "step-node" + (selectedSpan?.id === s.id ? " active" : "");
+        node.innerText = `گام ${idx + 1}: ${s.source_agent} → ${s.target_agent}`;
+        node.onclick = () => selectSpan(s);
+        bar.appendChild(node);
+      });
+      bar.scrollLeft = bar.scrollWidth;
+    }
 
-    document.getElementById("btn-fork").onclick = () => {
-      if (!selectedSpan) {
-        alert("Please select a span first to fork from.");
-        return;
+    function selectSpan(s) {
+      selectedSpan = s;
+      document.getElementById("disp-span-id").innerText = s.id || "span_generated";
+      document.getElementById("disp-flow").innerText = `${s.source_agent} ➔ ${s.target_agent}`;
+      document.getElementById("disp-meta").innerText = `${s.span_type || "agent_turn"} (${(s.duration_ms || 42).toFixed(1)}ms)`;
+      
+      const payloadObj = {
+        input: s.input_payload || {},
+        output: s.output_payload || {},
+        entropy: s.entropy_score || 1.0,
+        tokens: s.token_count || 0
+      };
+      document.getElementById("disp-payload").innerText = JSON.stringify(payloadObj, null, 2);
+
+      // Refresh step highlights
+      document.querySelectorAll(".step-node").forEach((el, idx) => {
+        if (spans[idx]?.id === s.id) el.classList.add("active");
+        else el.classList.remove("active");
+      });
+    }
+
+    // Interactive Demo Simulation
+    const sampleScript = [
+      {
+        source_agent: "MacroEconomist",
+        target_agent: "SectorResearcher",
+        span_type: "macro_analysis",
+        duration_ms: 38.4,
+        entropy_score: 0.98,
+        token_count: 312,
+        input_payload: { focus: "Semiconductors & AI Hardware" },
+        output_payload: { regime: "Expansion", recommendation: "Overweight High-Margin Tech" }
+      },
+      {
+        source_agent: "SectorResearcher",
+        target_agent: "RiskAuditor",
+        span_type: "equity_screening",
+        duration_ms: 54.1,
+        entropy_score: 0.94,
+        token_count: 480,
+        input_payload: { sector: "Tech", min_gross_margin: 0.65 },
+        output_payload: { candidates: ["NVDA", "MSFT", "AVGO"], expected_alpha: "19.4%" }
+      },
+      {
+        source_agent: "RiskAuditor",
+        target_agent: "ExecutionTrader",
+        span_type: "stress_test",
+        duration_ms: 61.2,
+        entropy_score: 0.91,
+        token_count: 520,
+        input_payload: { test_scenario: "2008 Liquidity Shock", portfolio: ["NVDA", "MSFT"] },
+        output_payload: { var_99: "3.2%", max_drawdown: "7.8%", approval: "APPROVED" }
+      },
+      {
+        source_agent: "ExecutionTrader",
+        target_agent: "SectorResearcher",
+        span_type: "loop_attempt_1",
+        duration_ms: 22.0,
+        entropy_score: 0.68,
+        token_count: 140,
+        input_payload: { query: "Please confirm candidate tickers again." },
+        output_payload: { query: "Please confirm candidate tickers again." }
+      },
+      {
+        source_agent: "SectorResearcher",
+        target_agent: "ExecutionTrader",
+        span_type: "circuit_halt",
+        duration_ms: 0.8,
+        entropy_score: 0.24,
+        token_count: 90,
+        input_payload: { alert: "[SWARMWATCH CIRCUIT WARNING] Repetitive loop detected" },
+        output_payload: { action: "CIRCUIT_BREAKER_HALT", saved_tokens: 2450, cost_saved: "$0.25" }
       }
-      ws.send(JSON.stringify({
-        command: "CMD_FORK_BRANCH",
-        target_span_id: selectedSpan.id,
-        new_branch_id: `fork-${Math.floor(Math.random() * 1000)}`
-      }));
-    };
+    ];
 
-    // Canvas Click Interaction
+    function runSimulation() {
+      spans = [];
+      let step = 0;
+      document.getElementById("btn-run-sim").innerText = "⏳ در حال اجرای شبیه‌سازی...";
+      
+      if (simTimer) clearInterval(simTimer);
+      simTimer = setInterval(() => {
+        if (step < sampleScript.length) {
+          const s = { ...sampleScript[step], id: "span_demo_" + Math.random().toString(36).substr(2, 8) };
+          addSpan(s);
+          step++;
+        } else {
+          clearInterval(simTimer);
+          document.getElementById("btn-run-sim").innerText = "🔄 اجرای مجدد شبیه‌سازی (Restart)";
+        }
+      }, 1000);
+    }
+    document.getElementById("btn-run-sim").onclick = runSimulation;
+
+    // Modal Guide handlers
+    const modal = document.getElementById("modal-guide");
+    document.getElementById("btn-open-guide").onclick = () => modal.style.display = "flex";
+    document.getElementById("btn-close-guide").onclick = () => modal.style.display = "none";
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    // Canvas 60fps Render Loop
+    let t = 0;
+    function render() {
+      ctx.clearRect(0, 0, width, height);
+      t += 0.025;
+      interactiveElements.length = 0;
+
+      const colWidth = width / (agentNames.length + 1);
+      const agentX = {};
+
+      // Draw Swimlane Columns
+      agentNames.forEach((agent, i) => {
+        const x = (i + 1) * colWidth;
+        agentX[agent] = x;
+        const meta = agentRoles[agent];
+
+        // Vertical Track Guideline
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(x, 70);
+        ctx.lineTo(x, height - 20);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Agent Header Capsule
+        ctx.fillStyle = "#0c101b";
+        ctx.beginPath();
+        ctx.roundRect(x - 65, 18, 130, 42, 12);
+        ctx.fill();
+        ctx.strokeStyle = meta.color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Agent Title & Icon
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${meta.icon} ${meta.label}`, x, 36);
+
+        ctx.fillStyle = "#64748b";
+        ctx.font = "10px monospace";
+        ctx.fillText(agent, x, 50);
+      });
+
+      // Draw Message Bezier Curves and Particle Pulses
+      const startY = 100;
+      const stepY = 55;
+      const visibleSpans = spans.slice(-8);
+
+      visibleSpans.forEach((s, idx) => {
+        const y = startY + idx * stepY;
+        const x1 = agentX[s.source_agent] || (width * 0.3);
+        const x2 = agentX[s.target_agent] || (width * 0.7);
+
+        const isSelected = selectedSpan?.id === s.id;
+        const isTripped = (s.entropy_score || 1.0) < 0.5;
+
+        // Curved Bezier Connection
+        ctx.strokeStyle = isTripped ? "#ef4444" : (isSelected ? "#38bdf8" : "rgba(56, 189, 248, 0.25)");
+        ctx.lineWidth = isSelected ? 3 : 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x1, y);
+        const midX = (x1 + x2) / 2;
+        ctx.bezierCurveTo(midX, y - 20, midX, y + 20, x2, y);
+        ctx.stroke();
+
+        // Glowing Particle along curve
+        const progress = ((t * 0.6 + idx * 0.22) % 1);
+        const px = (1 - progress) * (1 - progress) * x1 + 2 * (1 - progress) * progress * midX + progress * progress * x2;
+        const py = y + Math.sin(progress * Math.PI) * -12;
+
+        ctx.fillStyle = isTripped ? "#ef4444" : "#38bdf8";
+        ctx.shadowColor = isTripped ? "rgba(239, 68, 68, 0.8)" : "rgba(56, 189, 248, 0.8)";
+        ctx.shadowBlur = isSelected ? 12 : 6;
+        ctx.beginPath();
+        ctx.arc(px, py, isSelected ? 4.5 : 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Target Interactive Node Capsule
+        ctx.fillStyle = isSelected ? (isTripped ? "#ef4444" : "#38bdf8") : "#0c101b";
+        ctx.strokeStyle = isTripped ? "#ef4444" : "#38bdf8";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x2, y, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        interactiveElements.push({ x: x2, y, r: 12, span: s });
+      });
+
+      // Canvas Click Detection
+      requestAnimationFrame(render);
+    }
+    render();
+
+    // Handle canvas click to select span
     canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
 
       for (const el of interactiveElements) {
-        if (Math.hypot(clickX - el.x, clickY - el.y) < el.r + 8) {
+        const dist = Math.hypot(el.x - clickX, el.y - clickY);
+        if (dist <= el.r) {
           selectSpan(el.span);
-          return;
+          break;
         }
       }
     });
 
-    function selectSpan(s) {
-      selectedSpan = s;
-      document.getElementById("selected-span-id").innerText = s.id;
-      document.getElementById("selected-flow").innerText = `${s.source_agent} → ${s.target_agent}`;
-      document.getElementById("selected-meta").innerText = `${s.span_type} | ${s.duration_ms.toFixed(1)}ms | Entropy: ${(s.entropy_score || 1).toFixed(2)}`;
-      document.getElementById("selected-payload").innerText = JSON.stringify({
-        inputs: s.input_payload,
-        outputs: s.output_payload,
-      }, null, 2);
-    }
-
-    // 60FPS Render Loop with Amir-Minimal Aesthetics
-    let t = 0;
-    function render() {
-      ctx.clearRect(0, 0, width, height);
-      t += 0.02;
-      interactiveElements.length = 0;
-
-      const agentList = Array.from(agents);
-      const colWidth = width / (agentList.length + 1);
-      const agentX = {};
-
-      // Draw Swimlane Tracks & Glowing Headers
-      agentList.forEach((agent, i) => {
-        const x = (i + 1) * colWidth;
-        agentX[agent] = x;
-
-        // Vertical Track Guideline
-        ctx.strokeStyle = "rgba(26, 34, 52, 0.7)";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 6]);
-        ctx.beginPath();
-        ctx.moveTo(x, 60);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Agent Header Capsule
-        ctx.fillStyle = "#0e131f";
-        ctx.beginPath();
-        ctx.roundRect(x - 60, 18, 120, 36, 18);
-        ctx.fill();
-        ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        ctx.fillStyle = "#f8fafc";
-        ctx.font = "600 12px monospace";
-        ctx.textAlign = "center";
-        ctx.fillText(agent, x, 40);
-      });
-
-      // Draw Message Flow Nodes and Bezier Arrows
-      const startY = 90;
-      const stepY = 55;
-      const visibleSpans = spans.slice(-12);
-
-      visibleSpans.forEach((s, idx) => {
-        const y = startY + idx * stepY;
-        const x1 = agentX[s.source_agent] || (width / 2);
-        const x2 = agentX[s.target_agent] || (x1 + 80);
-
-        // Curved Bezier Connection
-        ctx.strokeStyle = s.id === selectedSpan?.id ? "#38bdf8" : "rgba(56, 189, 248, 0.3)";
-        ctx.lineWidth = s.id === selectedSpan?.id ? 2.5 : 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x1, y);
-        const midX = (x1 + x2) / 2;
-        ctx.bezierCurveTo(midX, y - 15, midX, y + 15, x2, y);
-        ctx.stroke();
-
-        // Pulsing Particle along curve
-        const progress = ((t * 0.5 + idx * 0.25) % 1);
-        const px = (1 - progress) * (1 - progress) * x1 + 2 * (1 - progress) * progress * midX + progress * progress * x2;
-        const py = y + Math.sin(progress * Math.PI) * -10;
-
-        ctx.fillStyle = "#38bdf8";
-        ctx.shadowColor = "rgba(56, 189, 248, 0.8)";
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(px, py, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        // Interactive Target Node
-        ctx.fillStyle = s.id === selectedSpan?.id ? "#38bdf8" : "#0e131f";
-        ctx.strokeStyle = "#38bdf8";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(x2, y, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        interactiveElements.push({ x: x2, y, r: 8, span: s });
-      });
-
-      requestAnimationFrame(render);
-    }
-    render();
+    // Run initial demo on first load so user immediately sees real data!
+    window.addEventListener("DOMContentLoaded", () => {
+      runSimulation();
+    });
   </script>
 </body>
 </html>"""
