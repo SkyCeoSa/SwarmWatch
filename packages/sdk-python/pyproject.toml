@@ -11,6 +11,57 @@ requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.0",
 ]
+license = {text = "MIT"}
+authors = [
+    {name = "SwarmWatch Team", email = "hello@swarmwatch.dev"}
+]
+keywords = [
+    "multi-agent",
+    "observability",
+    "circuit-breaker",
+    "langgraph",
+    "crewai",
+    "time-machine",
+    "shannon-entropy",
+    "llm-debugging",
+    "autogen"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Monitoring"
+]
+
+[project.optional-dependencies]
+langgraph = [
+    "langgraph>=0.0.10",
+    "langchain-core>=0.1.0"
+]
+crewai = [
+    "crewai>=0.1.0"
+]
+server = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0"
+]
+all = [
+    "langgraph>=0.0.10",
+    "langchain-core>=0.1.0",
+    "crewai>=0.1.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/SkyCeoSa/SwarmWatch"
+Repository = "https://github.com/SkyCeoSa/SwarmWatch.git"
+Issues = "https://github.com/SkyCeoSa/SwarmWatch/issues"
 
 [project.scripts]
 swarmwatch = "swarmwatch.cli:main"
