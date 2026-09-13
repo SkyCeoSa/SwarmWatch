@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwarmWatch | Multi-Agent Observability Console</title>
+  <style>
+    :root {
+      --bg-canvas: #080B11;
+      --bg-surface: #0E1422;
+      --bg-surface-hover: #141C2E;
+      --bg-surface-active: #1C2740;
+      --border-subtle: #1D2840;
+      --border-strong: #2D3E63;
+      --accent: #38BDF8;
+      --accent-hover: #7DD3FC;
+      --accent-subtle: rgba(56, 189, 248, 0.12);
+      --accent-purple: #A78BFA;
+      --success: #10B981;
+      --success-subtle: rgba(16, 185, 129, 0.12);
+      --warning: #F59E0B;
+      --warning-subtle: rgba(245, 158, 11, 0.12);
+      --danger: #EF4444;
+      --danger-subtle: rgba(239, 68, 68, 0.12);
+      --text-primary: #F8FAFC;
+      --text-secondary: #CBD5E1;
+      --text-muted: #94A3B8;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+    /* Top Navigation */
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .brand-version {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--success-subtle);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-badge.offline {
+      background: var(--bg-canvas);
+      color: var(--text-muted);
+      border-color: var(--border-subtle);
+    }
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .branch-tag {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .branch-name {
+      color: var(--accent-purple);
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-action {
+      height: 34px;
+      padding: 0 16px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+      text-decoration: none;
+    }
+    .btn-action:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #080B11;
+      border: 1px solid var(--accent);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+    .btn-secondary {
+      background: var(--bg-canvas);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .btn-block {
+      width: 100%;
+      justify-content: center;
+    }
+
+    /* Metrics Bar */
+    .metrics-bar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 10px 18px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .metric-cell {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .metric-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .metric-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: var(--text-muted);
+    }
+    .metric-tag {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+    .metric-tag.normal {
+      background: var(--success-subtle);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .metric-tag.alert {
+      background: var(--danger-subtle);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .metric-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .metric-value {
+      font-size: 18px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      color: var(--text-primary);
+    }
+    .metric-subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Workspace */
+    .workspace {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Left Sidebar: Participants */
+    .sidebar {
+      width: 270px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.2px;
+    }
+    .panel-count {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .participant-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .participant-card {
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .participant-card:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--border-subtle);
+    }
+    .participant-card.active {
+      background: var(--bg-surface-active);
+      border-color: var(--border-strong);
+    }
+    .participant-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .participant-role {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .badge-status {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    /* Center Stream */
+    .stream-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-canvas);
+      min-width: 0;
+    }
+    .stream-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .turn-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color 0.15s ease;
+      cursor: pointer;
+    }
+    .turn-card:hover {
+      border-color: var(--border-strong);
+    }
+    .turn-card.selected {
+      border-color: var(--accent);
+      background: var(--bg-surface-active);
+    }
+    .turn-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .turn-agents {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .turn-arrow {
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+    }
+    .turn-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      color: var(--text-muted);
+    }
+    .turn-body {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      background: var(--bg-canvas);
+      padding: 12px 14px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Circuit Breaker Alert Banner (Flat, No nested cards) */
+    .circuit-banner {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid var(--danger);
+      border-radius: 4px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .circuit-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--danger);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .circuit-details {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .circuit-stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 4px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      color: var(--text-primary);
+    }
+
+    /* Right Drawer: Inspector */
+    .inspector {
+      width: 360px;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .inspector-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .prop-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .prop-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.2px;
+    }
+    .prop-value {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      background: var(--bg-canvas);
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      word-break: break-all;
+    }
+    .json-box {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      background: var(--bg-canvas);
+      padding: 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      overflow-x: auto;
+      max-height: 260px;
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-group">
+      <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span class="brand-title">SwarmWatch</span>
+      <span class="brand-version">v0.1.0</span>
+    </div>
+    <div class="header-center">
+      <div class="status-badge" id="runtimeBadge">
+        <span class="status-indicator"></span>
+        <span id="runtimeText">Runtime Active</span>
+      </div>
+      <div class="branch-tag">
+        <span>branch:</span>
+        <span class="branch-name" id="branchLabel">main</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-action btn-primary" id="btnSimulate">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>
+        <span>Run Swarm Simulation</span>
+      </button>
+      <button class="btn-action btn-secondary" id="btnReset">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <span>Reset</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="metrics-bar">
+    <div class="metric-cell">
+      <div class="metric-header">
+        <span class="metric-title">Active Swarm Agents</span>
+        <span class="metric-tag normal">4 Nodes</span>
+      </div>
+      <div class="metric-value-row">
+        <span class="metric-value" id="metricAgents">4</span>
+        <span class="metric-subtext">Architect, Backend, Review, Security</span>
+      </div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-header">
+        <span class="metric-title">Causal Spans</span>
+        <span class="metric-tag normal" id="spansTag">In Order</span>
+      </div>
+      <div class="metric-value-row">
+        <span class="metric-value" id="metricSpans">0</span>
+        <span class="metric-subtext">Mean latency: 420ms</span>
+      </div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-header">
+        <span class="metric-title">Shannon Entropy</span>
+        <span class="metric-tag normal" id="entropyTag">Nominal</span>
+      </div>
+      <div class="metric-value-row">
+        <span class="metric-value" id="metricEntropy">1.92</span>
+        <span class="metric-subtext">Threshold: 0.35 bits</span>
+      </div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-header">
+        <span class="metric-title">Circuit Interventions</span>
+        <span class="metric-tag normal" id="savingsTag">Arm Ready</span>
+      </div>
+      <div class="metric-value-row">
+        <span class="metric-value" id="metricSavings">$0.00</span>
+        <span class="metric-subtext" id="metricTokens">0 tokens prevented</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="panel-header">
+        <span class="panel-title">Swarm Participants</span>
+        <span class="panel-count">4 Agents</span>
+      </div>
+      <div class="participant-list">
+        <div class="participant-card active" data-agent="ProductArchitect">
+          <div>
+            <div class="participant-name">ProductArchitect</div>
+            <div class="participant-role">System Requirements and Decomposition</div>
+          </div>
+          <span class="badge-status">Lead</span>
+        </div>
+        <div class="participant-card" data-agent="BackendEngineer">
+          <div>
+            <div class="participant-name">BackendEngineer</div>
+            <div class="participant-role">FastAPI and PostgreSQL Implementation</div>
+          </div>
+          <span class="badge-status">Core</span>
+        </div>
+        <div class="participant-card" data-agent="CodeReviewer">
+          <div>
+            <div class="participant-name">CodeReviewer</div>
+            <div class="participant-role">Static Analysis and Typing Verification</div>
+          </div>
+          <span class="badge-status">Review</span>
+        </div>
+        <div class="participant-card" data-agent="SecurityAuditor">
+          <div>
+            <div class="participant-name">SecurityAuditor</div>
+            <div class="participant-role">OWASP and AST Security Gatekeeper</div>
+          </div>
+          <span class="badge-status">Guard</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="stream-panel">
+      <div class="panel-header">
+        <span class="panel-title">Causal Dialogue and Execution Stream</span>
+        <span class="panel-count" id="turnCounter">Synthetic Scenario</span>
+      </div>
+      <div class="stream-feed" id="streamFeed">
+        <div class="turn-card" style="text-align: center; color: var(--text-muted); padding: 32px;">
+          Ready. Click [Run Swarm Simulation] above or emit spans from SDK to observe causal stream.
+        </div>
+      </div>
+    </main>
+
+    <aside class="inspector">
+      <div class="panel-header">
+        <span class="panel-title">Turn Inspector</span>
+        <span class="panel-count">Time-Machine</span>
+      </div>
+      <div class="inspector-content" id="inspectorContent">
+        <div class="prop-row">
+          <span class="prop-label">Active Run ID</span>
+          <span class="prop-value" id="inspRunId">run_sw_live_01</span>
+        </div>
+        <div class="prop-row">
+          <span class="prop-label">Selected Turn</span>
+          <span class="prop-value" id="inspTurnId">None selected</span>
+        </div>
+        <div class="prop-row">
+          <span class="prop-label">Inspection Payload</span>
+          <div class="json-box" id="inspPayload">{
+  "status": "listening",
+  "transport": "WebSocket + SSE",
+  "protocol": "SwarmWatch v0.1.0"
+}</div>
+        </div>
+        <div class="prop-row" style="margin-top: 8px;">
+          <button class="btn-action btn-secondary btn-block" id="btnFork">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            <span>Fork State from this Turn</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    (function() {
+      var spans = [];
+      var isSimulating = false;
+      var selectedTurn = null;
+      var socket = null;
+
+      var SIMULATION_DATA = [
+        {
+          id: "span_01",
+          source: "ProductArchitect",
+          target: "BackendEngineer",
+          duration: 380,
+          tokens: 1420,
+          entropy: 1.94,
+          timestamp: "10:14:02.120",
+          payload: "Architectural spec for connection pooling: implement exponential backoff with max 10 retries. Ensure isolation level READ COMMITTED."
+        },
+        {
+          id: "span_02",
+          source: "BackendEngineer",
+          target: "CodeReviewer",
+          duration: 610,
+          tokens: 2890,
+          entropy: 1.82,
+          timestamp: "10:14:02.730",
+          payload: "PR #142 submitted: added AsyncConnectionPool with keepalive=30s and health_check_interval=10s. Ready for spec and types review."
+        },
+        {
+          id: "span_03",
+          source: "CodeReviewer",
+          target: "SecurityAuditor",
+          duration: 440,
+          tokens: 1910,
+          entropy: 1.76,
+          timestamp: "10:14:03.170",
+          payload: "Review passed standards. Type annotations verified. Security audit requested for credential leakage in connection string loggers."
+        },
+        {
+          id: "span_04",
+          source: "SecurityAuditor",
+          target: "BackendEngineer",
+          duration: 390,
+          tokens: 1540,
+          entropy: 1.68,
+          timestamp: "10:14:03.560",
+          payload: "Found AST issue in logger.py line 48: sanitize connection string DSN before logging. Raw credentials exposed in error handler."
+        },
+        {
+          id: "span_05",
+          source: "BackendEngineer",
+          target: "SecurityAuditor",
+          duration: 520,
+          tokens: 2100,
+          entropy: 0.18,
+          timestamp: "10:14:04.080",
+          payload: "Attempting retry loop with identical DSN logging format..."
+        }
+      ];
+
+      function selectSpan(span) {
+        selectedTurn = span;
+        document.querySelectorAll('.turn-card').forEach(function(card) {
+          card.classList.remove('selected');
+        });
+        var card = document.getElementById('card_' + span.id);
+        if (card) card.classList.add('selected');
+
+        document.getElementById('inspTurnId').textContent = span.id + " (" + span.source + " -> " + span.target + ")";
+        document.getElementById('inspPayload').textContent = JSON.stringify({
+          span_id: span.id,
+          source_agent: span.source,
+          target_agent: span.target,
+          duration_ms: span.duration,
+          token_count: span.tokens,
+          entropy_score: span.entropy,
+          timestamp: span.timestamp,
+          payload: span.payload
+        }, null, 2);
+      }
+
+      function renderSpan(span) {
+        var feed = document.getElementById('streamFeed');
+        var card = document.createElement('div');
+        card.className = 'turn-card';
+        card.id = 'card_' + span.id;
+
+        card.innerHTML = 
+          '<div class="turn-header">' +
+            '<div class="turn-agents">' +
+              '<span>' + span.source + '</span>' +
+              '<span class="turn-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>' +
+              '<span>' + span.target + '</span>' +
+            '</div>' +
+            '<div class="turn-meta">' +
+              '<span>' + span.timestamp + '</span>' +
+              '<span>' + span.duration + 'ms</span>' +
+              '<span>' + span.tokens.toLocaleString() + ' tokens</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="turn-body">' + span.payload + '</div>';
+
+        card.addEventListener('click', function() {
+          selectSpan(span);
+        });
+
+        feed.appendChild(card);
+        feed.scrollTop = feed.scrollHeight;
+      }
+
+      function renderCircuitHalt() {
+        var feed = document.getElementById('streamFeed');
+        var banner = document.createElement('div');
+        banner.className = 'circuit-banner';
+        banner.innerHTML = 
+          '<div class="circuit-title">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+            '<span>Circuit Breaker Tripped: Runaway Semantic Loop Halted</span>' +
+          '</div>' +
+          '<div class="circuit-details">' +
+            'Repetition threshold reached (Shannon entropy dropped to 0.18 bits, threshold 0.35 bits). SwarmWatch intercepted infinite token burning.' +
+          '</div>' +
+          '<div class="circuit-stats">' +
+            '<span>Tokens Saved: 241,500</span>' +
+            '<span>Budget Protected: $4.83</span>' +
+            '<span>Status: Swarm Halted</span>' +
+          '</div>';
+
+        feed.appendChild(banner);
+        feed.scrollTop = feed.scrollHeight;
+
+        document.getElementById('entropyTag').className = 'metric-tag alert';
+        document.getElementById('entropyTag').textContent = 'Loop Tripped';
+        document.getElementById('metricEntropy').textContent = '0.18';
+
+        document.getElementById('savingsTag').className = 'metric-tag alert';
+        document.getElementById('savingsTag').textContent = 'Tripped';
+        document.getElementById('metricSavings').textContent = '$4.83';
+        document.getElementById('metricTokens').textContent = '241,500 tokens prevented';
+      }
+
+      function runSimulation() {
+        if (isSimulating) return;
+        isSimulating = true;
+        var btn = document.getElementById('btnSimulate');
+        btn.disabled = true;
+
+        var feed = document.getElementById('streamFeed');
+        feed.innerHTML = '';
+        spans = [];
+
+        var step = 0;
+        function nextStep() {
+          if (step < SIMULATION_DATA.length) {
+            var item = SIMULATION_DATA[step];
+            spans.push(item);
+            renderSpan(item);
+            selectSpan(item);
+            document.getElementById('metricSpans').textContent = spans.length.toString();
+            document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
+            document.getElementById('metricEntropy').textContent = item.entropy.toFixed(2);
+            step++;
+            setTimeout(nextStep, 650);
+          } else {
+            renderCircuitHalt();
+            isSimulating = false;
+            btn.disabled = false;
+          }
+        }
+        nextStep();
+      }
+
+      function resetConsole() {
+        spans = [];
+        selectedTurn = null;
+        isSimulating = false;
+        var feed = document.getElementById('streamFeed');
+        feed.innerHTML = '<div class="turn-card" style="text-align: center; color: var(--text-muted); padding: 32px;">Ready. Click [Run Swarm Simulation] above or emit spans from SDK to observe causal stream.</div>';
+
+        document.getElementById('metricSpans').textContent = '0';
+        document.getElementById('turnCounter').textContent = 'Synthetic Scenario';
+        document.getElementById('metricEntropy').textContent = '1.92';
+        document.getElementById('entropyTag').className = 'metric-tag normal';
+        document.getElementById('entropyTag').textContent = 'Nominal';
+
+        document.getElementById('metricSavings').textContent = '$0.00';
+        document.getElementById('metricTokens').textContent = '0 tokens prevented';
+        document.getElementById('savingsTag').className = 'metric-tag normal';
+        document.getElementById('savingsTag').textContent = 'Arm Ready';
+
+        document.getElementById('inspTurnId').textContent = 'None selected';
+        document.getElementById('inspPayload').textContent = '{\n  "status": "listening",\n  "transport": "WebSocket + SSE",\n  "protocol": "SwarmWatch v0.1.0"\n}';
+      }
+
+      function initWebSocket() {
+        try {
+          var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          var wsUrl = protocol + '//' + window.location.host + '/ws/swarm/swarm-live-01';
+          socket = new WebSocket(wsUrl);
+          socket.onopen = function() {
+            document.getElementById('runtimeText').textContent = 'Live Connected';
+            document.getElementById('runtimeBadge').className = 'status-badge';
+          };
+          socket.onmessage = function(event) {
+            try {
+              var msg = JSON.parse(event.data);
+              if (msg.type === 'span_update' && msg.span) {
+                var s = msg.span;
+                var formatted = {
+                  id: s.span_id || 'span_' + Date.now(),
+                  source: s.source_agent || 'Agent',
+                  target: s.target_agent || 'Swarm',
+                  duration: s.duration_ms || 420,
+                  tokens: s.token_count || 1200,
+                  entropy: s.entropy_score || 1.85,
+                  timestamp: new Date().toLocaleTimeString(),
+                  payload: typeof s.payload === 'object' ? JSON.stringify(s.payload) : (s.payload || '')
+                };
+                spans.push(formatted);
+                renderSpan(formatted);
+                document.getElementById('metricSpans').textContent = spans.length.toString();
+                document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
+              }
+            } catch(e) {}
+          };
+          socket.onclose = function() {
+            document.getElementById('runtimeText').textContent = 'Local Standby';
+            document.getElementById('runtimeBadge').className = 'status-badge offline';
+          };
+        } catch(e) {
+          document.getElementById('runtimeText').textContent = 'Local Standby';
+          document.getElementById('runtimeBadge').className = 'status-badge offline';
+        }
+      }
+
+      document.getElementById('btnSimulate').addEventListener('click', runSimulation);
+      document.getElementById('btnReset').addEventListener('click', resetConsole);
+      document.getElementById('btnFork').addEventListener('click', function() {
+        if (!selectedTurn) {
+          alert('Please click a turn in the Execution Stream first to select the branch point.');
+          return;
+        }
+        var newBranch = 'branch_fork_' + selectedTurn.id;
+        document.getElementById('branchLabel').textContent = newBranch;
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({
+            command: 'CMD_FORK_BRANCH',
+            target_span_id: selectedTurn.id,
+            new_branch_id: newBranch
+          }));
+        }
+        alert('Time Machine: Swarm state successfully branched at ' + selectedTurn.id + ' into branch [' + newBranch + '].');
+      });
+
+      initWebSocket();
+    })();
+  </script>
+</body>
+</html>
