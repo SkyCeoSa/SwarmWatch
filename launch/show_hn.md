@@ -4,7 +4,7 @@
 
 Hey HN,
 
-Over the past year building autonomous multi-agent pipelines (financial research, code refactoring, automated auditing), we kept hitting three brutal realities that caused our agent swarms to fail in production or burn our API keys overnight:
+Over the past year building autonomous multi-agent pipelines (autonomous software engineering, code refactoring, multi-agent research), we kept hitting three brutal realities that caused our agent swarms to fail in production or burn our API keys overnight:
 
 1. **The Telemetry Latency Trap**: Most observability tools were designed for web microservices. Sending JSON spans over HTTP inline at every agent thought or tool turn adds 150–400ms. In a 5-agent swarm doing 30 conversational rounds, you're waiting 10+ seconds just for your monitoring SDK to flush network packets.
 2. **The LLM-Judge Bankruptcy Trap**: When agents get stuck in conversational loops (e.g. arguing about a SQL query syntax or calling the same failing tool 12 times), the common industry recommendation is to "use an LLM evaluator / guardrail". Calling GPT-4 to monitor an agent loop is insane: it costs real money, adds 2 seconds of latency, and burns thousands of tokens while your agent is already failing.

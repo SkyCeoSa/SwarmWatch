@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 SwarmWatch End-to-End Multi-Agent Observability & Time-Machine Demo.
-Simulates a real financial intelligence swarm with 4 cooperating agents,
+Simulates an autonomous AI software engineering swarm with 4 cooperating agents,
 demonstrating state snapshotting, causal span DAG tracing, and live telemetry.
 """
 
@@ -18,59 +18,81 @@ if sys.platform == "win32":
 
 
 def main():
-    print("\n" + "=" * 60)
-    print("[SwarmWatch] Live Multi-Agent Simulation Starting...")
-    print("=" * 60 + "\n")
+    print("\n" + "=" * 65)
+    print("[SwarmWatch] Autonomous Software Engineering Swarm Starting...")
+    print("=" * 65 + "\n")
 
     # 1. Initialize SwarmWatch client
-    swarmwatch.init(swarm_id="hedge-fund-swarm-01", db_path="swarmwatch.db")
+    swarmwatch.init(swarm_id="autonomous-dev-swarm-01", db_path="swarmwatch.db")
 
     # 2. Define Agent Functions with @swarmwatch.agent
-    @swarmwatch.agent(name="MacroEconomist", role="analyst", target="SectorResearcher")
-    def analyze_macro_trends(focus_sector: str):
-        print(f"[MacroEconomist] Analyzing macroeconomic signals for sector: {focus_sector}...")
+    @swarmwatch.agent(name="ProductArchitect", role="architect", target="BackendEngineer")
+    def design_api_specification(feature_name: str):
+        print(f"[ProductArchitect] Drafting OpenAPI contract for: {feature_name}...")
         time.sleep(0.05)
         # Snapshot agent memory state into SwarmWatch Time Machine
         swarmwatch.sync_state({
-            "fed_rate": 4.5,
-            "inflation_cpi": 2.4,
-            "sentiment": "bullish"
+            "feature": feature_name,
+            "auth_scheme": "OAuth2_JWT",
+            "rate_limit_rpm": 1200,
+            "version": "v1.2.0"
         })
         return {
-            "regime": "disinflationary_growth",
-            "recommended_weight": "overweight_tech"
+            "endpoint": "/api/v1/auth/tokens",
+            "method": "POST",
+            "schema_contract": "TokenExchangeRequest"
         }
 
-    @swarmwatch.agent(name="SectorResearcher", role="researcher", target="RiskAuditor")
-    def screen_equities(macro_output: dict):
-        print(f"[SectorResearcher] Screening equities based on {macro_output['recommended_weight']}...")
+    @swarmwatch.agent(name="BackendEngineer", role="engineer", target="CodeReviewer")
+    def implement_service(spec: dict):
+        print(f"[BackendEngineer] Implementing async endpoint: {spec['endpoint']}...")
         time.sleep(0.05)
-        return {
-            "candidate_tickers": ["NVDA", "MSFT", "GOOGL"],
-            "expected_alpha": 0.18
-        }
-
-    @swarmwatch.agent(name="RiskAuditor", role="risk_manager", target="ExecutionTrader")
-    def stress_test_portfolio(candidates: list):
-        print(f"[RiskAuditor] Stress-testing candidate assets: {candidates} against 2008 liquidity shock...")
-        time.sleep(0.05)
-        # Snapshot portfolio risk metrics
         swarmwatch.sync_state({
-            "var_99": 0.032,
-            "max_drawdown": 0.08,
+            "orm_model": "UserSession",
+            "caching_layer": "Redis_Cluster",
+            "status": "IMPLEMENTED"
+        })
+        return {
+            "pr_number": 412,
+            "lines_added": 84,
+            "coverage": 0.98
+        }
+
+    @swarmwatch.agent(name="CodeReviewer", role="reviewer", target="SecurityAuditor")
+    def review_code(pr_payload: dict):
+        print(f"[CodeReviewer] Reviewing PR #{pr_payload['pr_number']} against architecture standards...")
+        time.sleep(0.05)
+        swarmwatch.sync_state({
+            "smells_detected": 0,
+            "linter_status": "CLEAN",
             "approved": True
         })
-        return {"approval": "APPROVED", "size_limit_millions": 25.0}
+        return {
+            "review_status": "APPROVED",
+            "recommendation": "Ready for security fuzzing"
+        }
+
+    @swarmwatch.agent(name="SecurityAuditor", role="security", target="ProductArchitect")
+    def security_audit(review_payload: dict):
+        print(f"[SecurityAuditor] Running OWASP security scan and token entropy checks...")
+        time.sleep(0.05)
+        swarmwatch.sync_state({
+            "owasp_compliance": "PASS",
+            "jwt_leakage": "NONE_DETECTED",
+            "fuzz_iterations": 5000
+        })
+        return {"audit": "PASSED", "deploy_ready": True}
 
     # 3. Run the Multi-Agent Swarm Pipeline
-    with swarmwatch.span("full_investment_decision_cycle", source="SwarmDirector", target="MacroEconomist"):
-        macro_report = analyze_macro_trends("semiconductors")
-        equities = screen_equities(macro_report)
-        risk_decision = stress_test_portfolio(equities["candidate_tickers"])
+    with swarmwatch.span("autonomous_feature_sprint", source="EngineeringDirector", target="ProductArchitect"):
+        spec = design_api_specification("high_throughput_auth")
+        impl = implement_service(spec)
+        review = review_code(impl)
+        audit = security_audit(review)
 
-        print("\n" + "-" * 60)
-        print(f"[SwarmWatch] Swarm Cycle Complete! Final Decision: {risk_decision}")
-        print("-" * 60)
+        print("\n" + "-" * 65)
+        print(f"[SwarmWatch] Sprint Cycle Complete! Audit Result: {audit}")
+        print("-" * 65)
 
     # 4. Flush telemetry and launch instructions
     swarmwatch.flush()

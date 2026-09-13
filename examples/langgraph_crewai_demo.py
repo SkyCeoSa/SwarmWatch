@@ -3,7 +3,7 @@
 SwarmWatch Multi-Framework Integration Demo (LangGraph & CrewAI).
 Demonstrates zero-code-change telemetry capture, causal DAG tracing,
 state snapshotting, and zero-token Shannon entropy circuit breaking
-across both LangGraph and CrewAI swarms.
+across both LangGraph and CrewAI swarms in an autonomous software engineering context.
 """
 
 import sys
@@ -31,24 +31,24 @@ def run_langgraph_demo():
     run_id = uuid.uuid4()
 
     print("[LangGraph] Starting chain execution with SwarmWatchCallbackHandler...")
-    handler.on_chain_start({"name": "AutonomousFinancialResearcher"}, {"query": "Analyze TSLA earnings"}, run_id=run_id)
+    handler.on_chain_start({"name": "AutonomousCodeRefactorer"}, {"query": "Diagnose database connection leak"}, run_id=run_id)
 
     # Simulate LLM Generation Step
     llm_run_id = uuid.uuid4()
-    handler.on_llm_start({"name": "Claude-3.5-Sonnet"}, ["Screening quarterly revenue and margin compression..."], run_id=llm_run_id, parent_run_id=run_id)
+    handler.on_llm_start({"name": "Claude-3.5-Sonnet"}, ["Screening async connection pool lifecycle in connection_manager.py..."], run_id=llm_run_id, parent_run_id=run_id)
     time.sleep(0.05)
 
     class MockLLMResult:
-        generations = [[type("Gen", (), {"text": "Operating margin down 120bps due to price reductions in APAC."})]]
+        generations = [[type("Gen", (), {"text": "Identified dangling async session context on unhandled HTTPException."})]]
     handler.on_llm_end(MockLLMResult(), run_id=llm_run_id, parent_run_id=run_id)
 
     # Simulate Tool Step
     tool_run_id = uuid.uuid4()
-    handler.on_tool_start({"name": "SEC_10Q_Scraper"}, "query: TSLA 2024Q3", run_id=tool_run_id, parent_run_id=run_id)
+    handler.on_tool_start({"name": "AST_Linter_Engine"}, "file: connection_manager.py", run_id=tool_run_id, parent_run_id=run_id)
     time.sleep(0.05)
-    handler.on_tool_end("SEC 10-Q filed on Oct 23. Automotive gross profit: $4.3B.", run_id=tool_run_id, parent_run_id=run_id)
+    handler.on_tool_end("Found missing finally: await session.close() at line 84.", run_id=tool_run_id, parent_run_id=run_id)
 
-    handler.on_chain_end({"summary": "Automotive margins stabilized; energy division grew 52%."}, run_id=run_id)
+    handler.on_chain_end({"patch": "Wrapped session in async with lifespan context.", "status": "RESOLVED"}, run_id=run_id)
     print("[LangGraph] Chain completed and traced successfully into causal DAG.\n")
 
 
@@ -69,23 +69,23 @@ def run_crewai_demo():
             self.result = result
 
     # Agent Step 1: Valid Work
-    print("[CrewAI] SeniorAnalyst executing initial strategy...")
+    print("[CrewAI] SeniorArchitect executing initial migration audit...")
     listener.on_step(MockStep(
-        agent="SeniorAnalyst",
-        thought="Examining options volatility skew on SPY",
-        tool="OptionsMatrix",
-        result="Put-call skew indicates 72% bearish positioning for Friday expiry."
+        agent="SeniorArchitect",
+        thought="Verifying schema migration compatibility with PostgreSQL v16",
+        tool="SchemaValidator",
+        result="Schema compatible. Foreign key indexes verified."
     ))
 
     # Agent Step 2: Stalling Loop detection test
-    print("[CrewAI] Simulating stalled agent caught in repetitive loop...")
-    stalled_text = "I need to query the database again to verify the cache state."
+    print("[CrewAI] Simulating stalled agent caught in repetitive retry loop...")
+    stalled_text = "I need to query the migration table again to verify the lock status."
 
     try:
         for loop_idx in range(1, 6):
             print(f"  -> Agent loop attempt #{loop_idx}: '{stalled_text[:40]}...'")
             listener.on_step(MockStep(
-                agent="SeniorAnalyst",
+                agent="SeniorArchitect",
                 thought=stalled_text,
                 tool="DatabaseQuery",
                 result="0 rows returned."
@@ -98,8 +98,8 @@ def run_crewai_demo():
 
     # Final Task completion
     listener.on_task(type("TaskOutput", (), {
-        "agent": "SeniorAnalyst",
-        "description": "Portfolio volatility report",
+        "agent": "SeniorArchitect",
+        "description": "PostgreSQL 16 migration audit",
         "raw": "Task safely halted and quarantined by SwarmWatch."
     }))
 
@@ -109,7 +109,7 @@ def main():
     print("  👁️ SwarmWatch Multi-Framework Ecosystem Demonstration")
     print("=================================================================")
 
-    swarmwatch.init(swarm_id="multi-framework-swarm-demo", db_path="swarmwatch.db")
+    swarmwatch.init(swarm_id="multi-framework-dev-demo", db_path="swarmwatch.db")
 
     run_langgraph_demo()
     run_crewai_demo()

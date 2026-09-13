@@ -132,14 +132,14 @@ import swarmwatch
 
 swarmwatch.init(swarm_id="autonomous-swarm")
 
-@swarmwatch.agent(name="RiskAuditor", role="risk_manager", target="ExecutionTrader")
-def evaluate_risk(order: dict):
+@swarmwatch.agent(name="CodeReviewer", role="reviewer", target="SecurityAuditor")
+def review_code(pull_request: dict):
     # Snapshot agent state into Time-Machine
-    swarmwatch.sync_state({"var_limit": 50000, "status": "APPROVED"})
-    return {"status": "APPROVED", "order_id": order["id"]}
+    swarmwatch.sync_state({"linter_passed": True, "coverage": 0.98})
+    return {"status": "APPROVED", "pr_id": pull_request["id"]}
 
-with swarmwatch.span("trade_execution", source="Director", target="RiskAuditor"):
-    evaluate_risk({"id": "ord_99", "symbol": "NVDA", "shares": 100})
+with swarmwatch.span("pr_review_cycle", source="Director", target="CodeReviewer"):
+    review_code({"id": "pr_104", "title": "Implement rate limiting middleware"})
 
 swarmwatch.flush()
 ```
@@ -224,7 +224,7 @@ SwarmWatch/
 │       │       └── crewai.py    # CrewAI step_callback & task_callback listener
 │       └── tests/               # 24 unit & integration tests (100% green)
 ├── examples/
-│   ├── multi_agent_demo.py      # End-to-end 4-agent financial swarm simulation
+│   ├── multi_agent_demo.py      # End-to-end 4-agent autonomous software engineering simulation
 │   └── langgraph_crewai_demo.py # Multi-framework integration with circuit loop tripping
 └── CONTRIBUTING.md              # Contributor guide & commit conventions
 ```

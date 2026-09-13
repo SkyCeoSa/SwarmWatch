@@ -1080,7 +1080,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <span class="kpi-value" id="kpi-agents">4</span>
           <span class="kpi-unit">Agents</span>
         </div>
-        <span class="kpi-meta">&#x1F4CA; Macro &#x1F50D; Sector &#x1F6E1;&#xFE0F; Risk &#x26A1; Trader</span>
+        <span class="kpi-meta">&#x1F4D0; Architect &#x26A1; Backend &#x1F50D; Reviewer &#x1F6E1;&#xFE0F; Security</span>
       </div>
     </div>
 
@@ -1136,44 +1136,44 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
 
       <div class="participant-list" id="participant-list">
-        <!-- MacroEconomist -->
-        <div class="participant-card" data-agent="MacroEconomist">
-          <div class="p-icon">&#x1F4CA;</div>
+        <!-- ProductArchitect -->
+        <div class="participant-card" data-agent="ProductArchitect">
+          <div class="p-icon">&#x1F4D0;</div>
           <div class="p-details">
-            <span class="p-name">MacroEconomist</span>
-            <span class="p-role">Macro Strategist</span>
+            <span class="p-name">ProductArchitect</span>
+            <span class="p-role">API &amp; Schema Design</span>
           </div>
-          <div class="p-status-dot idle" id="dot-MacroEconomist"></div>
+          <div class="p-status-dot idle" id="dot-ProductArchitect"></div>
         </div>
 
-        <!-- SectorResearcher -->
-        <div class="participant-card" data-agent="SectorResearcher">
-          <div class="p-icon">&#x1F50D;</div>
-          <div class="p-details">
-            <span class="p-name">SectorResearcher</span>
-            <span class="p-role">Equity Screener</span>
-          </div>
-          <div class="p-status-dot idle" id="dot-SectorResearcher"></div>
-        </div>
-
-        <!-- RiskAuditor -->
-        <div class="participant-card" data-agent="RiskAuditor">
-          <div class="p-icon">&#x1F6E1;&#xFE0F;</div>
-          <div class="p-details">
-            <span class="p-name">RiskAuditor</span>
-            <span class="p-role">VaR &amp; Stress Auditor</span>
-          </div>
-          <div class="p-status-dot idle" id="dot-RiskAuditor"></div>
-        </div>
-
-        <!-- ExecutionTrader -->
-        <div class="participant-card" data-agent="ExecutionTrader">
+        <!-- BackendEngineer -->
+        <div class="participant-card" data-agent="BackendEngineer">
           <div class="p-icon">&#x26A1;</div>
           <div class="p-details">
-            <span class="p-name">ExecutionTrader</span>
-            <span class="p-role">Order Execution</span>
+            <span class="p-name">BackendEngineer</span>
+            <span class="p-role">FastAPI &amp; ORM Engine</span>
           </div>
-          <div class="p-status-dot idle" id="dot-ExecutionTrader"></div>
+          <div class="p-status-dot idle" id="dot-BackendEngineer"></div>
+        </div>
+
+        <!-- CodeReviewer -->
+        <div class="participant-card" data-agent="CodeReviewer">
+          <div class="p-icon">&#x1F50D;</div>
+          <div class="p-details">
+            <span class="p-name">CodeReviewer</span>
+            <span class="p-role">Architecture &amp; Quality</span>
+          </div>
+          <div class="p-status-dot idle" id="dot-CodeReviewer"></div>
+        </div>
+
+        <!-- QASecurityAuditor -->
+        <div class="participant-card" data-agent="QASecurityAuditor">
+          <div class="p-icon">&#x1F6E1;&#xFE0F;</div>
+          <div class="p-details">
+            <span class="p-name">QASecurityAuditor</span>
+            <span class="p-role">OWASP &amp; Fuzz Testing</span>
+          </div>
+          <div class="p-status-dot idle" id="dot-QASecurityAuditor"></div>
         </div>
       </div>
 
@@ -1210,7 +1210,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <div class="empty-icon">&#x1FA9E;</div>
           <div class="empty-title">Ready for Multi-Agent Stream</div>
           <div class="empty-desc">
-            Click <strong>[&#x25B6; Run Live Swarm Simulation]</strong> above to stream 5 sequential financial agent turns with zero-token loop interception, or stream live spans via <code>POST /api/v1/spans</code>.
+            Click <strong>[&#x25B6; Run Live Swarm Simulation]</strong> above to stream 5 sequential software engineering agent turns with zero-token loop interception, or stream live spans via <code>POST /api/v1/spans</code>.
           </div>
         </div>
       </div>
@@ -1328,10 +1328,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     // Agents Metadata
     const agentMeta = {
-      "MacroEconomist": { icon: "&#x1F4CA;", role: "Macro Strategist", color: "#38BDF8" },
-      "SectorResearcher": { icon: "&#x1F50D;", role: "Equity Screener", color: "#818CF8" },
-      "RiskAuditor": { icon: "&#x1F6E1;&#xFE0F;", role: "VaR Auditor", color: "#34D399" },
-      "ExecutionTrader": { icon: "&#x26A1;", role: "Order Execution", color: "#FBBF24" }
+      "ProductArchitect": { icon: "&#x1F4D0;", role: "Product Architect", color: "#38BDF8" },
+      "BackendEngineer": { icon: "&#x26A1;", role: "Backend Engineer", color: "#818CF8" },
+      "CodeReviewer": { icon: "&#x1F50D;", role: "Senior Reviewer", color: "#34D399" },
+      "QASecurityAuditor": { icon: "&#x1F6E1;&#xFE0F;", role: "QA & Security Auditor", color: "#FBBF24" }
     };
 
     // Sparkline Canvas
@@ -1658,7 +1658,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <div class="empty-state" id="stream-empty-state">
           <div class="empty-icon">&#x1FA9E;</div>
           <div class="empty-title">Stream Cleared</div>
-          <div class="empty-desc">Click <strong>[&#x25B6; Run Live Swarm Simulation]</strong> above to stream the financial intelligence scenario.</div>
+          <div class="empty-desc">Click <strong>[&#x25B6; Run Live Swarm Simulation]</strong> above to stream the autonomous software engineering scenario.</div>
         </div>
       `;
       updateMetrics();
@@ -1668,56 +1668,56 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     // Interactive Demo Simulation Script
     const demoTurns = [
       {
-        source_agent: "MacroEconomist",
-        target_agent: "SectorResearcher",
-        span_type: "macro_regime_eval",
+        source_agent: "ProductArchitect",
+        target_agent: "BackendEngineer",
+        span_type: "api_specification",
         duration_ms: 38.4,
         entropy_score: 0.98,
-        token_count: 312,
-        message: "Macro Regime Analysis: Yield curve steepening and AI capex expansion signal strong multi-quarter tailwinds. Recommending overweight exposure in high-gross-margin semiconductor infrastructure.",
-        tool_call: "macro_regime_eval(regime='expansion', confidence=0.92)",
-        input_payload: { focus: "Semiconductors & AI Hardware", indicators: ["10Y-2Y Yield Curve", "ISM PMI"] },
-        output_payload: { regime: "Expansion", thesis: "Overweight High-Margin Infrastructure", confidence: 0.92 }
+        token_count: 280,
+        message: "API Specification: Drafted OpenAPI v3 contract for `/api/v1/auth/tokens` with Argon2id password hashing, JWT claims, and Redis token-bucket rate limiting.",
+        tool_call: "spec_validator(contract='auth_v1', schema_hash='sha256:4a8f9b')",
+        input_payload: { feature: "OAuth2 Token Exchange", endpoints: ["/api/v1/auth/tokens"], rate_limit: "1200_rpm" },
+        output_payload: { status: "SPEC_APPROVED", schema_version: "v1.2.0", security_profile: "OAuth2_JWT" }
       },
       {
-        source_agent: "SectorResearcher",
-        target_agent: "RiskAuditor",
-        span_type: "equity_screen",
+        source_agent: "BackendEngineer",
+        target_agent: "CodeReviewer",
+        span_type: "code_implementation",
         duration_ms: 54.1,
-        entropy_score: 0.94,
-        token_count: 480,
-        message: "Screened 42 semiconductor equities. Filtered for Gross Margin > 65% and FCF Yield > 4%. Selected prime candidates: NVDA, MSFT, AVGO. Aggregated expected alpha: +19.4%.",
-        tool_call: "equity_screen(min_gross_margin=0.65, candidates=['NVDA', 'MSFT', 'AVGO'])",
-        input_payload: { sector: "Semiconductors", min_gross_margin: 0.65 },
-        output_payload: { candidates: ["NVDA", "MSFT", "AVGO"], expected_alpha: "+19.4%" }
+        entropy_score: 0.95,
+        token_count: 460,
+        message: "Implementation: Added async FastAPI token endpoint with atomic Redis pipeline. Unit tests pass with 98.4% statement coverage. Opened PR #412.",
+        tool_call: "git_commit_push(branch='feat/async-auth', pr=412, coverage=0.984)",
+        input_payload: { pr_title: "feat(auth): async token exchange pipeline", files: ["auth.py", "session.py"] },
+        output_payload: { pr_number: 412, lines_added: 84, linter_status: "PASSED" }
       },
       {
-        source_agent: "RiskAuditor",
-        target_agent: "ExecutionTrader",
-        span_type: "monte_carlo_stress_test",
+        source_agent: "CodeReviewer",
+        target_agent: "QASecurityAuditor",
+        span_type: "architecture_audit",
         duration_ms: 61.2,
-        entropy_score: 0.91,
-        token_count: 520,
-        message: "Stress Test & VaR Audit: Portfolio survived simulated 2008 liquidity crunch and +150bps Fed shock. Max projected drawdown 7.8% (limit: 10.0%), 99% 1-day VaR: 3.2%. Risk status: APPROVED for staggered VWAP accumulation.",
-        tool_call: "monte_carlo_var(simulations=10000, confidence=0.99, max_dd_limit=0.10)",
-        input_payload: { portfolio: ["NVDA", "MSFT", "AVGO"], shock_model: "2008 Liquidity Crunch" },
-        output_payload: { var_99: "3.2%", max_drawdown: "7.8%", verdict: "APPROVED" }
+        entropy_score: 0.92,
+        token_count: 390,
+        message: "Code Review: Zero Fowler code smells. Strict deep module boundaries verified. Connection pooling uses thread-local scopes. Approved for security fuzzing.",
+        tool_call: "ast_security_scan(target='packages/core', rules=['owasp-top10', 'leak-prevention'])",
+        input_payload: { pr_number: 412, smell_check: "Fowler_Clean", seams_verified: true },
+        output_payload: { review_status: "APPROVED", approved_by: "CodeReviewer" }
       },
       {
-        source_agent: "ExecutionTrader",
-        target_agent: "SectorResearcher",
-        span_type: "re_query_loop_1",
+        source_agent: "QASecurityAuditor",
+        target_agent: "BackendEngineer",
+        span_type: "schema_query_loop_1",
         duration_ms: 22.0,
         entropy_score: 0.68,
         token_count: 140,
-        message: "Please confirm candidate tickers again. Awaiting confirmation of candidate tickers.",
-        tool_call: "agent_ping(query='Please confirm candidate tickers again.')",
-        input_payload: { query: "Please confirm candidate tickers again." },
-        output_payload: { query: "Please confirm candidate tickers again." }
+        message: "Awaiting schema confirmation for auth_tokens. Please re-send auth_tokens schema definition.",
+        tool_call: "schema_fetch(table='auth_tokens', retry_count=1)",
+        input_payload: { query: "Please re-send auth_tokens schema definition." },
+        output_payload: { query: "Please re-send auth_tokens schema definition." }
       },
       {
-        source_agent: "SectorResearcher",
-        target_agent: "ExecutionTrader",
+        source_agent: "BackendEngineer",
+        target_agent: "QASecurityAuditor",
         span_type: "circuit_breaker_intercept",
         duration_ms: 0.8,
         entropy_score: 0.24,
