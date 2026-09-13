@@ -32,7 +32,7 @@ def main():
     if args.subcommand == "ui":
         url = f"http://{args.host}:{args.port}"
         print(f"\n\033[96m=====================================================\033[0m")
-        print(f"\033[92m👁️  Starting SwarmWatch Observability Dashboard\033[0m")
+        print(f"\033[92m[SwarmWatch] Starting Observability Dashboard\033[0m")
         print(f"\033[94m   URL: {url}\033[0m")
         print(f"\033[94m   Database: {args.db}\033[0m")
         print(f"\033[96m=====================================================\033[0m\n")

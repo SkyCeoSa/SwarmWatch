@@ -1140,7 +1140,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         document.getElementById('savingsTag').textContent = 'Arm Ready';
 
         document.getElementById('inspTurnId').textContent = 'None selected';
-        document.getElementById('inspPayload').textContent = '{\n  "status": "listening",\n  "transport": "WebSocket + SSE",\n  "protocol": "SwarmWatch v0.1.0"\n}';
+        document.getElementById('inspPayload').textContent = JSON.stringify({
+          status: "listening",
+          transport: "WebSocket + SSE",
+          protocol: "SwarmWatch v0.1.0"
+        }, null, 2);
       }
 
       function initWebSocket() {
