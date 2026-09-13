@@ -5,6 +5,7 @@ import gzip
 import json
 import os
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -62,27 +63,31 @@ class SQLiteStorageAdapter(StorageAdapter):
     """
     High-performance zero-docker local storage adapter.
     Enforces PRAGMA journal_mode=WAL and PRAGMA synchronous=NORMAL for concurrent async writes.
+    Uses thread-local connections to safely exploit SQLite WAL concurrency across worker threads.
     """
 
     def __init__(self, db_path: str = "swarmwatch.db"):
         self.db_path = db_path
-        self._conn: Optional[sqlite3.Connection] = None
+        self._local = threading.local()
         self._initialized = False
+        self._init_lock = threading.Lock()
 
     def _get_connection(self) -> sqlite3.Connection:
-        if self._conn is None:
-            self._conn = sqlite3.connect(
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            conn = sqlite3.connect(
                 self.db_path,
                 check_same_thread=False,
                 timeout=30.0
             )
-            self._conn.row_factory = sqlite3.Row
+            conn.row_factory = sqlite3.Row
             # Enable Foreign Keys and Performance Pragmas
-            self._conn.execute("PRAGMA foreign_keys = ON;")
-            self._conn.execute("PRAGMA journal_mode = WAL;")
-            self._conn.execute("PRAGMA synchronous = NORMAL;")
-            self._ensure_schema(self._conn)
-        return self._conn
+            conn.execute("PRAGMA foreign_keys = ON;")
+            conn.execute("PRAGMA journal_mode = WAL;")
+            conn.execute("PRAGMA synchronous = NORMAL;")
+            with self._init_lock:
+                self._ensure_schema(conn)
+            self._local.conn = conn
+        return self._local.conn
 
     def _ensure_schema(self, conn: sqlite3.Connection) -> None:
         if self._initialized:
@@ -305,9 +310,9 @@ class SQLiteStorageAdapter(StorageAdapter):
         return [r["branch_id"] for r in rows]
 
     def close_sync(self) -> None:
-        if self._conn:
-            self._conn.close()
-            self._conn = None
+        if hasattr(self._local, "conn") and self._local.conn:
+            self._local.conn.close()
+            self._local.conn = None
 
     async def close(self) -> None:
         self.close_sync()

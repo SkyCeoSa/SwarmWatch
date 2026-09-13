@@ -136,6 +136,30 @@ class TelemetryTransport:
             timeout = max(0.0, self.config.flush_interval_seconds - (time.monotonic() - last_flush_time))
             try:
                 item = self._queue.get(timeout=timeout)
+                if isinstance(item, tuple) and len(item) == 2 and item[0] == "__SWARMWATCH_FLUSH__":
+                    # Immediate explicit flush requested
+                    if batch:
+                        self._flush_batch(batch)
+                        batch = []
+                    # Drain any spans queued before or during this flush
+                    while not self._queue.empty():
+                        try:
+                            sub_item = self._queue.get_nowait()
+                            if isinstance(sub_item, tuple) and len(sub_item) == 2 and sub_item[0] == "__SWARMWATCH_FLUSH__":
+                                sub_item[1].set()
+                            else:
+                                batch.append(sub_item)
+                            self._queue.task_done()
+                        except queue.Empty:
+                            break
+                    if batch:
+                        self._flush_batch(batch)
+                        batch = []
+                    last_flush_time = time.monotonic()
+                    item[1].set()
+                    self._queue.task_done()
+                    continue
+
                 batch.append(item)
                 self._queue.task_done()
             except queue.Empty:
@@ -151,7 +175,10 @@ class TelemetryTransport:
         while not self._queue.empty():
             try:
                 item = self._queue.get_nowait()
-                batch.append(item)
+                if isinstance(item, tuple) and len(item) == 2 and item[0] == "__SWARMWATCH_FLUSH__":
+                    item[1].set()
+                else:
+                    batch.append(item)
                 self._queue.task_done()
             except queue.Empty:
                 break
@@ -162,21 +189,31 @@ class TelemetryTransport:
         if self._loop and not self._loop.is_closed():
             self._loop.close()
 
-    def flush(self) -> None:
+    def flush(self, timeout: float = 2.0) -> None:
         """
-        Synchronously flushes all pending spans currently in the queue.
+        Synchronously flushes all pending spans currently in the queue and worker batch.
         """
-        batch: List[SwarmSpan] = []
-        while not self._queue.empty():
-            try:
-                item = self._queue.get_nowait()
-                batch.append(item)
-                self._queue.task_done()
-            except queue.Empty:
-                break
+        with self._lock:
+            worker_alive = self._worker_thread is not None and self._worker_thread.is_alive()
 
-        if batch:
-            self._flush_batch(batch)
+        if worker_alive:
+            flush_done = threading.Event()
+            self._queue.put(("__SWARMWATCH_FLUSH__", flush_done))
+            flush_done.wait(timeout=timeout)
+        else:
+            batch: List[SwarmSpan] = []
+            while not self._queue.empty():
+                try:
+                    item = self._queue.get_nowait()
+                    if isinstance(item, tuple) and len(item) == 2 and item[0] == "__SWARMWATCH_FLUSH__":
+                        item[1].set()
+                    else:
+                        batch.append(item)
+                    self._queue.task_done()
+                except queue.Empty:
+                    break
+            if batch:
+                self._flush_batch(batch)
 
     def shutdown(self, timeout: float = 2.0) -> None:
         """

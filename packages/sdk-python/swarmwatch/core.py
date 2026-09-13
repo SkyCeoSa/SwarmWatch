@@ -92,7 +92,8 @@ class SpanContext:
 
         self.span.end_time = end_time
         self.span.duration_ms = duration_ms
-        self.span.output_payload = self.output_payload
+        if self.output_payload:
+            self.span.output_payload.update(self.output_payload)
 
         # Emit to non-blocking transport queue
         self.client.transport.emit_span(self.span)
