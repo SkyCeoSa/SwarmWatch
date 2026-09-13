@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import abc
+import asyncio
 import gzip
 import json
 import os
@@ -66,6 +67,7 @@ class SQLiteStorageAdapter(StorageAdapter):
     def __init__(self, db_path: str = "swarmwatch.db"):
         self.db_path = db_path
         self._conn: Optional[sqlite3.Connection] = None
+        self._initialized = False
 
     def _get_connection(self) -> sqlite3.Connection:
         if self._conn is None:
@@ -79,16 +81,12 @@ class SQLiteStorageAdapter(StorageAdapter):
             self._conn.execute("PRAGMA foreign_keys = ON;")
             self._conn.execute("PRAGMA journal_mode = WAL;")
             self._conn.execute("PRAGMA synchronous = NORMAL;")
+            self._ensure_schema(self._conn)
         return self._conn
 
-    async def get_journal_mode(self) -> str:
-        conn = self._get_connection()
-        cursor = conn.execute("PRAGMA journal_mode;")
-        row = cursor.fetchone()
-        return row[0] if row else "unknown"
-
-    async def initialize(self) -> None:
-        conn = self._get_connection()
+    def _ensure_schema(self, conn: sqlite3.Connection) -> None:
+        if self._initialized:
+            return
         with conn:
             conn.executescript("""
                 CREATE TABLE IF NOT EXISTS swarms (
@@ -138,9 +136,22 @@ class SQLiteStorageAdapter(StorageAdapter):
                     metric_val REAL NOT NULL,
                     created_at TIMESTAMP NOT NULL
                 );
-            """)
 
-    async def save_spans(self, spans: List[SwarmSpan]) -> None:
+                CREATE INDEX IF NOT EXISTS idx_circuit_events_swarm ON circuit_events(swarm_id, created_at);
+            """)
+        self._initialized = True
+
+    async def get_journal_mode(self) -> str:
+        conn = self._get_connection()
+        cursor = conn.execute("PRAGMA journal_mode;")
+        row = cursor.fetchone()
+        return row[0] if row else "unknown"
+
+    async def initialize(self) -> None:
+        conn = self._get_connection()
+        self._ensure_schema(conn)
+
+    def save_spans_sync(self, spans: List[SwarmSpan]) -> None:
         if not spans:
             return
         conn = self._get_connection()
@@ -172,7 +183,10 @@ class SQLiteStorageAdapter(StorageAdapter):
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, records)
 
-    async def get_swarm_spans(self, swarm_id: str, branch_id: str = "main") -> List[SwarmSpan]:
+    async def save_spans(self, spans: List[SwarmSpan]) -> None:
+        self.save_spans_sync(spans)
+
+    def query_spans(self, swarm_id: str, branch_id: str = "main") -> List[SwarmSpan]:
         conn = self._get_connection()
         cursor = conn.execute("""
             SELECT * FROM spans
@@ -200,10 +214,15 @@ class SQLiteStorageAdapter(StorageAdapter):
             ))
         return spans
 
+    async def get_swarm_spans(self, swarm_id: str, branch_id: str = "main") -> List[SwarmSpan]:
+        return self.query_spans(swarm_id=swarm_id, branch_id=branch_id)
+
     async def save_snapshot(self, snapshot: StateSnapshot) -> None:
         conn = self._get_connection()
-        serialized = json.dumps(snapshot.state_data).encode("utf-8")
-        compressed = gzip.compress(serialized)
+        # Compress state payload using gzip
+        raw_json = json.dumps(snapshot.state_data).encode("utf-8")
+        compressed_bytes = gzip.compress(raw_json)
+
         with conn:
             conn.execute("""
                 INSERT OR REPLACE INTO snapshots (
@@ -214,28 +233,28 @@ class SQLiteStorageAdapter(StorageAdapter):
                 snapshot.span_id,
                 snapshot.branch_id,
                 snapshot.state_hash,
-                compressed,
+                compressed_bytes,
                 snapshot.created_at.isoformat()
             ))
 
     async def get_snapshot(self, span_id: str) -> Optional[StateSnapshot]:
         conn = self._get_connection()
         cursor = conn.execute("""
-            SELECT id, span_id, branch_id, state_hash, state_data_compressed, created_at
-            FROM snapshots
-            WHERE span_id = ?
+            SELECT * FROM snapshots WHERE span_id = ?
         """, (span_id,))
         row = cursor.fetchone()
         if not row:
             return None
-        decompressed = gzip.decompress(row["state_data_compressed"]).decode("utf-8")
-        data = json.loads(decompressed)
+
+        decompressed_json = gzip.decompress(row["state_data_compressed"]).decode("utf-8")
+        state_data = json.loads(decompressed_json)
+
         return StateSnapshot(
             id=row["id"],
             span_id=row["span_id"],
             branch_id=row["branch_id"],
             state_hash=row["state_hash"],
-            state_data=data,
+            state_data=state_data,
             created_at=datetime.fromisoformat(row["created_at"])
         )
 
@@ -264,7 +283,10 @@ class SQLiteStorageAdapter(StorageAdapter):
         rows = cursor.fetchall()
         return [r["branch_id"] for r in rows]
 
-    async def close(self) -> None:
+    def close_sync(self) -> None:
         if self._conn:
             self._conn.close()
             self._conn = None
+
+    async def close(self) -> None:
+        self.close_sync()

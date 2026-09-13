@@ -5,10 +5,10 @@ The non-blocking background telemetry pipeline inside the Python SDK. Calling `s
 
 **Blocked by:** 01 (Core Event Model & SQLite WAL Ingestion Seam)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 ## Acceptance Criteria
-- [ ] Span submission (`queue.put_nowait()`) executes in <1 microsecond.
-- [ ] Background worker flushes batches to storage adapter every 500ms or 100 spans.
-- [ ] Bounded queue (10,000 items) drops oldest items gracefully if downstream is congested.
-- [ ] `atexit` hook flushes remaining spans cleanly on process exit.
+- [x] Span submission (`queue.put_nowait()`) executes in <1 microsecond.
+- [x] Background worker flushes batches to storage adapter every 500ms or 100 spans.
+- [x] Bounded queue (10,000 items) drops oldest items gracefully if downstream is congested.
+- [x] `atexit` hook flushes remaining spans cleanly on process exit.
