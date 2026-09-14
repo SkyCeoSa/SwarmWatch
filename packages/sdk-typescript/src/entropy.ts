@@ -14,7 +14,7 @@ export function computeShannonEntropy(text: string): number {
     return 1.0;
   }
 
-  const tokens = text.toLowerCase().match(/\b\w+\b/g) || [];
+  const tokens = text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
   const n = tokens.length;
   if (n <= 1) {
     return 1.0;
@@ -48,8 +48,8 @@ export function computeLexicalSimilarity(textA: string, textB: string): number {
   if (!textA && !textB) return 1.0;
   if (!textA || !textB) return 0.0;
 
-  const tokensA = new Set(textA.toLowerCase().match(/\b\w+\b/g) || []);
-  const tokensB = new Set(textB.toLowerCase().match(/\b\w+\b/g) || []);
+  const tokensA = new Set(textA.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+  const tokensB = new Set(textB.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
 
   if (tokensA.size === 0 && tokensB.size === 0) return 1.0;
   if (tokensA.size === 0 || tokensB.size === 0) return 0.0;

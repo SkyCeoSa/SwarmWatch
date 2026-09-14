@@ -6,7 +6,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "test": "node --experimental-strip-types --test tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js"
+    "test": "node --experimental-strip-types --test tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js tests/multilingual_stress.test.js"
   },
   "keywords": [
     "swarmwatch",

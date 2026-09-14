@@ -8,7 +8,7 @@
     "packages/sdk-typescript"
   ],
   "scripts": {
-    "test:ts": "node --experimental-strip-types --test packages/sdk-typescript/tests/entropy_circuit.test.js packages/sdk-typescript/tests/client_transport.test.js packages/sdk-typescript/tests/otel_adapters.test.js",
+    "test:ts": "node --experimental-strip-types --test packages/sdk-typescript/tests/entropy_circuit.test.js packages/sdk-typescript/tests/client_transport.test.js packages/sdk-typescript/tests/otel_adapters.test.js packages/sdk-typescript/tests/multilingual_stress.test.js",
     "test:py": "powershell -Command \".venv\\Scripts\\pytest.exe packages/sdk-python/tests/\"",
     "test:all": "npm run test:ts ; npm run test:py",
     "simulate": "powershell -Command \".venv\\Scripts\\python.exe examples/simulate.py\"",

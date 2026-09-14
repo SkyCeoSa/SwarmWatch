@@ -166,7 +166,7 @@ export class EntropyCircuitBreaker {
     }
 
     // 1. Track turn count and token usage
-    const tokens = message.toLowerCase().match(/\b\w+\b/g) || [];
+    const tokens = message.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
     const effective_tokens = token_count ?? tokens.length;
     this.turn_count += 1;
     this.cumulative_tokens += effective_tokens;
