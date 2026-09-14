@@ -506,11 +506,21 @@
         <span id="runtimeText">Runtime Active</span>
       </div>
       <div class="branch-tag">
+        <span>project:</span>
+        <select id="projectSelector" style="background: transparent; color: var(--accent); border: 1px solid var(--border-subtle); border-radius: 3px; padding: 2px 6px; font-family: var(--font-mono); font-size: 11px; cursor: pointer; outline: none;">
+          <option value="default-project" style="background: var(--bg-surface); color: var(--text-primary);">default-project</option>
+        </select>
+      </div>
+      <div class="branch-tag">
         <span>branch:</span>
         <span class="branch-name" id="branchLabel">main</span>
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn-action btn-secondary" id="btnApiKeys">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <span>API Keys</span>
+      </button>
       <button class="btn-action btn-primary" id="btnSimulate">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>
         <span>Run Swarm Simulation</span>
@@ -1067,8 +1077,157 @@
         });
       }
 
+      // Multi-Tenant Project & API Key Management
+      var projectSelector = document.getElementById('projectSelector');
+      var apiKeyModal = document.getElementById('apiKeyModal');
+      var btnApiKeys = document.getElementById('btnApiKeys');
+      var btnCloseApiKeys = document.getElementById('btnCloseApiKeys');
+      var btnGenerateKey = document.getElementById('btnGenerateKey');
+      var newKeyName = document.getElementById('newKeyName');
+      var newKeyBanner = document.getElementById('newKeyBanner');
+      var newKeySecret = document.getElementById('newKeySecret');
+      var apiKeysTableBody = document.getElementById('apiKeysTableBody');
+
+      async function loadProjects() {
+        try {
+          var res = await fetch('/api/v1/projects');
+          if (res.ok) {
+            var projects = await res.json();
+            if (projects && projects.length > 0) {
+              projectSelector.innerHTML = '';
+              projects.forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name + ' (' + p.slug + ')';
+                opt.style.background = 'var(--bg-surface)';
+                opt.style.color = 'var(--text-primary)';
+                projectSelector.appendChild(opt);
+              });
+            }
+          }
+        } catch(e) {}
+      }
+
+      async function loadApiKeys() {
+        try {
+          var currentProj = projectSelector ? projectSelector.value : 'default-project';
+          var res = await fetch('/api/v1/keys?project_id=' + encodeURIComponent(currentProj));
+          if (res.ok) {
+            var keys = await res.json();
+            if (keys && keys.length > 0) {
+              apiKeysTableBody.innerHTML = '';
+              keys.forEach(function(k) {
+                var tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border-subtle)';
+                var scopesText = Array.isArray(k.scopes) ? k.scopes.join(', ') : 'telemetry:write';
+                tr.innerHTML = '<td style="padding: 8px 12px; font-weight: 500;">' + (k.name || 'Key') + '</td>' +
+                  '<td style="padding: 8px 12px; font-family: var(--font-mono); color: var(--accent);">' + k.key_prefix + '</td>' +
+                  '<td style="padding: 8px 12px; color: var(--text-secondary); font-size: 11px;">' + scopesText + '</td>' +
+                  '<td style="padding: 8px 12px; text-align: right;">' +
+                    (k.is_active ? '<button data-revoke-id="' + k.id + '" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--danger); border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer;">Revoke</button>' : '<span style="color: var(--text-muted); font-size: 11px;">Revoked</span>') +
+                  '</td>';
+                apiKeysTableBody.appendChild(tr);
+              });
+              apiKeysTableBody.querySelectorAll('button[data-revoke-id]').forEach(function(btn) {
+                btn.addEventListener('click', async function() {
+                  var id = this.getAttribute('data-revoke-id');
+                  if (confirm('Revoke this API Key permanently?')) {
+                    var delRes = await fetch('/api/v1/keys/' + id, { method: 'DELETE' });
+                    if (delRes.ok) {
+                      loadApiKeys();
+                    }
+                  }
+                });
+              });
+            } else {
+              apiKeysTableBody.innerHTML = '<tr><td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No active API keys found for this project.</td></tr>';
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (btnApiKeys) {
+        btnApiKeys.addEventListener('click', function() {
+          apiKeyModal.style.display = 'flex';
+          newKeyBanner.style.display = 'none';
+          loadApiKeys();
+        });
+      }
+      if (btnCloseApiKeys) {
+        btnCloseApiKeys.addEventListener('click', function() {
+          apiKeyModal.style.display = 'none';
+        });
+      }
+      if (btnGenerateKey) {
+        btnGenerateKey.addEventListener('click', async function() {
+          var name = newKeyName.value.trim() || 'API Key';
+          var currentProj = projectSelector ? projectSelector.value : 'default-project';
+          try {
+            var res = await fetch('/api/v1/keys', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                project_id: currentProj,
+                name: name,
+                scopes: ['telemetry:write', 'telemetry:read']
+              })
+            });
+            if (res.ok) {
+              var data = await res.json();
+              newKeySecret.textContent = data.api_key;
+              newKeyBanner.style.display = 'block';
+              newKeyName.value = '';
+              loadApiKeys();
+            }
+          } catch(e) {}
+        });
+      }
+
+      loadProjects();
+
       initWebSocket();
     })();
   </script>
+
+  <!-- Cryptographic API Key Management Modal -->
+  <div id="apiKeyModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.85); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 6px; width: 620px; max-width: 90vw; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">Cryptographic API Keys</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Scoped credentials for telemetry ingestion and remote query access</div>
+        </div>
+        <button id="btnCloseApiKeys" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Close</button>
+      </div>
+      
+      <div id="newKeyBanner" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px solid var(--success); border-radius: 4px; padding: 10px 14px;">
+        <div style="font-size: 11px; color: var(--success); font-weight: 600; margin-bottom: 4px;">KEY GENERATED - COPY NOW (DISPLAYED ONLY ONCE)</div>
+        <div id="newKeySecret" style="font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); user-select: all; word-break: break-all;"></div>
+      </div>
+
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="newKeyName" placeholder="Key name (e.g. Production Cluster)" style="flex: 1; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 12px; outline: none;">
+        <button id="btnGenerateKey" class="btn-action btn-primary" style="height: 30px; padding: 0 12px;">Generate Key</button>
+      </div>
+
+      <div style="border: 1px solid var(--border-subtle); border-radius: 4px; overflow: hidden; background: var(--bg-canvas);">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 11px; text-transform: uppercase;">
+              <th style="padding: 8px 12px;">Name</th>
+              <th style="padding: 8px 12px;">Prefix</th>
+              <th style="padding: 8px 12px;">Scopes</th>
+              <th style="padding: 8px 12px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="apiKeysTableBody">
+            <tr>
+              <td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No active API keys found for this project.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

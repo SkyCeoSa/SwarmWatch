@@ -10,13 +10,14 @@ import json
 import logging
 import os
 from typing import Dict, List, Optional, Set
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from swarmwatch.schema import SwarmSpan, StateSnapshot
 from swarmwatch.storage import StorageAdapter, SQLiteStorageAdapter
 from swarmwatch.serializer import TimeMachine
+from swarmwatch.tenant import Organization, Project, ApiKey, TenantContext, ApiKeyManager
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
     CircuitPolicy,
@@ -59,6 +60,19 @@ class ForkRequest(BaseModel):
     swarm_id: str = Field(default="swarm-live-01")
     target_span_id: str
     new_branch_id: str = Field(default="fork-01")
+
+
+class CreateProjectRequest(BaseModel):
+    name: str
+    slug: str
+    org_id: Optional[str] = "default-org"
+
+
+class CreateApiKeyRequest(BaseModel):
+    project_id: str
+    name: str = "Default API Key"
+    is_test: bool = False
+    scopes: Optional[List[str]] = None
 
 
 async def run_swarm_simulation(
@@ -1247,6 +1261,53 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
     ws_manager = WebSocketManager()
     time_machine = TimeMachine(storage=active_storage)
     active_policy = CircuitPolicy.from_preset(CircuitPreset.BALANCED)
+    api_key_manager = ApiKeyManager()
+
+    async def get_tenant_context(
+        authorization: Optional[str] = Header(default=None),
+        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        project_id: Optional[str] = Query(default=None),
+    ) -> TenantContext:
+        raw_key = None
+        if authorization:
+            if authorization.startswith("Bearer "):
+                raw_key = authorization[7:].strip()
+            else:
+                raw_key = authorization.strip()
+        elif x_api_key:
+            raw_key = x_api_key.strip()
+
+        if raw_key:
+            key_record = api_key_manager.verify_raw_key(raw_key)
+            if not key_record:
+                key_hash = ApiKeyManager.hash_key(raw_key)
+                key_record = await active_storage.get_api_key_by_hash(key_hash)
+                if key_record:
+                    api_key_manager.register_in_cache(key_record)
+
+            if not key_record or not key_record.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or revoked API key"
+                )
+
+            proj = await active_storage.get_project(key_record.project_id)
+            org_id = proj.org_id if proj else "default-org"
+            return TenantContext(
+                org_id=org_id,
+                project_id=key_record.project_id,
+                key_id=key_record.id,
+                scopes=key_record.scopes,
+            )
+
+        # Fallback for single-tenant local operation
+        target_proj = project_id or "default-project"
+        return TenantContext(
+            org_id="default-org",
+            project_id=target_proj,
+            key_id=None,
+            scopes=["*"],
+        )
 
     @app.get("/health")
     async def health():
@@ -1273,6 +1334,89 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
             "dollars_saved": 4.83,
         }
 
+    # Multi-Tenant Control Plane Endpoints
+    @app.get("/api/v1/organizations")
+    async def list_organizations_endpoint():
+        return await active_storage.list_organizations()
+
+    @app.post("/api/v1/projects")
+    async def create_project_endpoint(
+        req: CreateProjectRequest,
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        proj = Project(
+            org_id=req.org_id or tenant.org_id,
+            name=req.name,
+            slug=req.slug,
+        )
+        created = await active_storage.create_project(proj)
+        return created.model_dump(mode="json")
+
+    @app.get("/api/v1/projects")
+    async def list_projects_endpoint(
+        org_id: Optional[str] = Query(default=None),
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        target_org = org_id or tenant.org_id
+        projects = await active_storage.list_projects(org_id=target_org)
+        return [p.model_dump(mode="json") for p in projects]
+
+    @app.post("/api/v1/keys")
+    async def create_api_key_endpoint(
+        req: CreateApiKeyRequest,
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        raw_key, api_key = api_key_manager.create_api_key_record(
+            project_id=req.project_id,
+            name=req.name,
+            is_test=req.is_test,
+            scopes=req.scopes,
+        )
+        await active_storage.save_api_key(api_key)
+        return {
+            "id": api_key.id,
+            "project_id": api_key.project_id,
+            "name": api_key.name,
+            "api_key": raw_key,
+            "key_prefix": api_key.key_prefix,
+            "scopes": api_key.scopes,
+            "created_at": api_key.created_at.isoformat(),
+        }
+
+    @app.get("/api/v1/keys")
+    async def list_api_keys_endpoint(
+        project_id: Optional[str] = Query(default=None),
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        target_proj = project_id or tenant.project_id
+        keys = await active_storage.list_api_keys(target_proj)
+        return [
+            {
+                "id": k.id,
+                "project_id": k.project_id,
+                "name": k.name,
+                "key_prefix": k.key_prefix,
+                "scopes": k.scopes,
+                "created_at": k.created_at.isoformat(),
+                "is_active": k.is_active,
+            }
+            for k in keys
+        ]
+
+    @app.delete("/api/v1/keys/{key_id}")
+    async def revoke_api_key_endpoint(
+        key_id: str,
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        success = await active_storage.revoke_api_key(key_id)
+        api_key_manager.clear_cache()
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="API Key not found or already revoked"
+            )
+        return {"status": "revoked", "key_id": key_id}
+
     @app.get("/", response_class=HTMLResponse)
     @app.get("/ui", response_class=HTMLResponse)
     async def dashboard_ui():
@@ -1286,22 +1430,39 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
         return DASHBOARD_HTML
 
     @app.post("/api/v1/spans")
-    async def ingest_spans(spans: List[SwarmSpan]):
+    async def ingest_spans(
+        spans: List[SwarmSpan],
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        for s in spans:
+            if not getattr(s, "project_id", None) or s.project_id == "default-project":
+                s.project_id = tenant.project_id
         await active_storage.save_spans(spans)
         for s in spans:
             await ws_manager.broadcast(s.swarm_id, {
                 "type": "span_update",
                 "span": s.model_dump(mode="json"),
             })
-        return {"received": len(spans), "status": "persisted"}
+        return {"received": len(spans), "status": "persisted", "project_id": tenant.project_id}
 
     @app.get("/api/v1/swarms/{swarm_id}/spans")
-    async def get_spans(swarm_id: str, branch_id: str = Query(default="main")):
-        return await active_storage.get_swarm_spans(swarm_id, branch_id=branch_id)
+    async def get_spans(
+        swarm_id: str,
+        branch_id: str = Query(default="main"),
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        return await active_storage.get_swarm_spans(
+            swarm_id,
+            branch_id=branch_id,
+            project_id=tenant.project_id
+        )
 
     @app.get("/api/v1/swarms/{swarm_id}/branches")
-    async def get_branches(swarm_id: str):
-        return await active_storage.list_branches(swarm_id)
+    async def get_branches(
+        swarm_id: str,
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        return await active_storage.list_branches(swarm_id, project_id=tenant.project_id)
 
     @app.get("/api/v1/snapshots/{span_id}")
     async def get_snapshot(span_id: str):

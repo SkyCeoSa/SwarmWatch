@@ -35,6 +35,19 @@ from swarmwatch.circuit import (
     compute_lexical_similarity,
 )
 
+from swarmwatch.tenant import (
+    Organization,
+    Project,
+    ApiKey,
+    TenantContext,
+    ApiKeyManager,
+)
+from swarmwatch.fleet import (
+    FleetCircuitCoordinator,
+    FleetMetrics,
+    FleetEvent,
+)
+
 __all__ = [
     "SwarmSpan",
     "StateSnapshot",
@@ -68,4 +81,12 @@ __all__ = [
     "flush",
     "shutdown",
     "record_circuit_event",
+    "Organization",
+    "Project",
+    "ApiKey",
+    "TenantContext",
+    "ApiKeyManager",
+    "FleetCircuitCoordinator",
+    "FleetMetrics",
+    "FleetEvent",
 ]

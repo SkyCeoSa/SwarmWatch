@@ -103,7 +103,7 @@ class SwarmCircuitBreakException(Exception):
     def __init__(
         self,
         reason: str,
-        metric_val: float,
+        metric_val: float = 0.0,
         agent_id: str = "agent",
         swarm_id: str = "swarm",
         savings: Optional[CounterfactualSavings] = None,

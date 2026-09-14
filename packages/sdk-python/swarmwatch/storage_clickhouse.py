@@ -16,6 +16,7 @@ import urllib.parse
 
 from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent
 from swarmwatch.storage import StorageAdapter
+from swarmwatch.tenant import Organization, Project, ApiKey
 
 logger = logging.getLogger("swarmwatch.storage.clickhouse")
 
@@ -52,6 +53,13 @@ class ClickHouseStorageAdapter(StorageAdapter):
         self._mock_spans: Dict[str, SwarmSpan] = {}
         self._mock_snapshots: Dict[str, StateSnapshot] = {}
         self._mock_events: List[CircuitEvent] = []
+        self._mock_orgs: Dict[str, Organization] = {
+            "default-org": Organization(id="default-org", name="Default Organization", slug="default-org")
+        }
+        self._mock_projects: Dict[str, Project] = {
+            "default-project": Project(id="default-project", org_id="default-org", name="Default Project", slug="default-project")
+        }
+        self._mock_keys: Dict[str, ApiKey] = {}
 
         protocol = "https" if self.secure else "http"
         self._base_url = f"{protocol}://{self.host}:{self.port}"
@@ -227,7 +235,12 @@ class ClickHouseStorageAdapter(StorageAdapter):
             ))
         return spans
 
-    async def get_swarm_spans(self, swarm_id: str, branch_id: str = "main") -> List[SwarmSpan]:
+    async def get_swarm_spans(
+        self,
+        swarm_id: str,
+        branch_id: str = "main",
+        project_id: Optional[str] = None
+    ) -> List[SwarmSpan]:
         return await asyncio.to_thread(self.get_swarm_spans_sync, swarm_id, branch_id)
 
     def save_snapshot_sync(self, snapshot: StateSnapshot) -> None:
@@ -350,14 +363,63 @@ class ClickHouseStorageAdapter(StorageAdapter):
             branches.append(r["branch_id"])
         return branches
 
-    async def list_branches(self, swarm_id: str) -> List[str]:
+    async def list_branches(self, swarm_id: str, project_id: Optional[str] = None) -> List[str]:
         return await asyncio.to_thread(self.list_branches_sync, swarm_id)
+
+    # Multi-Tenant CRUD implementations (Mock & Cloud Support)
+    async def create_organization(self, org: Organization) -> Organization:
+        self._mock_orgs[org.id] = org
+        return org
+
+    async def get_organization(self, org_id: str) -> Optional[Organization]:
+        for org in self._mock_orgs.values():
+            if org.id == org_id or org.slug == org_id:
+                return org
+        return None
+
+    async def list_organizations(self) -> List[Organization]:
+        return list(self._mock_orgs.values())
+
+    async def create_project(self, project: Project) -> Project:
+        self._mock_projects[project.id] = project
+        return project
+
+    async def get_project(self, project_id: str) -> Optional[Project]:
+        for p in self._mock_projects.values():
+            if p.id == project_id or p.slug == project_id:
+                return p
+        return None
+
+    async def list_projects(self, org_id: Optional[str] = None) -> List[Project]:
+        if org_id:
+            return [p for p in self._mock_projects.values() if p.org_id == org_id]
+        return list(self._mock_projects.values())
+
+    async def save_api_key(self, api_key: ApiKey) -> None:
+        self._mock_keys[api_key.key_hash] = api_key
+
+    async def get_api_key_by_hash(self, key_hash: str) -> Optional[ApiKey]:
+        key = self._mock_keys.get(key_hash)
+        if key and key.is_active:
+            return key
+        return None
+
+    async def list_api_keys(self, project_id: str) -> List[ApiKey]:
+        return [k for k in self._mock_keys.values() if k.project_id == project_id]
+
+    async def revoke_api_key(self, key_id: str) -> bool:
+        for k in self._mock_keys.values():
+            if k.id == key_id and k.is_active:
+                k.revoked_at = datetime.now(timezone.utc)
+                return True
+        return False
 
     def close_sync(self) -> None:
         if self.use_mock:
             self._mock_spans.clear()
             self._mock_snapshots.clear()
             self._mock_events.clear()
+            self._mock_keys.clear()
 
     async def close(self) -> None:
         await asyncio.to_thread(self.close_sync)

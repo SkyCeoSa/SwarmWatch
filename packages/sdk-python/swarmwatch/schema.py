@@ -11,6 +11,7 @@ class SwarmSpan(BaseModel):
     """
     id: str
     swarm_id: str
+    project_id: str = "default-project"
     branch_id: str = "main"
     parent_span_id: Optional[str] = None
     source_agent: str
@@ -40,6 +41,7 @@ class SwarmSpan(BaseModel):
             "end_time_unix_nano": int(self.end_time.timestamp() * 1e9),
             "attributes": {
                 "gen_ai.system": "swarmwatch",
+                "gen_ai.swarmwatch.project_id": self.project_id,
                 "gen_ai.swarmwatch.branch_id": self.branch_id,
                 "gen_ai.swarmwatch.source_agent": self.source_agent,
                 "gen_ai.swarmwatch.target_agent": self.target_agent,
@@ -57,6 +59,7 @@ class StateSnapshot(BaseModel):
     """
     id: str
     span_id: str
+    project_id: str = "default-project"
     branch_id: str = "main"
     state_hash: str
     state_data: Dict[str, Any] = Field(default_factory=dict)
@@ -81,6 +84,7 @@ class CircuitEvent(BaseModel):
     """
     id: str
     swarm_id: str
+    project_id: str = "default-project"
     span_id: Optional[str] = None
     event_type: str = "warning"  # "warning" | "trip"
     reason: str
