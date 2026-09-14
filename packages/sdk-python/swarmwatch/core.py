@@ -12,12 +12,13 @@ import functools
 import inspect
 import time
 import traceback
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 import uuid
 
-from swarmwatch.schema import SwarmSpan
+from swarmwatch.schema import SwarmSpan, CircuitEvent
 from swarmwatch.storage import SQLiteStorageAdapter, StorageAdapter
 from swarmwatch.transport import TelemetryTransport, TransportConfig
+from swarmwatch.webhooks import WebhookConfig, WebhookNotifier
 
 current_span_var: contextvars.ContextVar[Optional[SwarmSpan]] = contextvars.ContextVar(
     "swarmwatch_current_span", default=None
@@ -120,12 +121,23 @@ class SwarmClient:
         swarm_id: str = "default-swarm",
         storage: Optional[StorageAdapter] = None,
         transport_config: Optional[TransportConfig] = None,
+        webhooks: Optional[List[WebhookConfig]] = None,
         db_path: str = "swarmwatch.db",
     ):
         self.swarm_id = swarm_id
         self.storage = storage or SQLiteStorageAdapter(db_path=db_path)
         self.transport = TelemetryTransport(storage=self.storage, config=transport_config)
         self.transport.start()
+        self.webhooks = webhooks or []
+        self.webhook_notifier = WebhookNotifier(configs=self.webhooks) if self.webhooks else None
+        if self.webhook_notifier:
+            self.webhook_notifier.start()
+
+    def record_circuit_event(self, event: CircuitEvent) -> None:
+        """Records a circuit event in storage and dispatches to enterprise webhooks."""
+        self.transport._call_storage("record_circuit_event", event)
+        if self.webhook_notifier:
+            self.webhook_notifier.notify(event)
 
     def span(
         self,
@@ -239,6 +251,8 @@ class SwarmClient:
         self.transport.flush()
 
     def shutdown(self) -> None:
+        if self.webhook_notifier:
+            self.webhook_notifier.shutdown()
         self.transport.shutdown()
         if hasattr(type(self.storage), "close_sync"):
             self.storage.close_sync()
@@ -252,6 +266,7 @@ def init(
     swarm_id: str = "default-swarm",
     storage: Optional[StorageAdapter] = None,
     transport_config: Optional[TransportConfig] = None,
+    webhooks: Optional[List[WebhookConfig]] = None,
     db_path: str = "swarmwatch.db",
 ) -> SwarmClient:
     global _global_client
@@ -261,6 +276,7 @@ def init(
         swarm_id=swarm_id,
         storage=storage,
         transport_config=transport_config,
+        webhooks=webhooks,
         db_path=db_path,
     )
     return _global_client
@@ -271,6 +287,10 @@ def get_client() -> SwarmClient:
     if _global_client is None:
         _global_client = init()
     return _global_client
+
+
+def record_circuit_event(event: CircuitEvent) -> None:
+    get_client().record_circuit_event(event)
 
 
 def span(

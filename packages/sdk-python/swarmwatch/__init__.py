@@ -3,9 +3,10 @@
 SwarmWatch: Universal Observability, Entropy Circuit Breaker & Time-Machine Debugging for Multi-Agent Systems.
 """
 
-from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent
-from swarmwatch.storage import StorageAdapter, SQLiteStorageAdapter
+from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent, CounterfactualSavings
+from swarmwatch.storage import StorageAdapter, SQLiteStorageAdapter, ClickHouseStorageAdapter
 from swarmwatch.transport import TelemetryTransport, TransportConfig
+from swarmwatch.webhooks import WebhookConfig, WebhookNotifier
 from swarmwatch.core import (
     SwarmClient,
     SpanContext,
@@ -16,6 +17,7 @@ from swarmwatch.core import (
     flush,
     shutdown,
     sync_state,
+    record_circuit_event,
 )
 from swarmwatch.serializer import (
     SafeStateSerializer,
@@ -36,10 +38,14 @@ __all__ = [
     "SwarmSpan",
     "StateSnapshot",
     "CircuitEvent",
+    "CounterfactualSavings",
     "StorageAdapter",
     "SQLiteStorageAdapter",
+    "ClickHouseStorageAdapter",
     "TelemetryTransport",
     "TransportConfig",
+    "WebhookConfig",
+    "WebhookNotifier",
     "SwarmClient",
     "SpanContext",
     "EntropyCircuitBreaker",
@@ -58,4 +64,5 @@ __all__ = [
     "span",
     "flush",
     "shutdown",
+    "record_circuit_event",
 ]

@@ -63,6 +63,18 @@ class StateSnapshot(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class CounterfactualSavings(BaseModel):
+    """
+    Counterfactual computation of prevented token burn and dollar spend
+    derived from early circuit breaker intervention (ADR 0006).
+    """
+    tokens_saved: int = 0
+    dollars_saved: float = 0.0
+    turns_averted: int = 0
+    budget_consumed: float = 0.0
+    budget_protected: float = 0.0
+
+
 class CircuitEvent(BaseModel):
     """
     Audit event emitted when the Entropy Circuit Breaker trips or issues a warning.
@@ -73,4 +85,5 @@ class CircuitEvent(BaseModel):
     event_type: str = "warning"  # "warning" | "trip"
     reason: str
     metric_val: float
+    counterfactual_savings: Optional[CounterfactualSavings] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

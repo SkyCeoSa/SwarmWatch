@@ -316,3 +316,9 @@ class SQLiteStorageAdapter(StorageAdapter):
 
     async def close(self) -> None:
         self.close_sync()
+
+
+# Export ClickHouseStorageAdapter for seamless access via swarmwatch.storage
+from swarmwatch.storage_clickhouse import ClickHouseStorageAdapter  # noqa: E402
+
+__all__ = ["StorageAdapter", "SQLiteStorageAdapter", "ClickHouseStorageAdapter"]

@@ -46,7 +46,7 @@ Developer workstation and production monitoring consoles. Dark-mode, high inform
 
 ## Evidence on Hand
 
-- Python SDK with 100% passing test suite (24 unit & integration tests).
+- Python SDK with 100% passing test suite (40 unit & integration tests).
 - FastAPI dashboard server with real-time SSE / WebSocket streaming.
 - Canonical software engineering swarm demo scripts in examples/multi_agent_demo.py and examples/langgraph_crewai_demo.py.
 

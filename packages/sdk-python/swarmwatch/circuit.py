@@ -12,6 +12,8 @@ import re
 from typing import Deque, List, Optional, Union
 from pydantic import BaseModel, Field
 
+from swarmwatch.schema import CounterfactualSavings
+
 
 def compute_shannon_entropy(text: str) -> float:
     """
@@ -68,6 +70,10 @@ class CircuitPolicy(BaseModel):
     entropy_threshold: float = Field(default=0.40, description="Entropy floor below which output is flagged as low variety")
     window_size: int = Field(default=3, description="Number of historical turns to compare against")
     max_warnings: int = Field(default=1, description="Number of warning hints before hard halting")
+    max_turns: Optional[int] = Field(default=None, description="Maximum iterations or turns before halting")
+    token_budget: Optional[int] = Field(default=None, description="Maximum total tokens allowed for session")
+    cost_budget: Optional[float] = Field(default=None, description="Maximum dollar budget allowed for session")
+    cost_per_token: float = Field(default=0.00002, description="Estimated dollar cost per token (e.g. $20/1M tokens)")
 
     @classmethod
     def from_preset(cls, preset: Union[str, CircuitPreset]) -> "CircuitPolicy":
@@ -85,12 +91,13 @@ class CircuitDecision(BaseModel):
     reason: Optional[str] = None
     metric_val: float = 0.0
     warning_hint: Optional[str] = None
+    counterfactual_savings: Optional[CounterfactualSavings] = None
 
 
 class SwarmCircuitBreakException(Exception):
     """
     Raised when an agent swarm becomes trapped in an infinite loop or low-entropy deadlock,
-    surpassing the warning threshold.
+    surpassing the warning threshold or session budget quota.
     """
 
     def __init__(
@@ -99,11 +106,13 @@ class SwarmCircuitBreakException(Exception):
         metric_val: float,
         agent_id: str = "agent",
         swarm_id: str = "swarm",
+        savings: Optional[CounterfactualSavings] = None,
     ):
         self.reason = reason
         self.metric_val = metric_val
         self.agent_id = agent_id
         self.swarm_id = swarm_id
+        self.savings = savings
         super().__init__(
             f"[SWARMWATCH CIRCUIT TRIP] Swarm '{swarm_id}' agent '{agent_id}' halted: "
             f"{reason} (metric={metric_val:.4f}). Consecutive warning limit exceeded."
@@ -113,7 +122,8 @@ class SwarmCircuitBreakException(Exception):
 class EntropyCircuitBreaker:
     """
     In-process, zero-token mathematical circuit breaker.
-    Monitors agent outputs across a sliding window and enforces 2-step intervention.
+    Monitors agent outputs across a sliding window, tracks budget quotas,
+    calculates counterfactual token/dollar savings, and enforces 2-step intervention.
     """
 
     def __init__(
@@ -130,21 +140,100 @@ class EntropyCircuitBreaker:
 
         self._history: Deque[str] = deque(maxlen=self.policy.window_size)
         self.consecutive_warnings = 0
+        self.turn_count = 0
+        self.cumulative_tokens = 0
+        self.token_history: List[int] = []
+
+    def _compute_savings(self) -> CounterfactualSavings:
+        """
+        Computes counterfactual savings according to ADR 0006:
+        Delta_turns = N_max - N_halt
+        Tokens_saved = Delta_turns * T_bar
+        Dollars_saved = Tokens_saved * cost_per_token
+        """
+        turns_averted = 0
+        if self.policy.max_turns is not None and self.policy.max_turns > self.turn_count:
+            turns_averted = self.policy.max_turns - self.turn_count
+
+        avg_tokens = (
+            sum(self.token_history) / len(self.token_history)
+            if self.token_history
+            else 500.0
+        )
+        tokens_saved = int(turns_averted * avg_tokens)
+        dollars_saved = round(tokens_saved * self.policy.cost_per_token, 4)
+        budget_consumed = round(self.cumulative_tokens * self.policy.cost_per_token, 4)
+
+        budget_protected = 0.0
+        if self.policy.cost_budget is not None:
+            budget_protected = max(0.0, round(self.policy.cost_budget - budget_consumed, 4))
+        elif self.policy.token_budget is not None:
+            remaining_tokens = max(0, self.policy.token_budget - self.cumulative_tokens)
+            budget_protected = round(remaining_tokens * self.policy.cost_per_token, 4)
+
+        return CounterfactualSavings(
+            tokens_saved=tokens_saved,
+            dollars_saved=dollars_saved,
+            turns_averted=turns_averted,
+            budget_consumed=budget_consumed,
+            budget_protected=budget_protected,
+        )
 
     def evaluate(
         self,
         message: str,
         agent_id: str = "agent",
         swarm_id: str = "swarm",
+        token_count: Optional[int] = None,
     ) -> CircuitDecision:
         """
         Evaluates message against historical window in < 1ms.
+        Enforces max turns, token budget, and cost budget quotas.
         Returns CircuitDecision ('pass' or 'warning') or raises SwarmCircuitBreakException.
         """
         if not message or not message.strip():
             return CircuitDecision(decision="pass")
 
-        # 1. Compute entropy and sliding-window similarity
+        # 1. Track turn count and token usage
+        effective_tokens = token_count if token_count is not None else len(re.findall(r"\b\w+\b", message))
+        self.turn_count += 1
+        self.cumulative_tokens += effective_tokens
+        self.token_history.append(effective_tokens)
+
+        # 2. Check quota constraints: max_turns, token_budget, cost_budget
+        if self.policy.max_turns is not None and self.turn_count > self.policy.max_turns:
+            savings = self._compute_savings()
+            raise SwarmCircuitBreakException(
+                reason=f"Maximum turns ceiling exceeded ({self.turn_count} > {self.policy.max_turns})",
+                metric_val=float(self.turn_count),
+                agent_id=agent_id,
+                swarm_id=swarm_id,
+                savings=savings,
+            )
+
+        if self.policy.token_budget is not None and self.cumulative_tokens > self.policy.token_budget:
+            savings = self._compute_savings()
+            raise SwarmCircuitBreakException(
+                reason=f"Session token budget exceeded ({self.cumulative_tokens} > {self.policy.token_budget})",
+                metric_val=float(self.cumulative_tokens),
+                agent_id=agent_id,
+                swarm_id=swarm_id,
+                savings=savings,
+            )
+
+        if self.policy.cost_budget is not None:
+            cost = self.cumulative_tokens * self.policy.cost_per_token
+            if cost > self.policy.cost_budget:
+                savings = self._compute_savings()
+                raise SwarmCircuitBreakException(
+                    reason=f"Session cost budget exceeded (${cost:.4f} > ${self.policy.cost_budget:.4f})",
+                    metric_val=cost,
+                    agent_id=agent_id,
+                    swarm_id=swarm_id,
+                    savings=savings,
+                )
+
+        # 3. Compute entropy and sliding-window similarity
         entropy = compute_shannon_entropy(message)
         max_similarity = 0.0
         for prior in self._history:
@@ -152,7 +241,7 @@ class EntropyCircuitBreaker:
             if sim > max_similarity:
                 max_similarity = sim
 
-        # 2. Check violation conditions
+        # 4. Check violation conditions
         violation = False
         reason = ""
         metric_val = 0.0
@@ -167,6 +256,7 @@ class EntropyCircuitBreaker:
             metric_val = entropy
 
         if violation:
+            savings = self._compute_savings()
             if self.consecutive_warnings < self.policy.max_warnings:
                 self.consecutive_warnings += 1
                 hint = (
@@ -179,6 +269,7 @@ class EntropyCircuitBreaker:
                     reason=reason,
                     metric_val=metric_val,
                     warning_hint=hint,
+                    counterfactual_savings=savings,
                 )
             else:
                 # Consecutive warning limit reached -> Trip circuit breaker!
@@ -187,6 +278,7 @@ class EntropyCircuitBreaker:
                     metric_val=metric_val,
                     agent_id=agent_id,
                     swarm_id=swarm_id,
+                    savings=savings,
                 )
         else:
             # Message is healthy; reset warning streak
@@ -198,6 +290,9 @@ class EntropyCircuitBreaker:
             )
 
     def reset(self) -> None:
-        """Resets the circuit breaker state and historical window."""
+        """Resets the circuit breaker state, counters, and historical window."""
         self._history.clear()
         self.consecutive_warnings = 0
+        self.turn_count = 0
+        self.cumulative_tokens = 0
+        self.token_history.clear()

@@ -97,7 +97,7 @@ class SafeStateSerializer:
 class TimeMachine:
     """
     State snapshotting and DAG branch forking coordinator.
-    Enables non-destructive rewind ('step_back') and parallel branch exploration.
+    Enables non-destructive Time-Machine Fork ('step_back') and parallel branch exploration.
     """
 
     def __init__(self, storage: StorageAdapter):

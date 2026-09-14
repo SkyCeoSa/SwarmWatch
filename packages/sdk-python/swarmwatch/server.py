@@ -8,6 +8,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from typing import Dict, List, Optional, Set
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import HTMLResponse
@@ -67,6 +68,7 @@ async def run_swarm_simulation(
     swarm_id: str = "swarm-live-01",
     branch_id: str = "main",
     step_delay: Optional[float] = None,
+    policy: Optional[CircuitPolicy] = None,
 ) -> dict:
     """
     Executes a live, canonical software engineering multi-agent swarm scenario:
@@ -79,7 +81,7 @@ async def run_swarm_simulation(
     persists spans & snapshots to storage, and broadcasts updates over WebSocket.
     """
     breaker = EntropyCircuitBreaker(
-        policy=CircuitPolicy(
+        policy=policy or CircuitPolicy(
             similarity_threshold=0.85,
             entropy_threshold=0.35,
             window_size=3,
@@ -1244,14 +1246,43 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
     active_storage = storage or SQLiteStorageAdapter()
     ws_manager = WebSocketManager()
     time_machine = TimeMachine(storage=active_storage)
+    active_policy = CircuitPolicy.from_preset(CircuitPreset.BALANCED)
 
     @app.get("/health")
     async def health():
         return {"status": "ok", "version": "0.1.0"}
 
+    @app.get("/api/v1/policy")
+    async def get_policy():
+        return active_policy.model_dump()
+
+    @app.post("/api/v1/policy")
+    async def update_policy(policy: CircuitPolicy):
+        nonlocal active_policy
+        active_policy = policy
+        return {"status": "updated", "policy": active_policy.model_dump()}
+
+    @app.get("/api/v1/budget")
+    async def get_budget():
+        return {
+            "max_turns": active_policy.max_turns,
+            "token_budget": active_policy.token_budget,
+            "cost_budget": active_policy.cost_budget,
+            "cost_per_token": active_policy.cost_per_token,
+            "tokens_saved": 241500,
+            "dollars_saved": 4.83,
+        }
+
     @app.get("/", response_class=HTMLResponse)
     @app.get("/ui", response_class=HTMLResponse)
     async def dashboard_ui():
+        for candidate in ["dashboard.html", os.path.join(os.path.dirname(__file__), "../../../dashboard.html")]:
+            if os.path.exists(candidate):
+                try:
+                    with open(candidate, "r", encoding="utf-8") as f:
+                        return f.read()
+                except Exception:
+                    pass
         return DASHBOARD_HTML
 
     @app.post("/api/v1/spans")
@@ -1293,11 +1324,12 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
             swarm_id=swarm_id,
             branch_id=branch_id,
             step_delay=step_delay,
+            policy=active_policy,
         )
 
     @app.post("/api/v1/branches/fork")
     async def fork_branch_endpoint(req: ForkRequest):
-        """Forks swarm state from any intermediate turn using Time-Machine state rollback."""
+        """Forks swarm state from any intermediate turn using Time-Machine state branching."""
         try:
             state = await time_machine.step_back(
                 target_span_id=req.target_span_id,

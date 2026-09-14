@@ -31,7 +31,7 @@ Whenever beginning a new session or designing new features, consult this index t
 
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
-| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (27/27 tests) |
+| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (40/40 tests) |
 | **Console Craft Floor** | `impeccable.cmd detect --json dashboard.html` | 0 Anti-Patterns (`[]`) |
 | **Local Dashboard Server** | `.venv\Scripts\python.exe -m swarmwatch.cli ui --port 8765` | `http://127.0.0.1:8765` Active |
 | **Git Working Tree** | `git status -s` | Clean, synchronized with `origin/main` |

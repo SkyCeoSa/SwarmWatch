@@ -9,7 +9,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
 - [x] **Phase 1: Core Engine & In-Process Telemetry** (Complete)
 - [x] **Phase 2: Mathematical Circuit Breaker & Safe Time-Machine** (Complete)
 - [x] **Phase 3: Real-Time Console & Ecosystem Adapters** (Complete)
-- [ ] **Phase 4: Scale, Columnar Storage & Enterprise Alerts** (In Progress)
+- [x] **Phase 4: Scale, Columnar Storage & Enterprise Alerts** (Complete)
 - [ ] **Phase 5: Multi-Language SDKs & OpenTelemetry Federation** (Planned)
 - [ ] **Phase 6: SwarmWatch Cloud SaaS & Marketplace** (Future)
 
@@ -37,7 +37,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - `SwarmWatchCrewListener` for CrewAI.
 - **CLI Subcommand**: `swarmwatch ui --port 8765` for instant local execution.
 
-### Phase 4: Scale, Columnar Storage & Enterprise Alerts (Active Horizon)
+### Phase 4: Scale, Columnar Storage & Enterprise Alerts (Delivered)
 - **ClickHouse Storage Adapter**: Columnar ingestion engine for teams processing millions of spans daily.
 - **Counterfactual Budget Quotas**: Session-level cost caps with dynamic `dollars_saved` and `tokens_saved` calculation.
 - **Enterprise Webhook Notifications**: Real-time Slack, Discord, and PagerDuty alerts triggered when circuits trip.

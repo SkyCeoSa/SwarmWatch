@@ -35,7 +35,7 @@ Start the real-time server and open the developer console on port 8765:
 
 ## 3. Running the Test Suite (TDD)
 
-Execute the full pytest suite across all 8 test modules:
+Execute the full pytest suite across all 11 test modules:
 
 ```powershell
 .venv\Scripts\pytest.exe packages\sdk-python\tests\
@@ -43,7 +43,7 @@ Execute the full pytest suite across all 8 test modules:
 
 Expected output:
 ```
-======================= 27 passed, 2 warnings in ~7-9s ========================
+======================= 40 passed, 2 warnings in ~9-10s =======================
 ```
 
 ---

@@ -170,3 +170,42 @@ def test_server_fork_branch_rest_endpoint(tmp_path):
     assert fork_data["status"] == "forked"
     assert fork_data["new_branch_id"] == "branch_fork_02"
     assert "state" in fork_data
+
+
+def test_server_dynamic_policy_and_budget_endpoints(tmp_path):
+    db_path = str(tmp_path / "policy_test.db")
+    storage = SQLiteStorageAdapter(db_path=db_path)
+    app = create_app(storage=storage)
+    client = TestClient(app)
+
+    # 1. Get default policy
+    res = client.get("/api/v1/policy")
+    assert res.status_code == 200
+    policy = res.json()
+    assert "similarity_threshold" in policy
+    assert "entropy_threshold" in policy
+    assert policy["entropy_threshold"] == 0.40
+
+    # 2. Update policy dynamically
+    update_res = client.post("/api/v1/policy", json={
+        "similarity_threshold": 0.75,
+        "entropy_threshold": 0.50,
+        "window_size": 4,
+        "max_warnings": 2,
+        "max_turns": 40,
+        "token_budget": 20000,
+        "cost_budget": 0.50,
+    })
+    assert update_res.status_code == 200
+    updated = update_res.json()["policy"]
+    assert updated["entropy_threshold"] == 0.50
+    assert updated["max_turns"] == 40
+    assert updated["token_budget"] == 20000
+
+    # 3. Verify budget endpoint
+    budget_res = client.get("/api/v1/budget")
+    assert budget_res.status_code == 200
+    budget_data = budget_res.json()
+    assert budget_data["max_turns"] == 40
+    assert budget_data["token_budget"] == 20000
+    assert "dollars_saved" in budget_data
