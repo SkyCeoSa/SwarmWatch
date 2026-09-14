@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- impeccable-disable ai-color-palette -- pinned Instrument Cyan palette in DESIGN.md -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -25,11 +26,45 @@
       --text-primary: #F8FAFC;
       --text-secondary: #CBD5E1;
       --text-muted: #94A3B8;
-      --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    button, input, select, textarea {
+      font-family: inherit;
+      outline: none;
+    }
+    ::selection {
+      background: var(--border-strong);
+      color: var(--text-primary);
+    }
+    :focus-visible {
+      outline: 1px solid var(--accent);
+      outline-offset: 1px;
+    }
+    ::placeholder {
+      color: var(--text-muted);
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--bg-canvas);
+      height: 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border-subtle);
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: 1px solid var(--border-strong);
+    }
     body {
       background-color: var(--bg-canvas);
       color: var(--text-primary);
@@ -135,7 +170,7 @@
       gap: 6px;
     }
     .branch-name {
-      color: var(--accent-purple);
+      color: var(--text-primary);
       font-weight: 600;
     }
 
@@ -507,7 +542,7 @@
       </div>
       <div class="branch-tag">
         <span>project:</span>
-        <select id="projectSelector" style="background: transparent; color: var(--accent); border: 1px solid var(--border-subtle); border-radius: 3px; padding: 2px 6px; font-family: var(--font-mono); font-size: 11px; cursor: pointer; outline: none;">
+        <select id="projectSelector" style="background: transparent; color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 2px 6px; font-family: var(--font-mono); font-size: 12px; cursor: pointer; outline: none;">
           <option value="default-project" style="background: var(--bg-surface); color: var(--text-primary);">default-project</option>
         </select>
       </div>
@@ -658,19 +693,19 @@
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span style="font-size: 12px; color: var(--text-muted);">Entropy Floor</span>
-              <span id="entropyVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--accent);">0.40</span>
+              <span id="entropyVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--text-primary); font-weight: 600;">0.40</span>
             </div>
-            <input type="range" id="sliderEntropy" min="0.10" max="0.90" step="0.05" value="0.40" style="width: 100%; accent-color: var(--accent);" />
+            <input type="range" id="sliderEntropy" min="0.10" max="0.90" step="0.05" value="0.40" style="width: 100%;" />
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span style="font-size: 12px; color: var(--text-muted);">Similarity Ceiling</span>
-              <span id="simVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--accent);">0.85</span>
+              <span id="simVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--text-primary); font-weight: 600;">0.85</span>
             </div>
-            <input type="range" id="sliderSim" min="0.50" max="0.95" step="0.05" value="0.85" style="width: 100%; accent-color: var(--accent);" />
+            <input type="range" id="sliderSim" min="0.50" max="0.95" step="0.05" value="0.85" style="width: 100%;" />
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span style="font-size: 12px; color: var(--text-muted);">Max Turns Ceiling</span>
-              <span id="turnsVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--accent);">50</span>
+              <span id="turnsVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--text-primary); font-weight: 600;">50</span>
             </div>
-            <input type="range" id="sliderTurns" min="10" max="100" step="5" value="50" style="width: 100%; accent-color: var(--accent);" />
+            <input type="range" id="sliderTurns" min="10" max="100" step="5" value="50" style="width: 100%;" />
             <button class="btn-action btn-secondary btn-block" id="btnUpdatePolicy" style="margin-top: 6px;">
               <span>Update Policy</span>
             </button>
@@ -679,6 +714,47 @@
         </div>
       </div>
     </aside>
+  </div>
+
+  <!-- Cryptographic API Key Management Modal -->
+  <div id="apiKeyModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.85); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 4px; width: 620px; max-width: 90vw; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">Cryptographic API Keys</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Scoped credentials for telemetry ingestion and remote query access</div>
+        </div>
+        <button id="btnCloseApiKeys" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Close</button>
+      </div>
+      
+      <div id="newKeyBanner" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px solid var(--success); border-radius: 4px; padding: 10px 14px;">
+        <div style="font-size: 12px; color: var(--success); font-weight: 600; margin-bottom: 4px;">KEY GENERATED - COPY NOW (DISPLAYED ONLY ONCE)</div>
+        <div id="newKeySecret" style="font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); user-select: all; word-break: break-all;"></div>
+      </div>
+
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="newKeyName" placeholder="Key name (e.g. Production Cluster)" style="flex: 1; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 12px; outline: none;">
+        <button id="btnGenerateKey" class="btn-action btn-primary" style="height: 30px; padding: 0 12px;">Generate Key</button>
+      </div>
+
+      <div style="border: 1px solid var(--border-subtle); border-radius: 4px; overflow: hidden; background: var(--bg-canvas); padding: 8px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 12px; text-transform: uppercase;">
+              <th style="padding: 8px 12px;">Name</th>
+              <th style="padding: 8px 12px;">Prefix</th>
+              <th style="padding: 8px 12px;">Scopes</th>
+              <th style="padding: 8px 12px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="apiKeysTableBody">
+            <tr>
+              <td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No active API keys found for this project.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1121,10 +1197,10 @@
                 tr.style.borderBottom = '1px solid var(--border-subtle)';
                 var scopesText = Array.isArray(k.scopes) ? k.scopes.join(', ') : 'telemetry:write';
                 tr.innerHTML = '<td style="padding: 8px 12px; font-weight: 500;">' + (k.name || 'Key') + '</td>' +
-                  '<td style="padding: 8px 12px; font-family: var(--font-mono); color: var(--accent);">' + k.key_prefix + '</td>' +
-                  '<td style="padding: 8px 12px; color: var(--text-secondary); font-size: 11px;">' + scopesText + '</td>' +
+                  '<td style="padding: 8px 12px; font-family: var(--font-mono); color: var(--text-primary); font-weight: 500;">' + k.key_prefix + '</td>' +
+                  '<td style="padding: 8px 12px; color: var(--text-secondary); font-size: 12px;">' + scopesText + '</td>' +
                   '<td style="padding: 8px 12px; text-align: right;">' +
-                    (k.is_active ? '<button data-revoke-id="' + k.id + '" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--danger); border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer;">Revoke</button>' : '<span style="color: var(--text-muted); font-size: 11px;">Revoked</span>') +
+                    (k.is_active ? '<button data-revoke-id="' + k.id + '" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--danger); border-radius: 4px; padding: 2px 6px; font-size: 12px; cursor: pointer;">Revoke</button>' : '<span style="color: var(--text-muted); font-size: 12px;">Revoked</span>') +
                   '</td>';
                 apiKeysTableBody.appendChild(tr);
               });
@@ -1186,48 +1262,25 @@
       loadProjects();
 
       initWebSocket();
+
+      // Visual Testing & Snapshot Hooks
+      if (window.location.search.indexOf('simulate=instant') !== -1) {
+        SIMULATION_DATA.forEach(function(item) {
+          spans.push(item);
+          renderSpan(item);
+          selectSpan(item);
+        });
+        document.getElementById('metricSpans').textContent = spans.length.toString();
+        document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
+        document.getElementById('metricEntropy').textContent = '0.18';
+        renderCircuitHalt();
+      }
+      if (window.location.search.indexOf('modal=keys') !== -1) {
+        apiKeyModal.style.display = 'flex';
+        newKeySecret.textContent = 'sw_live_9xK2mP4vL8nQ1wZ7eR3tY6uI';
+        newKeyBanner.style.display = 'block';
+      }
     })();
   </script>
-
-  <!-- Cryptographic API Key Management Modal -->
-  <div id="apiKeyModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.85); z-index: 1000; align-items: center; justify-content: center;">
-    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 6px; width: 620px; max-width: 90vw; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
-        <div>
-          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">Cryptographic API Keys</div>
-          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Scoped credentials for telemetry ingestion and remote query access</div>
-        </div>
-        <button id="btnCloseApiKeys" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Close</button>
-      </div>
-      
-      <div id="newKeyBanner" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px solid var(--success); border-radius: 4px; padding: 10px 14px;">
-        <div style="font-size: 11px; color: var(--success); font-weight: 600; margin-bottom: 4px;">KEY GENERATED - COPY NOW (DISPLAYED ONLY ONCE)</div>
-        <div id="newKeySecret" style="font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); user-select: all; word-break: break-all;"></div>
-      </div>
-
-      <div style="display: flex; gap: 8px; align-items: center;">
-        <input type="text" id="newKeyName" placeholder="Key name (e.g. Production Cluster)" style="flex: 1; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 12px; outline: none;">
-        <button id="btnGenerateKey" class="btn-action btn-primary" style="height: 30px; padding: 0 12px;">Generate Key</button>
-      </div>
-
-      <div style="border: 1px solid var(--border-subtle); border-radius: 4px; overflow: hidden; background: var(--bg-canvas);">
-        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
-          <thead>
-            <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 11px; text-transform: uppercase;">
-              <th style="padding: 8px 12px;">Name</th>
-              <th style="padding: 8px 12px;">Prefix</th>
-              <th style="padding: 8px 12px;">Scopes</th>
-              <th style="padding: 8px 12px; text-align: right;">Action</th>
-            </tr>
-          </thead>
-          <tbody id="apiKeysTableBody">
-            <tr>
-              <td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No active API keys found for this project.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 </body>
 </html>
