@@ -10,7 +10,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
 - [x] **Phase 2: Mathematical Circuit Breaker & Safe Time-Machine** (Complete)
 - [x] **Phase 3: Real-Time Console & Ecosystem Adapters** (Complete)
 - [x] **Phase 4: Scale, Columnar Storage & Enterprise Alerts** (Complete)
-- [ ] **Phase 5: Multi-Language SDKs & OpenTelemetry Federation** (Planned)
+- [x] **Phase 5: Multi-Language SDKs & OpenTelemetry Federation** (Complete)
 - [ ] **Phase 6: SwarmWatch Cloud SaaS & Marketplace** (Future)
 
 ---
@@ -43,6 +43,21 @@ This document charts the development milestones of **SwarmWatch**, from local fo
 - **Enterprise Webhook Notifications**: Real-time Slack, Discord, and PagerDuty alerts triggered when circuits trip.
 - **Dynamic Policy UI**: Real-time slider adjustments for entropy thresholds and window sizes.
 
-### Phase 5: Multi-Language SDKs & OpenTelemetry Federation
-- **TypeScript / Node.js SDK**: Native `@swarmwatch/sdk` for Vercel AI SDK, Mastra, and LangChain.js.
-- **OpenTelemetry Native Exporter**: Bi-directional mapping between `SwarmSpan` and OTel GenAI Semantic Conventions.
+### Phase 5: Multi-Language SDKs & OpenTelemetry Federation (Delivered)
+- **OpenTelemetry GenAI Semantic Conventions Exporter**:
+  - Direct conversion of `SwarmSpan` to OpenTelemetry GenAI Semantic Conventions (`gen_ai.system`, `gen_ai.agent.name`, `gen_ai.usage.total_tokens`, `gen_ai.swarmwatch.entropy_score`).
+  - Standard OTLP/HTTP traces payload formatting (`/v1/traces`) with zero heavy C-extensions or gRPC overhead.
+  - Background async exporter with retry semantics and graceful batch shutdown.
+- **First-Class Native TypeScript SDK (`@swarmwatch/sdk`)**:
+  - Zero external runtime dependencies in Node.js 22+ ESM.
+  - Normalized Shannon entropy ($H_{norm}$) and sliding-window lexical Jaccard similarity engine.
+  - In-process non-blocking ring buffer queue with async batch flusher.
+  - Quota budget enforcement (`max_turns`, `token_budget`, `cost_budget`) and counterfactual savings calculation.
+  - `SafeStateSerializer` with circular reference breaking, sensitive credential masking, and deterministic SHA-256 state hashing.
+  - Seamless context propagation via `AsyncLocalStorage` for parent-child agent spans.
+  - Ecosystem adapters for Vercel AI SDK (`swarmWatchVercelOnFinish`) and LangChain.js (`SwarmWatchLangChainCallbackHandler`).
+- **Comprehensive Dual Test Suite**:
+  - 43 Python unit/integration tests passing (100%).
+  - 33 TypeScript unit/integration tests passing (100%).
+  - 76 total automated tests running 100% locally with zero external network or GitHub Actions dependencies.
+

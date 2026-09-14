@@ -1,0 +1,23 @@
+{
+  "name": "@swarmwatch/sdk",
+  "version": "0.1.0",
+  "description": "SwarmWatch Universal Observability, Zero-Token Shannon Entropy Circuit Breaker & Safe Time-Machine for Multi-Agent LLM Systems in TypeScript & Node.js.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js"
+  },
+  "keywords": [
+    "swarmwatch",
+    "observability",
+    "multi-agent",
+    "circuit-breaker",
+    "ai-agents",
+    "langchain",
+    "vercel-ai",
+    "mastra"
+  ],
+  "author": "Google Deepmind / SwarmWatch Authors",
+  "license": "Apache-2.0"
+}

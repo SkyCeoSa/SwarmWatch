@@ -7,6 +7,7 @@ from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent, Counterfac
 from swarmwatch.storage import StorageAdapter, SQLiteStorageAdapter, ClickHouseStorageAdapter
 from swarmwatch.transport import TelemetryTransport, TransportConfig
 from swarmwatch.webhooks import WebhookConfig, WebhookNotifier
+from swarmwatch.otel import to_otel_genai_span, OtelGenAiExporter
 from swarmwatch.core import (
     SwarmClient,
     SpanContext,
@@ -46,6 +47,8 @@ __all__ = [
     "TransportConfig",
     "WebhookConfig",
     "WebhookNotifier",
+    "to_otel_genai_span",
+    "OtelGenAiExporter",
     "SwarmClient",
     "SpanContext",
     "EntropyCircuitBreaker",

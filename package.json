@@ -1,0 +1,22 @@
+{
+  "name": "swarmwatch-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SwarmWatch Multi-Agent Observability, Shannon Entropy Circuit Breaker & Time-Machine Monorepo",
+  "workspaces": [
+    "packages/sdk-typescript"
+  ],
+  "scripts": {
+    "test:ts": "node --experimental-strip-types --test packages/sdk-typescript/tests/entropy_circuit.test.js packages/sdk-typescript/tests/client_transport.test.js packages/sdk-typescript/tests/otel_adapters.test.js",
+    "test:py": "powershell -Command \".venv\\Scripts\\pytest.exe packages/sdk-python/tests/\"",
+    "test:all": "npm run test:ts ; npm run test:py"
+  },
+  "keywords": [
+    "swarmwatch",
+    "observability",
+    "multi-agent",
+    "circuit-breaker",
+    "opentelemetry"
+  ],
+  "license": "Apache-2.0"
+}
