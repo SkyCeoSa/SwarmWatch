@@ -31,8 +31,8 @@ Whenever beginning a new session or designing new features, consult this index t
 
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
-| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (43/43 tests) |
-| **TypeScript Test Suite** | `node.exe --experimental-strip-types --test packages/sdk-typescript/tests/*.test.js` | 100% Pass (33/33 tests) |
+| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (45/45 tests) |
+| **TypeScript Test Suite** | `node.exe --experimental-strip-types --test packages/sdk-typescript/tests/*.test.js` | 100% Pass (42/42 tests) |
 | **Console Craft Floor** | `impeccable.cmd detect --json dashboard.html` | 0 Anti-Patterns (`[]`) |
 | **Local Dashboard Server** | `.venv\Scripts\python.exe -m swarmwatch.cli ui --port 8765` | `http://127.0.0.1:8765` Active |
 | **Git Working Tree** | `git status -s` | Clean, synchronized with `origin/main` |
