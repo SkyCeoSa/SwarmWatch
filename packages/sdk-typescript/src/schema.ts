@@ -17,6 +17,7 @@ export interface SwarmSpan {
   entropy_score?: number;
   start_time: string;
   end_time: string;
+  project_id?: string;
   duration_ms?: number;
 }
 

@@ -35,7 +35,7 @@ Start the real-time server and open the developer console on port 8765:
 
 ## 3. Running the Test Suite (TDD)
 
-Execute the full pytest suite across all 11 test modules:
+Execute the full pytest suite across all 16 Python test modules:
 
 ```powershell
 .venv\Scripts\pytest.exe packages\sdk-python\tests\
@@ -43,8 +43,24 @@ Execute the full pytest suite across all 11 test modules:
 
 Expected output:
 ```
-======================= 40 passed, 2 warnings in ~9-10s =======================
+======================= 53 passed, 2 warnings in ~12s =======================
 ```
+
+Execute the full TypeScript test suite across all 5 test suites:
+
+```powershell
+cd packages\sdk-typescript
+cmd.exe /c npm test
+```
+
+Expected output:
+```
+# tests 51
+# pass 51
+# fail 0
+```
+
+Total test coverage: **104 automated tests passing (100%)**.
 
 ---
 

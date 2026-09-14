@@ -1334,6 +1334,14 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
             "dollars_saved": 4.83,
         }
 
+    @app.get("/api/v1/health")
+    async def health_check():
+        return {
+            "status": "healthy",
+            "version": "0.1.0",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
     # Multi-Tenant Control Plane Endpoints
     @app.get("/api/v1/organizations")
     async def list_organizations_endpoint():
@@ -1420,7 +1428,12 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     @app.get("/ui", response_class=HTMLResponse)
     async def dashboard_ui():
-        for candidate in ["dashboard.html", os.path.join(os.path.dirname(__file__), "../../../dashboard.html")]:
+        candidates = [
+            os.path.join(os.path.dirname(__file__), "dashboard.html"),
+            "dashboard.html",
+            os.path.join(os.path.dirname(__file__), "../../../dashboard.html"),
+        ]
+        for candidate in candidates:
             if os.path.exists(candidate):
                 try:
                     with open(candidate, "r", encoding="utf-8") as f:

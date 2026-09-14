@@ -38,12 +38,25 @@ export { SafeStateSerializer } from "./serializer.ts";
 export type {
   StorageSink,
   TransportConfig,
+  HttpStorageSinkOptions,
 } from "./transport.ts";
 export {
   InMemoryStorageSink,
   HttpStorageSink,
   TelemetryTransport,
 } from "./transport.ts";
+
+// Multi-Tenant Core & Cryptographic API Keys
+export type {
+  Organization,
+  Project,
+  ApiKey,
+  TenantContext,
+} from "./tenant.ts";
+export {
+  ApiKeyManager,
+  isApiKeyActive,
+} from "./tenant.ts";
 
 // Developer Surface & Client Singleton
 export type {

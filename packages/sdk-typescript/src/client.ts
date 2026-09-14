@@ -26,6 +26,8 @@ export interface SpanOptions {
 
 export interface ClientOptions {
   swarm_id?: string;
+  project_id?: string;
+  api_key?: string;
   sink?: StorageSink;
   transport_config?: TransportConfig;
   circuit_policy?: CircuitPolicy;
@@ -33,12 +35,16 @@ export interface ClientOptions {
 
 export class SwarmClient {
   public swarmId: string;
+  public projectId: string;
+  public apiKey?: string;
   public transport: TelemetryTransport;
   public circuitBreaker: EntropyCircuitBreaker;
   public serializer: SafeStateSerializer;
 
   constructor(options: ClientOptions = {}) {
     this.swarmId = options.swarm_id || "default-swarm";
+    this.projectId = options.project_id || "default-project";
+    this.apiKey = options.api_key;
     this.transport = new TelemetryTransport(options.sink, options.transport_config);
     this.transport.start();
     this.circuitBreaker = new EntropyCircuitBreaker({ policy: options.circuit_policy });
@@ -61,6 +67,7 @@ export class SwarmClient {
     const span: SwarmSpan = {
       id: spanId,
       swarm_id: this.swarmId,
+      project_id: this.projectId,
       branch_id: options.branch_id || (parentSpan ? parentSpan.branch_id : "main"),
       parent_span_id: parentSpan ? parentSpan.id : null,
       source_agent: options.source || options.name || "system",

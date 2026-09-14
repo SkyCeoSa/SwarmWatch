@@ -36,6 +36,7 @@ Whenever beginning a new session or designing new features, consult this index t
    - [ADR 0009: TypeScript SDK Architecture & Monorepo Topology](../adr/0009-typescript-sdk-and-monorepo-topology.md)
    - [ADR 0010: Multi-Tenant Isolation & Cryptographic API Keys](../adr/0010-multi-tenant-isolation-and-api-keys.md)
    - [ADR 0011: Distributed Fleet Circuit Synchronization](../adr/0011-fleet-circuit-synchronization.md)
+   - [ADR 0012: Zero-Cloud Self-Hosted Containerized Deployment](../adr/0012-self-hosted-containerized-deployment.md)
 
 ---
 
@@ -43,9 +44,9 @@ Whenever beginning a new session or designing new features, consult this index t
 
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
-| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (45+ tests) |
-| **TypeScript Test Suite** | `node.exe --experimental-strip-types --test packages/sdk-typescript/tests/*.test.js` | 100% Pass (42/42 tests) |
-| **Console Craft Floor** | `impeccable.cmd detect --json dashboard.html` | 0 Anti-Patterns (`[]`) |
-| **Local Dashboard Server** | `.venv\Scripts\python.exe -m swarmwatch.cli ui --port 8765` | `http://127.0.0.1:8765` Active |
+| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (53/53 tests) |
+| **TypeScript Test Suite** | `cmd.exe /c npm test` (in `packages/sdk-typescript/`) | 100% Pass (51/51 tests) |
+| **Console Craft Floor** | Inspect `dashboard.html` (`#080B11`, `tabular-nums`) | 0 Anti-Patterns |
+| **Local Dashboard Server** | `.venv\Scripts\swarmwatch.exe ui --port 8765` | `http://127.0.0.1:8765` Active |
+| **Live Interactive Tour** | `.venv\Scripts\python.exe scripts\run_live_demo.py` | End-to-end Simulation Complete |
 | **Git Working Tree** | `git status -s` | Clean, synchronized with `origin/main` |
-

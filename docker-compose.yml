@@ -1,0 +1,26 @@
+services:
+  swarmwatch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: swarmwatch:latest
+    container_name: swarmwatch-platform
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    volumes:
+      - swarmwatch_data:/data
+    environment:
+      - SWARMWATCH_HOST=0.0.0.0
+      - SWARMWATCH_PORT=8765
+      - SWARMWATCH_DB=/data/swarmwatch.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/api/v1/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  swarmwatch_data:
+    driver: local

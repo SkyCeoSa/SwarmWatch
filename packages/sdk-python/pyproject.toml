@@ -69,3 +69,6 @@ swarmwatch = "swarmwatch.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["swarmwatch*"]
+
+[tool.setuptools.package-data]
+swarmwatch = ["*.html", "*.css", "*.js"]

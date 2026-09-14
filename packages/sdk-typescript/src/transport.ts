@@ -36,21 +36,69 @@ export class InMemoryStorageSink implements StorageSink {
   }
 }
 
-export class HttpStorageSink implements StorageSink {
-  private endpoint: string;
+export interface HttpStorageSinkOptions {
+  endpoint?: string;
+  apiKey?: string;
+  projectId?: string;
+}
 
-  constructor(endpoint: string = "http://localhost:8000") {
-    this.endpoint = endpoint.replace(/\/+$/, "");
+export class HttpStorageSink implements StorageSink {
+  public endpoint: string;
+  public apiKey?: string;
+  public projectId?: string;
+
+  constructor(
+    endpointOrOptions: string | HttpStorageSinkOptions = "http://localhost:8765",
+    options: HttpStorageSinkOptions = {}
+  ) {
+    if (typeof endpointOrOptions === "string") {
+      this.endpoint = endpointOrOptions.replace(/\/+$/, "");
+      this.apiKey = options.apiKey;
+      this.projectId = options.projectId;
+    } else {
+      this.endpoint = (endpointOrOptions.endpoint || "http://localhost:8765").replace(/\/+$/, "");
+      this.apiKey = endpointOrOptions.apiKey;
+      this.projectId = endpointOrOptions.projectId;
+    }
+  }
+
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (this.apiKey) {
+      headers["Authorization"] = `Bearer ${this.apiKey}`;
+      headers["X-API-Key"] = this.apiKey;
+    }
+    if (this.projectId) {
+      headers["X-Project-ID"] = this.projectId;
+    }
+    return headers;
   }
 
   public async saveSpans(spans: SwarmSpan[]): Promise<void> {
     if (spans.length === 0) return;
+    if (this.projectId) {
+      for (const s of spans) {
+        if (!s.project_id) {
+          s.project_id = this.projectId;
+        }
+      }
+    }
     try {
-      await fetch(`${this.endpoint}/api/spans`, {
+      // First try /api/v1/spans, fallback to /api/spans if 404
+      const res = await fetch(`${this.endpoint}/api/v1/spans`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.getHeaders(),
         body: JSON.stringify(spans),
       });
+      if (res.status === 404) {
+        await fetch(`${this.endpoint}/api/spans`, {
+          method: "POST",
+          headers: this.getHeaders(),
+          body: JSON.stringify(spans),
+        });
+      }
     } catch {
       // Fire-and-forget in host agent process
     }
@@ -60,7 +108,7 @@ export class HttpStorageSink implements StorageSink {
     try {
       await fetch(`${this.endpoint}/api/snapshots`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.getHeaders(),
         body: JSON.stringify(snapshot),
       });
     } catch {
@@ -72,7 +120,7 @@ export class HttpStorageSink implements StorageSink {
     try {
       await fetch(`${this.endpoint}/api/circuit-events`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.getHeaders(),
         body: JSON.stringify(event),
       });
     } catch {

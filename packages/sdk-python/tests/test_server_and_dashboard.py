@@ -22,6 +22,11 @@ def test_server_health_and_spans_rest_api(tmp_path):
     assert res.status_code == 200
     assert res.json()["status"] == "ok"
 
+    res_v1 = client.get("/api/v1/health")
+    assert res_v1.status_code == 200
+    assert res_v1.json()["status"] == "healthy"
+    assert res_v1.json()["version"] == "0.1.0"
+
     # 2. Ingest Spans via POST
     span_payload = [{
         "id": "span-rest-01",
