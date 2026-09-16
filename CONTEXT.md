@@ -102,5 +102,20 @@ _Avoid_: Chat item, utterance, message step
 - **BudgetQuotaExhaustionScenario**: Runaway token consumption breaching configured token or dollar budget ceilings.
 - **ConversationalDeadlockScenario**: Polite ping-pong dialogue between autonomous conversational agents with high token similarity.
 
+---
+
+### Visual Causal Topology
+- **CausalTopology**: Spatial, directed network representation of swarm agent interactions, mapping sender-receiver flows and cycle boundaries.
+  _Avoid_: Call graph, flowchart, diagram
+- **AgentNode**: Visual representation of an autonomous agent in topological space, encapsulating role, message count, and health state.
+  _Avoid_: Box, circle, component
+- **CausalEdge**: Directed vector connecting a source agent to a target agent, weighted by turn count, mean latency, and token volume.
+  _Avoid_: Arrow, link, connector
+- **CyclicLoopPath**: A closed directed cycle ($A \to B \to \dots \to A$) detected in agent message traffic indicating an active or impending runaway loop.
+  _Avoid_: Recursion line, bad link, loop circle
+- **TopologyMatrix**: Adjacency representation used to analyze message density and detect cycles across distributed agents.
+  _Avoid_: Route table, map
+
+
 
 

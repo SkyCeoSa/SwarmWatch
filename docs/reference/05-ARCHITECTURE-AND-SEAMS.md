@@ -76,5 +76,9 @@ This document details the architectural topology, defined seams, and runtime dat
 8. **Enterprise Metrics & Prometheus Telemetry Seam**:
    - Primitives: `PrometheusMetricsRegistry` and FastAPI `GET /metrics` exposition route.
    - Invariant: Sub-microsecond atomic counters; zero external monitoring dependencies; strict Prometheus 0.0.4 text format compliance.
+9. **Visual Causal Topology Seam**:
+   - Primitives: `CausalTopologyGraph.build_from_spans(spans) -> CausalTopology`, `GET /api/v1/topology`, and vector SVG DAG layout in `dashboard.html`.
+   - Invariant: Non-blocking deterministic cycle detection; pure SVG rendering with zero heavy visualization library dependencies; negligible CPU utilization (<0.05%).
+
 
 

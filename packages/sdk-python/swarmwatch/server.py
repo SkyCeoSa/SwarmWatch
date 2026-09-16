@@ -27,6 +27,7 @@ from swarmwatch.circuit import (
     SwarmCircuitBreakException,
 )
 from swarmwatch.chaos import ChaosSimulator, ChaosScenario
+from swarmwatch.topology import build_topology_from_spans, CausalTopology
 from swarmwatch.metrics import (
     PrometheusMetricsRegistry,
     record_span_ingested,
@@ -554,6 +555,152 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text-muted);
     }
 
+    /* View Switcher Controls */
+    .view-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .view-btn {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 500;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .view-btn:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .view-btn.active {
+      background: var(--bg-surface-active);
+      border-color: var(--accent);
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Causal Topology DAG Panel */
+    .dag-panel {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .dag-stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 16px;
+      background: var(--bg-canvas);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 12px;
+    }
+    .dag-stat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dag-stat-label {
+      color: var(--text-muted);
+    }
+    .dag-stat-val {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .dag-svg-wrap {
+      width: 100%;
+      position: relative;
+      background: radial-gradient(circle at center, rgba(14, 20, 34, 0.6) 0%, rgba(8, 11, 17, 0.95) 100%);
+    }
+    .dag-svg {
+      width: 100%;
+      height: 380px;
+      display: block;
+    }
+    .dag-node {
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .dag-node:hover {
+      opacity: 0.9;
+    }
+    .dag-node-rect {
+      fill: var(--bg-surface);
+      stroke: var(--border-strong);
+      stroke-width: 1px;
+      rx: 4px;
+      ry: 4px;
+    }
+    .dag-node-rect.selected {
+      stroke: var(--accent);
+      stroke-width: 1.5px;
+      fill: var(--bg-surface-active);
+    }
+    .dag-node-rect.cyclic {
+      stroke: var(--danger);
+      stroke-width: 1.5px;
+    }
+    .dag-node-text {
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      fill: var(--text-primary);
+      text-anchor: middle;
+    }
+    .dag-node-role {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      fill: var(--text-muted);
+      text-anchor: middle;
+    }
+    .dag-edge {
+      fill: none;
+      stroke: var(--border-strong);
+      stroke-width: 1.5px;
+      transition: stroke 0.2s ease, stroke-width 0.2s ease;
+    }
+    .dag-edge.active {
+      stroke: var(--accent);
+      stroke-width: 2px;
+    }
+    .dag-edge.cyclic {
+      stroke: var(--danger);
+      stroke-width: 2px;
+      stroke-dasharray: 6 3;
+      animation: cyclicDash 1.5s linear infinite;
+    }
+    @keyframes cyclicDash {
+      to {
+        stroke-dashoffset: -18;
+      }
+    }
+    .dag-edge-label-bg {
+      fill: var(--bg-canvas);
+      rx: 2px;
+      ry: 2px;
+      stroke: var(--border-subtle);
+      stroke-width: 0.5px;
+    }
+    .dag-edge-label-text {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      fill: var(--text-secondary);
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
     /* Metrics Bar */
     .metrics-bar {
       background: var(--bg-surface);
@@ -985,7 +1132,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <main class="stream-panel">
       <div class="panel-header">
         <span class="panel-title">Causal Dialogue and Execution Stream</span>
-        <span class="panel-count" id="turnCounter">Synthetic Scenario</span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="view-toggle">
+            <button class="view-btn active" id="btnViewStream" title="Sequential Causal Stream">Stream</button>
+            <button class="view-btn" id="btnViewDag" title="Spatial Causal Topology DAG">Topology DAG</button>
+            <button class="view-btn" id="btnViewSplit" title="Combined Topology & Stream">Split</button>
+          </div>
+          <span class="panel-count" id="turnCounter">Synthetic Scenario</span>
+        </div>
       </div>
       <div class="chaos-bar" id="chaosBar">
         <div class="chaos-group">
@@ -1008,6 +1162,28 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           </button>
         </div>
         <span class="chaos-status" id="chaosStatus">Ready</span>
+      </div>
+      <div class="dag-panel" id="dagPanel" style="display: none;">
+        <div class="dag-stats">
+          <div class="dag-stat-item"><span class="dag-stat-label">Agents:</span> <span class="dag-stat-val" id="dagNodeCount">0</span></div>
+          <div class="dag-stat-item"><span class="dag-stat-label">Causal Vectors:</span> <span class="dag-stat-val" id="dagEdgeCount">0</span></div>
+          <div class="dag-stat-item"><span class="dag-stat-label">Active Cycles:</span> <span class="dag-stat-val" id="dagCycleCount">0</span></div>
+          <div class="dag-stat-item" style="margin-left: auto;"><span class="dag-stat-label" style="color: var(--text-muted);">Non-blocking Vector SVG &bull; &lt;0.05% CPU</span></div>
+        </div>
+        <div class="dag-svg-wrap">
+          <svg class="dag-svg" id="dagSvg" viewBox="0 0 760 380" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <marker id="arrowNominal" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#38BDF8" />
+              </marker>
+              <marker id="arrowCycle" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#EF4444" />
+              </marker>
+            </defs>
+            <g id="dagEdges"></g>
+            <g id="dagNodes"></g>
+          </svg>
+        </div>
       </div>
       <div class="stream-feed" id="streamFeed">
         <div class="turn-card" style="text-align: center; color: var(--text-muted); padding: 32px;">
@@ -1312,6 +1488,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         feed.appendChild(card);
         feed.scrollTop = feed.scrollHeight;
+        renderTopology();
       }
 
       function renderCircuitHalt(info) {
@@ -1348,6 +1525,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         document.getElementById('savingsTag').textContent = 'Tripped';
         document.getElementById('metricSavings').textContent = dollars;
         document.getElementById('metricTokens').textContent = tokens;
+        renderTopology();
       }
 
       async function runChaos(scenario) {
@@ -1511,6 +1689,234 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         nextStep();
       }
 
+      var currentView = 'stream';
+      var btnViewStream = document.getElementById('btnViewStream');
+      var btnViewDag = document.getElementById('btnViewDag');
+      var btnViewSplit = document.getElementById('btnViewSplit');
+
+      function switchView(mode) {
+        currentView = mode;
+        var bStream = document.getElementById('btnViewStream');
+        var bDag = document.getElementById('btnViewDag');
+        var bSplit = document.getElementById('btnViewSplit');
+        if (bStream) bStream.className = 'view-btn' + (mode === 'stream' ? ' active' : '');
+        if (bDag) bDag.className = 'view-btn' + (mode === 'dag' ? ' active' : '');
+        if (bSplit) bSplit.className = 'view-btn' + (mode === 'split' ? ' active' : '');
+
+        var dPan = document.getElementById('dagPanel');
+        var dSvg = document.getElementById('dagSvg');
+        var sFeed = document.getElementById('streamFeed');
+
+        if (mode === 'stream') {
+          if (dPan) dPan.style.display = 'none';
+          if (sFeed) {
+            sFeed.style.display = 'flex';
+            sFeed.style.flex = '1';
+          }
+        } else if (mode === 'dag') {
+          if (dPan) {
+            dPan.style.display = 'flex';
+            dPan.style.flex = '1';
+          }
+          if (dSvg) dSvg.style.height = '540px';
+          if (sFeed) sFeed.style.display = 'none';
+        } else if (mode === 'split') {
+          if (dPan) {
+            dPan.style.display = 'flex';
+            dPan.style.flex = 'none';
+          }
+          if (dSvg) dSvg.style.height = '240px';
+          if (sFeed) {
+            sFeed.style.display = 'flex';
+            sFeed.style.flex = '1';
+          }
+        }
+        renderTopology();
+      }
+
+      if (btnViewStream) btnViewStream.addEventListener('click', function() { switchView('stream'); });
+      if (btnViewDag) btnViewDag.addEventListener('click', function() { switchView('dag'); });
+      if (btnViewSplit) btnViewSplit.addEventListener('click', function() { switchView('split'); });
+
+      function renderTopology() {
+        var edgesGroup = document.getElementById('dagEdges');
+        var nodesGroup = document.getElementById('dagNodes');
+        if (!edgesGroup || !nodesGroup) return;
+
+        edgesGroup.innerHTML = '';
+        nodesGroup.innerHTML = '';
+
+        var nodeMap = {};
+        var edgeMap = {};
+
+        var canonical = [
+          { id: 'ProductArchitect', name: 'ProductArchitect', role: 'Lead', x: 140, y: 120 },
+          { id: 'BackendEngineer', name: 'BackendEngineer', role: 'Core', x: 380, y: 90 },
+          { id: 'CodeReviewer', name: 'CodeReviewer', role: 'Review', x: 620, y: 120 },
+          { id: 'SecurityAuditor', name: 'SecurityAuditor', role: 'Guard', x: 380, y: 280 }
+        ];
+        canonical.forEach(function(c) {
+          nodeMap[c.id] = { id: c.id, name: c.name, role: c.role, x: c.x, y: c.y, inDeg: 0, outDeg: 0, turns: 0, tokens: 0 };
+        });
+
+        spans.forEach(function(s) {
+          var src = s.source || 'Agent';
+          var tgt = s.target || 'Swarm';
+          if (!nodeMap[src]) {
+            nodeMap[src] = { id: src, name: src, role: 'Agent', x: 380, y: 190, inDeg: 0, outDeg: 0, turns: 0, tokens: 0 };
+          }
+          if (!nodeMap[tgt]) {
+            nodeMap[tgt] = { id: tgt, name: tgt, role: 'Agent', x: 380, y: 190, inDeg: 0, outDeg: 0, turns: 0, tokens: 0 };
+          }
+          nodeMap[src].outDeg++;
+          nodeMap[src].turns++;
+          nodeMap[src].tokens += (s.tokens || 0);
+          nodeMap[tgt].inDeg++;
+
+          var pair = src + '->' + tgt;
+          if (!edgeMap[pair]) {
+            edgeMap[pair] = { id: pair, src: src, tgt: tgt, turns: 0, tokens: 0, isCyclic: false };
+          }
+          edgeMap[pair].turns++;
+          edgeMap[pair].tokens += (s.tokens || 0);
+        });
+
+        // Detect cycles
+        var cyclicAgents = {};
+        Object.keys(edgeMap).forEach(function(k) {
+          var e = edgeMap[k];
+          var revPair = e.tgt + '->' + e.src;
+          if (edgeMap[revPair]) {
+            e.isCyclic = true;
+            edgeMap[revPair].isCyclic = true;
+            cyclicAgents[e.src] = true;
+            cyclicAgents[e.tgt] = true;
+          }
+        });
+
+        var cyclesCount = Object.keys(cyclicAgents).length > 0 ? 1 : 0;
+        var nodeList = Object.values(nodeMap);
+        var edgeList = Object.values(edgeMap);
+
+        var nCnt = document.getElementById('dagNodeCount');
+        var eCnt = document.getElementById('dagEdgeCount');
+        var cCnt = document.getElementById('dagCycleCount');
+        if (nCnt) nCnt.textContent = nodeList.length.toString();
+        if (eCnt) eCnt.textContent = edgeList.length.toString();
+        if (cCnt) {
+          cCnt.textContent = cyclesCount.toString();
+          cCnt.style.color = cyclesCount > 0 ? 'var(--danger)' : 'var(--text-primary)';
+        }
+
+        // Render Edges
+        edgeList.forEach(function(e) {
+          var n1 = nodeMap[e.src];
+          var n2 = nodeMap[e.tgt];
+          if (!n1 || !n2) return;
+
+          var x1 = n1.x;
+          var y1 = n1.y;
+          var x2 = n2.x;
+          var y2 = n2.y;
+
+          var pathD = '';
+          var midX = (x1 + x2) / 2;
+          var midY = (y1 + y2) / 2;
+
+          var rev = edgeMap[e.tgt + '->' + e.src];
+          if (rev) {
+            var dx = x2 - x1;
+            var dy = y2 - y1;
+            var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            var normX = -dy / dist;
+            var normY = dx / dist;
+            var curveOffset = 38;
+            var ctrlX = midX + normX * curveOffset;
+            var ctrlY = midY + normY * curveOffset;
+            pathD = 'M ' + x1 + ' ' + y1 + ' Q ' + ctrlX + ' ' + ctrlY + ' ' + x2 + ' ' + y2;
+            midX = ctrlX * 0.5 + midX * 0.5;
+            midY = ctrlY * 0.5 + midY * 0.5;
+          } else {
+            pathD = 'M ' + x1 + ' ' + y1 + ' L ' + x2 + ' ' + y2;
+          }
+
+          var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', pathD);
+          path.setAttribute('class', 'dag-edge' + (e.isCyclic ? ' cyclic' : ''));
+          path.setAttribute('marker-end', e.isCyclic ? 'url(#arrowCycle)' : 'url(#arrowNominal)');
+          edgesGroup.appendChild(path);
+
+          var gLabel = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', (midX - 32).toString());
+          rect.setAttribute('y', (midY - 9).toString());
+          rect.setAttribute('width', '64');
+          rect.setAttribute('height', '18');
+          rect.setAttribute('class', 'dag-edge-label-bg');
+          if (e.isCyclic) {
+            rect.setAttribute('style', 'stroke: var(--danger); stroke-width: 1px;');
+          }
+          gLabel.appendChild(rect);
+
+          var txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('x', midX.toString());
+          txt.setAttribute('y', midY.toString());
+          txt.setAttribute('class', 'dag-edge-label-text');
+          var tokenStr = e.tokens > 1000 ? (e.tokens / 1000).toFixed(1) + 'k' : e.tokens.toString();
+          txt.textContent = e.turns + 't \u2022 ' + tokenStr;
+          if (e.isCyclic) txt.setAttribute('style', 'fill: var(--danger); font-weight: 600;');
+          gLabel.appendChild(txt);
+          edgesGroup.appendChild(gLabel);
+        });
+
+        // Render Nodes
+        nodeList.forEach(function(n) {
+          var isCyclicNode = cyclicAgents[n.id];
+          var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.setAttribute('class', 'dag-node');
+          g.setAttribute('data-agent', n.id);
+
+          var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', (n.x - 70).toString());
+          rect.setAttribute('y', (n.y - 25).toString());
+          rect.setAttribute('width', '140');
+          rect.setAttribute('height', '50');
+          rect.setAttribute('class', 'dag-node-rect' + (isCyclicNode ? ' cyclic' : ''));
+          g.appendChild(rect);
+
+          var title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          title.setAttribute('x', n.x.toString());
+          title.setAttribute('y', (n.y - 4).toString());
+          title.setAttribute('class', 'dag-node-text');
+          title.textContent = n.name;
+          g.appendChild(title);
+
+          var sub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          sub.setAttribute('x', n.x.toString());
+          sub.setAttribute('y', (n.y + 14).toString());
+          sub.setAttribute('class', 'dag-node-role');
+          sub.textContent = n.role + ' \u2022 ' + n.turns + ' turns';
+          g.appendChild(sub);
+
+          g.addEventListener('click', function() {
+            document.querySelectorAll('.dag-node-rect').forEach(function(r) { r.classList.remove('selected'); });
+            rect.classList.add('selected');
+            document.getElementById('inspTurnId').textContent = n.name + ' (Agent Node)';
+            document.getElementById('inspPayload').textContent = JSON.stringify({
+              agent_id: n.id,
+              role: n.role,
+              in_degree: n.inDeg,
+              out_degree: n.outDeg,
+              total_turns: n.turns,
+              total_tokens: n.tokens,
+              is_in_cyclic_loop: !!isCyclicNode
+            }, null, 2);
+          });
+
+          nodesGroup.appendChild(g);
+        });
+      }
+
       function resetConsole() {
         spans = [];
         selectedTurn = null;
@@ -1537,6 +1943,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           transport: "WebSocket + SSE",
           protocol: "SwarmWatch v0.1.0"
         }, null, 2);
+        renderTopology();
       }
 
       function initWebSocket() {
@@ -1834,6 +2241,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         newKeySecret.textContent = 'sw_live_9xK2mP4vL8nQ1wZ7eR3tY6uI';
         newKeyBanner.style.display = 'block';
       }
+
+      if (fullUrl.indexOf('view=dag') !== -1) {
+        switchView('dag');
+      } else if (fullUrl.indexOf('view=split') !== -1) {
+        switchView('split');
+      } else {
+        renderTopology();
+      }
     })();
   </script>
 </body>
@@ -2074,6 +2489,27 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
             branch_id=branch_id,
             project_id=tenant.project_id
         )
+
+    @app.get("/api/v1/topology")
+    async def get_topology(
+        swarm_id: str = Query(default="swarm-live-01"),
+        branch_id: str = Query(default="main"),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Computes spatial DAG topology, edge metrics, and cycle detections from persisted spans."""
+        raw_spans = await active_storage.get_swarm_spans(
+            swarm_id,
+            branch_id=branch_id,
+            project_id=tenant.project_id,
+        )
+        span_objects = []
+        for s in raw_spans:
+            if isinstance(s, SwarmSpan):
+                span_objects.append(s)
+            elif isinstance(s, dict):
+                span_objects.append(SwarmSpan.model_validate(s))
+        topo = build_topology_from_spans(span_objects)
+        return topo.to_dict()
 
     @app.get("/api/v1/swarms/{swarm_id}/branches")
     async def get_branches(

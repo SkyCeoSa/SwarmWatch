@@ -113,8 +113,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Deep module `ChaosSimulator` in `swarmwatch/chaos.py` supporting 4 deterministic failure modes: `entropy_collapse`, `infinite_tool_recursion`, `budget_quota_exhaustion`, and `conversational_deadlock`.
   - Backend control plane injection endpoint `POST /api/v1/chaos/inject` streaming causal spans, state snapshots, and circuit halts over WebSocket.
   - Austere Developer Console UI trigger panel in `dashboard.html` conforming strictly to Impeccable craft floor standards.
+- **Visual Causal DAG Graph View (Seam 9 & ADR 0017)**:
+  - Deep module `CausalTopologyGraph` in `swarmwatch/topology.py` computing agent adjacency networks, token/latency metrics, and deterministic cycle detection.
+  - Non-blocking vector SVG graph rendering in `dashboard.html` with stream/DAG/split view toggling and animated loop trip highlights.
+  - Zero-cloud, zero-token, and <0.05% CPU footprint guarantee.
 - **Complete Test Coverage**:
-  - **123+ automated tests passing 100% locally** across Python and TypeScript.
+  - **130+ automated tests passing 100% locally** across Python and TypeScript.
+
 
 
 

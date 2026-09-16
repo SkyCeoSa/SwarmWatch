@@ -41,6 +41,7 @@ Whenever beginning a new session or designing new features, consult this index t
    - [ADR 0014: Enterprise Prometheus Metrics Exporter](../adr/0014-enterprise-prometheus-metrics-exporter.md)
    - [ADR 0015: LlamaIndex & Microsoft AutoGen Framework Adapters](../adr/0015-llamaindex-and-autogen-framework-adapters.md)
    - [ADR 0016: Interactive Chaos & Loop Simulator in Developer Console](../adr/0016-interactive-chaos-simulator.md)
+   - [ADR 0017: Visual Causal DAG Graph View & Cycle Topology in Developer Console](../adr/0017-visual-causal-dag-graph-view.md)
 
 ---
 

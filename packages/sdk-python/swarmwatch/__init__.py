@@ -62,6 +62,12 @@ from swarmwatch.metrics import (
 )
 from swarmwatch.adapters.llamaindex import SwarmWatchLlamaIndexHandler
 from swarmwatch.adapters.autogen import SwarmWatchAutoGenListener
+from swarmwatch.topology import (
+    AgentNode,
+    CausalEdge,
+    CausalTopology,
+    build_topology_from_spans,
+)
 
 
 
@@ -119,6 +125,10 @@ __all__ = [
     "set_telemetry_queue_depth",
     "SwarmWatchLlamaIndexHandler",
     "SwarmWatchAutoGenListener",
+    "AgentNode",
+    "CausalEdge",
+    "CausalTopology",
+    "build_topology_from_spans",
 ]
 
 
