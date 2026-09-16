@@ -64,8 +64,9 @@ This document details the architectural topology, defined seams, and runtime dat
    - Primitives: `StorageAdapter` abstract base class.
    - Invariant: Thread safety; SQLite connections never shared across threads.
 5. **Ecosystem Adapter Seam**:
-   - Primitives: `SwarmWatchCallbackHandler` and `SwarmWatchCrewListener`.
-   - Invariant: Public official interfaces only; zero monkey-patching.
+   - Primitives: `SwarmWatchCallbackHandler` (LangGraph/LangChain), `SwarmWatchCrewListener` (CrewAI), `SwarmWatchLlamaIndexHandler` (LlamaIndex), and `SwarmWatchAutoGenListener` (Microsoft AutoGen).
+   - Invariant: Public official interfaces only; zero monkey-patching; proactive Shannon entropy circuit breaking.
+
 6. **Real-Time Observability Seam**:
    - Primitives: `create_app(storage)` FastAPI factory and `WebSocketManager`.
    - Invariant: Graceful disconnection handling and fallback replay.

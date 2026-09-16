@@ -106,8 +106,12 @@ This document charts the development milestones of **SwarmWatch**, from local fo
 - **Enterprise Prometheus Metrics Exporter (Seam 8 & ADR 0014)**:
   - Zero-dependency Prometheus 0.0.4 / OpenMetrics 1.0.0 exporter (`GET /metrics`) in pure standard library Python.
   - Thread-safe atomic counters, gauges, and cumulative latency histograms with $<0.5\mu s$ overhead and multi-tenant `project_id` labeling.
+- **Expanded Ecosystem Framework Adapters (Seam 5 & ADR 0015)**:
+  - `SwarmWatchLlamaIndexHandler`: Non-invasive `BaseCallbackHandler` capturing query synthesis, tool retrieval, and agent steps with causal parent-child DAGs.
+  - `SwarmWatchAutoGenListener`: Conversational message interceptor and `register_hook` listener breaking conversational deadlocks and ping-pong loops.
 - **Complete Test Coverage**:
-  - **117 automated tests passing 100% locally** (66 Python + 51 TypeScript).
+  - **123 automated tests passing 100% locally** (72 Python + 51 TypeScript).
+
 
 
 

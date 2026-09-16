@@ -48,8 +48,13 @@ A **seam** is a place where behavior can be altered or inspected without editing
 - **Behind the Seam**: `SafeStateSerializer` cycle-breaking, recursive secret masking (`sk-...`, Bearer tokens), GZIP compression, and SHA-256 state hashing.
 
 ### 5. Ecosystem Adapter Seam
-- **Interface**: `SwarmWatchCallbackHandler` (LangGraph/LangChain) and `SwarmWatchCrewListener` (CrewAI).
-- **Behind the Seam**: Zero monkey-patching event translation using public callback hooks.
+- **Interface**:
+  - `SwarmWatchCallbackHandler` (LangGraph / LangChain)
+  - `SwarmWatchCrewListener` (CrewAI)
+  - `SwarmWatchLlamaIndexHandler` (LlamaIndex)
+  - `SwarmWatchAutoGenListener` (Microsoft AutoGen)
+- **Behind the Seam**: Zero monkey-patching event translation using public callback hooks (`BaseCallbackHandler`, `step_callback`, `register_hook`), causal parent-child tracking, and proactive Shannon entropy circuit breaking across conversational and tool loops.
+
 
 ### 6. Real-Time Observability Seam
 - **Interface**: FastAPI HTTP ingestion (`POST /api/v1/spans`, `POST /api/v1/simulate`) and WebSocket stream (`/ws/swarm/{swarm_id}`).

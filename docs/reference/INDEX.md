@@ -39,6 +39,7 @@ Whenever beginning a new session or designing new features, consult this index t
    - [ADR 0012: Zero-Cloud Self-Hosted Containerized Deployment](../adr/0012-self-hosted-containerized-deployment.md)
    - [ADR 0013: Zero-Cloud Distribution Package Validation](../adr/0013-zero-cloud-distribution-package-validation.md)
    - [ADR 0014: Enterprise Prometheus Metrics Exporter](../adr/0014-enterprise-prometheus-metrics-exporter.md)
+   - [ADR 0015: LlamaIndex & Microsoft AutoGen Framework Adapters](../adr/0015-llamaindex-and-autogen-framework-adapters.md)
 
 ---
 
@@ -46,7 +47,7 @@ Whenever beginning a new session or designing new features, consult this index t
 
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
-| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (66/66 tests) |
+| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (72/72 tests) |
 | **TypeScript Test Suite** | `cmd.exe /c npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (51/51 tests) |
 | **Prometheus Exporter** | `curl http://127.0.0.1:8765/metrics` | 100% OpenMetrics 0.0.4 Valid |
 | **Package Distribution Integrity** | `python scripts\verify_release.py` | 100% Valid (Wheel & Tarball) |

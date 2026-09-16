@@ -60,6 +60,9 @@ from swarmwatch.metrics import (
     set_active_websockets,
     set_telemetry_queue_depth,
 )
+from swarmwatch.adapters.llamaindex import SwarmWatchLlamaIndexHandler
+from swarmwatch.adapters.autogen import SwarmWatchAutoGenListener
+
 
 
 __all__ = [
@@ -114,5 +117,8 @@ __all__ = [
     "set_active_swarms",
     "set_active_websockets",
     "set_telemetry_queue_depth",
+    "SwarmWatchLlamaIndexHandler",
+    "SwarmWatchAutoGenListener",
 ]
+
 

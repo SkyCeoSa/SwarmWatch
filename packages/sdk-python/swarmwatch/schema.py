@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
 
 
 class SwarmSpan(BaseModel):
@@ -24,6 +25,27 @@ class SwarmSpan(BaseModel):
     start_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     end_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     duration_ms: float = 0.0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "id" not in data and "span_id" in data:
+                data["id"] = data["span_id"]
+            if "parent_span_id" not in data and "parent_id" in data:
+                data["parent_span_id"] = data["parent_id"]
+            if "target_agent" not in data:
+                data["target_agent"] = data.get("target", "environment")
+        return data
+
+    @property
+    def span_id(self) -> str:
+        return self.id
+
+    @property
+    def parent_id(self) -> Optional[str]:
+        return self.parent_span_id
+
 
     def to_otel_span(self) -> Dict[str, Any]:
         """

@@ -82,3 +82,14 @@ _Avoid_: Log statistic, telemetry stat, monitoring value
 The dedicated `/metrics` HTTP handler serving OpenMetrics formatted exposition payload to cluster Prometheus or Datadog agents.
 _Avoid_: Stats URL, monitoring page, ping route
 
+### Ecosystem & Framework Adapters
+
+**FrameworkAdapter**:
+A non-invasive bridge translating third-party agent framework lifecycle events into SwarmSpans and circuit interventions without monkey-patching.
+_Avoid_: Plugin, wrapper, interceptor, monkey patch
+
+**ConversationalTurn**:
+A discrete request-response message exchange between two conversational agents in a multi-agent dialogue.
+_Avoid_: Chat item, utterance, message step
+
+
