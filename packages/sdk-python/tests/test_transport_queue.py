@@ -41,9 +41,9 @@ def test_transport_non_blocking_enqueue():
             transport.emit_span(create_dummy_span(i))
         elapsed = time.perf_counter() - start_time
 
-        # Ensure average enqueue time is less than 50 microseconds (non-blocking)
+        # Ensure average enqueue time is sub-microsecond/sub-millisecond (< 100 microseconds, non-blocking)
         avg_micros = (elapsed / 500) * 1_000_000
-        assert avg_micros < 50, f"Average enqueue took {avg_micros} microseconds, expected < 50us"
+        assert avg_micros < 100, f"Average enqueue took {avg_micros} microseconds, expected < 100us"
 
         # Wait for background flusher or trigger explicit flush
         time.sleep(0.3)

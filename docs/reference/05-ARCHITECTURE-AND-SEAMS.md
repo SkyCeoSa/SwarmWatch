@@ -69,3 +69,7 @@ This document details the architectural topology, defined seams, and runtime dat
 6. **Real-Time Observability Seam**:
    - Primitives: `create_app(storage)` FastAPI factory and `WebSocketManager`.
    - Invariant: Graceful disconnection handling and fallback replay.
+7. **Package Distribution Integrity Seam**:
+   - Primitives: `PackageReleaseValidator.validate_wheel(...)`, `validate_tarball(...)`, `validate_distribution(...)`.
+   - Invariant: Zero external dependencies; multi-format validation (Wheel and npm) with bit-level integrity and secret scanning before release.
+

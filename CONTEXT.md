@@ -49,3 +49,26 @@ _Avoid_: Fork name, thread, session variant
 **Time-Machine Fork**:
 A non-destructive operation that clones historical state at a target span into a new branch for parallel exploration or bug recovery.
 _Avoid_: Rewind, roll back, restore point
+
+### Packaging & Distribution
+
+**DistributionArtifact**:
+An immutable compiled binary or source package built for production developer distribution.
+_Avoid_: Build output, package file, tar, zip
+
+**WheelPackage**:
+A Python binary wheel distribution artifact containing bytecode, package metadata, entrypoints, and embedded console assets.
+_Avoid_: Egg, setup file, python bundle
+
+**NpmTarball**:
+A gzipped tar archive distribution artifact containing TypeScript ESM modules, type declarations, and package manifests.
+_Avoid_: Node package, tar archive, tgz file
+
+**ArtifactIntegrityReport**:
+A structured evaluation verifying archive checksums, member completeness, metadata conformance, and internal asset health.
+_Avoid_: Lint report, check result, build status
+
+**ForbiddenPatternViolation**:
+The detection of unmasked secrets, test caches, or internal dotfiles within a distribution artifact.
+_Avoid_: Leak, security bug, dirty file
+
