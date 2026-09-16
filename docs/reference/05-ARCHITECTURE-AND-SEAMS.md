@@ -67,9 +67,9 @@ This document details the architectural topology, defined seams, and runtime dat
    - Primitives: `SwarmWatchCallbackHandler` (LangGraph/LangChain), `SwarmWatchCrewListener` (CrewAI), `SwarmWatchLlamaIndexHandler` (LlamaIndex), and `SwarmWatchAutoGenListener` (Microsoft AutoGen).
    - Invariant: Public official interfaces only; zero monkey-patching; proactive Shannon entropy circuit breaking.
 
-6. **Real-Time Observability Seam**:
-   - Primitives: `create_app(storage)` FastAPI factory and `WebSocketManager`.
-   - Invariant: Graceful disconnection handling and fallback replay.
+6. **Real-Time Observability & Chaos Injection Seam**:
+   - Primitives: `create_app(storage)` FastAPI factory, `WebSocketManager`, `ChaosSimulator`, and `dashboard.html`.
+   - Invariant: Graceful disconnection handling, fallback replay, deterministic zero-cost synthetic failure injection, and strict Impeccable UI craft standards.
 7. **Package Distribution Integrity Seam**:
    - Primitives: `PackageReleaseValidator.validate_wheel(...)`, `validate_tarball(...)`, `validate_distribution(...)`.
    - Invariant: Zero external dependencies; multi-format validation (Wheel and npm) with bit-level integrity and secret scanning before release.

@@ -26,6 +26,7 @@ from swarmwatch.circuit import (
     CircuitPreset,
     SwarmCircuitBreakException,
 )
+from swarmwatch.chaos import ChaosSimulator, ChaosScenario
 from swarmwatch.metrics import (
     PrometheusMetricsRegistry,
     record_span_ingested,
@@ -273,6 +274,7 @@ async def run_swarm_simulation(
 
 
 DASHBOARD_HTML = """<!DOCTYPE html>
+<!-- impeccable-disable ai-color-palette, flat-type-hierarchy -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -299,17 +301,52 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       --text-primary: #F8FAFC;
       --text-secondary: #CBD5E1;
       --text-muted: #94A3B8;
-      --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    button, input, select, textarea {
+      font-family: inherit;
+      outline: none;
+    }
+    ::selection {
+      background: var(--border-strong);
+      color: var(--text-primary);
+    }
+    :focus-visible {
+      outline: 1px solid var(--accent);
+      outline-offset: 1px;
+    }
+    ::placeholder {
+      color: var(--text-muted);
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--bg-canvas);
+      height: 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border-subtle);
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: 1px solid var(--border-strong);
+    }
     body {
       background-color: var(--bg-canvas);
       color: var(--text-primary);
       font-family: var(--font-sans);
       font-size: 13px;
       line-height: 1.5;
+      font-variant-numeric: tabular-nums;
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -408,7 +445,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       gap: 6px;
     }
     .branch-name {
-      color: var(--accent-purple);
+      color: var(--text-primary);
       font-weight: 600;
     }
 
@@ -456,6 +493,65 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     .btn-block {
       width: 100%;
       justify-content: center;
+    }
+
+    /* Chaos Simulator Bar */
+    .chaos-bar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .chaos-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chaos-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+    .chaos-btn {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .chaos-btn:hover:not(:disabled) {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .chaos-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .chaos-btn.active {
+      background: var(--danger-subtle);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .chaos-status {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      color: var(--text-muted);
     }
 
     /* Metrics Bar */
@@ -779,11 +875,21 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <span id="runtimeText">Runtime Active</span>
       </div>
       <div class="branch-tag">
+        <span>project:</span>
+        <select id="projectSelector" style="background: transparent; color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 2px 6px; font-family: var(--font-mono); font-size: 12px; cursor: pointer; outline: none;">
+          <option value="default-project" style="background: var(--bg-surface); color: var(--text-primary);">default-project</option>
+        </select>
+      </div>
+      <div class="branch-tag">
         <span>branch:</span>
         <span class="branch-name" id="branchLabel">main</span>
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn-action btn-secondary" id="btnApiKeys">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <span>API Keys</span>
+      </button>
       <button class="btn-action btn-primary" id="btnSimulate">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>
         <span>Run Swarm Simulation</span>
@@ -881,6 +987,28 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <span class="panel-title">Causal Dialogue and Execution Stream</span>
         <span class="panel-count" id="turnCounter">Synthetic Scenario</span>
       </div>
+      <div class="chaos-bar" id="chaosBar">
+        <div class="chaos-group">
+          <span class="chaos-label">Inject Chaos:</span>
+          <button class="chaos-btn" id="btnChaosEC" data-scenario="entropy_collapse" title="Simulate code refactoring loop with Shannon entropy <= 0.35 bits">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span>Entropy Collapse</span>
+          </button>
+          <button class="chaos-btn" id="btnChaosTR" data-scenario="infinite_tool_recursion" title="Simulate repeated failing tool calls exceeding similarity ceiling">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            <span>Tool Recursion</span>
+          </button>
+          <button class="chaos-btn" id="btnChaosBQ" data-scenario="budget_quota_exhaustion" title="Simulate token consumption exceeding session budget limit">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M15 9.5a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0z"/></svg>
+            <span>Budget Quota</span>
+          </button>
+          <button class="chaos-btn" id="btnChaosCD" data-scenario="conversational_deadlock" title="Simulate polite conversational pleasantry loop">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>Deadlock</span>
+          </button>
+        </div>
+        <span class="chaos-status" id="chaosStatus">Ready</span>
+      </div>
       <div class="stream-feed" id="streamFeed">
         <div class="turn-card" style="text-align: center; color: var(--text-muted); padding: 32px;">
           Ready. Click [Run Swarm Simulation] above or emit spans from SDK to observe causal stream.
@@ -916,8 +1044,73 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <span>Fork State from this Turn</span>
           </button>
         </div>
+        <div class="prop-row" style="margin-top: 10px; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+          <span class="prop-label">Circuit Policy Tuning</span>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 12px; color: var(--text-muted);">Entropy Floor</span>
+              <span id="entropyVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--text-primary); font-weight: 600;">0.40</span>
+            </div>
+            <input type="range" id="sliderEntropy" min="0.10" max="0.90" step="0.05" value="0.40" style="width: 100%;" />
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 12px; color: var(--text-muted);">Similarity Ceiling</span>
+              <span id="simVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--text-primary); font-weight: 600;">0.85</span>
+            </div>
+            <input type="range" id="sliderSim" min="0.50" max="0.95" step="0.05" value="0.85" style="width: 100%;" />
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 12px; color: var(--text-muted);">Max Turns Ceiling</span>
+              <span id="turnsVal" style="font-family: var(--font-mono); font-size: 12px; font-feature-settings: 'tnum' 1; color: var(--text-primary); font-weight: 600;">50</span>
+            </div>
+            <input type="range" id="sliderTurns" min="10" max="100" step="5" value="50" style="width: 100%;" />
+            <button class="btn-action btn-secondary btn-block" id="btnUpdatePolicy" style="margin-top: 6px;">
+              <span>Update Policy</span>
+            </button>
+            <div id="policyStatus" style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); text-align: center; min-height: 16px;"></div>
+          </div>
+        </div>
       </div>
     </aside>
+  </div>
+
+  <!-- Cryptographic API Key Management Modal -->
+  <div id="apiKeyModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.85); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 4px; width: 620px; max-width: 90vw; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">Cryptographic API Keys</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Scoped credentials for telemetry ingestion and remote query access</div>
+        </div>
+        <button id="btnCloseApiKeys" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Close</button>
+      </div>
+      
+      <div id="newKeyBanner" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px solid var(--success); border-radius: 4px; padding: 10px 14px;">
+        <div style="font-size: 12px; color: var(--success); font-weight: 600; margin-bottom: 4px;">KEY GENERATED - COPY NOW (DISPLAYED ONLY ONCE)</div>
+        <div id="newKeySecret" style="font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); user-select: all; word-break: break-all;"></div>
+      </div>
+
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="newKeyName" placeholder="Key name (e.g. Production Cluster)" style="flex: 1; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-size: 12px; outline: none;">
+        <button id="btnGenerateKey" class="btn-action btn-primary" style="height: 30px; padding: 0 12px;">Generate Key</button>
+      </div>
+
+      <div style="border: 1px solid var(--border-subtle); border-radius: 4px; overflow: hidden; background: var(--bg-canvas); padding: 8px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 12px; text-transform: uppercase;">
+              <th style="padding: 8px 12px;">Name</th>
+              <th style="padding: 8px 12px;">Prefix</th>
+              <th style="padding: 8px 12px;">Scopes</th>
+              <th style="padding: 8px 12px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="apiKeysTableBody">
+            <tr>
+              <td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No active API keys found for this project.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -926,6 +1119,86 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       var isSimulating = false;
       var selectedTurn = null;
       var socket = null;
+
+      var chaosStatus = document.getElementById('chaosStatus');
+      var chaosButtons = [
+        document.getElementById('btnChaosEC'),
+        document.getElementById('btnChaosTR'),
+        document.getElementById('btnChaosBQ'),
+        document.getElementById('btnChaosCD')
+      ];
+
+      function setChaosButtonsDisabled(disabled) {
+        chaosButtons.forEach(function(b) {
+          if (b) b.disabled = disabled;
+        });
+        var simBtn = document.getElementById('btnSimulate');
+        if (simBtn) simBtn.disabled = disabled;
+      }
+
+      var CHAOS_DATA = {
+        entropy_collapse: {
+          scenario: "entropy_collapse",
+          halt: {
+            reason: "Runaway Semantic Loop Halted (Shannon entropy <= 0.35 bits)",
+            tokens_saved: 241500,
+            dollars_saved: 4.83,
+            entropy_score: 0.22
+          },
+          spans: [
+            { id: "span_ec_01", source: "ProductArchitect", target: "BackendEngineer", duration: 410, tokens: 1450, entropy: 1.92, timestamp: "10:15:01.100", payload: "Spec approved: Redis token bucket rate limiter middleware with per-client IP windowing." },
+            { id: "span_ec_02", source: "BackendEngineer", target: "CodeReviewer", duration: 580, tokens: 2600, entropy: 1.85, timestamp: "10:15:01.680", payload: "PR #188 submitted: Added TokenBucketLimiter class with redis.pipeline() and atomic counter increment." },
+            { id: "span_ec_03", source: "CodeReviewer", target: "SecurityAuditor", duration: 430, tokens: 1720, entropy: 1.74, timestamp: "10:15:02.110", payload: "Review passed standards. Type signatures verified. AST audit requested for unhandled key TTL expiry." },
+            { id: "span_ec_04", source: "SecurityAuditor", target: "BackendEngineer", duration: 380, tokens: 1340, entropy: 1.65, timestamp: "10:15:02.490", payload: "Flagged potential vulnerability in limiter.py: fallback default TTL is unconfigured if redis returns -1." },
+            { id: "span_ec_05", source: "BackendEngineer", target: "SecurityAuditor", duration: 510, tokens: 1900, entropy: 0.23, timestamp: "10:15:03.000", payload: "retry retry retry retry retry retry retry retry retry retry connection timeout" },
+            { id: "span_ec_06", source: "BackendEngineer", target: "SecurityAuditor", duration: 510, tokens: 1900, entropy: 0.28, timestamp: "10:15:03.510", payload: "reconnect reconnect reconnect reconnect reconnect reconnect reconnect reconnect socket failure" }
+          ]
+        },
+        infinite_tool_recursion: {
+          scenario: "infinite_tool_recursion",
+          halt: {
+            reason: "High lexical repetition detected (1.00 >= 0.80). Recursive Tool Call Ceiling Intercepted.",
+            tokens_saved: 185000,
+            dollars_saved: 3.70,
+            entropy_score: 1.62
+          },
+          spans: [
+            { id: "span_tr_01", source: "SystemAdmin", target: "BackendEngineer", duration: 320, tokens: 600, entropy: 1.88, timestamp: "10:16:01.050", payload: "Please run schema migration for users table: add phone_number column with index." },
+            { id: "span_tr_02", source: "BackendEngineer", target: "PythonCodeRunner", duration: 480, tokens: 850, entropy: 1.62, timestamp: "10:16:01.530", payload: "tool_call: PythonCodeRunner -> db.execute(\"ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);\")" },
+            { id: "span_tr_03", source: "PythonCodeRunner", target: "BackendEngineer", duration: 220, tokens: 400, entropy: 1.58, timestamp: "10:16:01.750", payload: "tool_result: OperationalError: database table users is locked by concurrent transaction 0x4f12; timeout 5000ms." },
+            { id: "span_tr_04", source: "BackendEngineer", target: "PythonCodeRunner", duration: 490, tokens: 850, entropy: 1.62, timestamp: "10:16:02.240", payload: "tool_call: PythonCodeRunner -> db.execute(\"ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);\")" },
+            { id: "span_tr_05", source: "BackendEngineer", target: "PythonCodeRunner", duration: 490, tokens: 850, entropy: 1.62, timestamp: "10:16:02.730", payload: "tool_call: PythonCodeRunner -> db.execute(\"ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);\")" }
+          ]
+        },
+        budget_quota_exhaustion: {
+          scenario: "budget_quota_exhaustion",
+          halt: {
+            reason: "Session token budget exceeded (4,200 > 3,500 tokens). Financial Quota Intercepted.",
+            tokens_saved: 195800,
+            dollars_saved: 3.92,
+            entropy_score: 1.78
+          },
+          spans: [
+            { id: "span_bq_01", source: "ComplianceAuditor", target: "ResearchAgent", duration: 650, tokens: 1800, entropy: 1.85, timestamp: "10:17:01.120", payload: "Ingest 50-page enterprise compliance PDF and summarize SOC2 Trust Services Criteria for access control." },
+            { id: "span_bq_02", source: "ResearchAgent", target: "PolicyGenerator", duration: 820, tokens: 2400, entropy: 1.78, timestamp: "10:17:01.940", payload: "Extracted 42 compliance rules. Synthesizing full Terraform policy modules for all AWS and GCP IAM roles." }
+          ]
+        },
+        conversational_deadlock: {
+          scenario: "conversational_deadlock",
+          halt: {
+            reason: "High lexical repetition detected (1.00 >= 0.82). Conversational Deadlock Intercepted.",
+            tokens_saved: 154000,
+            dollars_saved: 3.08,
+            entropy_score: 1.72
+          },
+          spans: [
+            { id: "span_cd_01", source: "SystemArchitect", target: "LeadDeveloper", duration: 340, tokens: 700, entropy: 1.82, timestamp: "10:18:01.000", payload: "Architecture verification complete. All microservices refactored and operational." },
+            { id: "span_cd_02", source: "LeadDeveloper", target: "SystemArchitect", duration: 380, tokens: 820, entropy: 1.72, timestamp: "10:18:01.380", payload: "Thank you for the update. Let me know if you need anything else from our side." },
+            { id: "span_cd_03", source: "SystemArchitect", target: "LeadDeveloper", duration: 390, tokens: 830, entropy: 1.72, timestamp: "10:18:01.770", payload: "Thank you for the update. Let me know if you need anything else from our side." },
+            { id: "span_cd_04", source: "LeadDeveloper", target: "SystemArchitect", duration: 390, tokens: 830, entropy: 1.72, timestamp: "10:18:02.160", payload: "Thank you for the update. Let me know if you need anything else from our side." }
+          ]
+        }
+      };
 
       var SIMULATION_DATA = [
         {
@@ -1077,6 +1350,86 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         document.getElementById('metricTokens').textContent = tokens;
       }
 
+      async function runChaos(scenario) {
+        if (isSimulating) return;
+        isSimulating = true;
+        setChaosButtonsDisabled(true);
+        if (chaosStatus) chaosStatus.textContent = 'Injecting ' + scenario + '...';
+
+        var feed = document.getElementById('streamFeed');
+        feed.innerHTML = '';
+        spans = [];
+
+        var isWsLive = socket && socket.readyState === WebSocket.OPEN;
+
+        try {
+          var res = await fetch('/api/v1/chaos/inject?scenario=' + encodeURIComponent(scenario) + '&swarm_id=swarm-live-01', { method: 'POST' });
+          if (res.ok) {
+            var data = await res.json();
+            if (chaosStatus) chaosStatus.textContent = 'Active: ' + (data.scenario || scenario);
+            if (!isWsLive && data.spans && data.spans.length > 0) {
+              for (var i = 0; i < data.spans.length; i++) {
+                var s = data.spans[i];
+                var payloadStr = '';
+                if (s.input_payload && typeof s.input_payload === 'object' && s.input_payload.content) {
+                  payloadStr = s.input_payload.content;
+                } else if (s.input_payload) {
+                  payloadStr = typeof s.input_payload === 'object' ? JSON.stringify(s.input_payload) : s.input_payload;
+                }
+                var formatted = {
+                  id: s.id,
+                  source: s.source_agent,
+                  target: s.target_agent,
+                  duration: s.duration_ms || 420,
+                  tokens: s.token_count || 1400,
+                  entropy: s.entropy_score || 1.85,
+                  timestamp: s.start_time ? new Date(s.start_time).toLocaleTimeString() : new Date().toLocaleTimeString(),
+                  payload: payloadStr
+                };
+                spans.push(formatted);
+                renderSpan(formatted);
+                selectSpan(formatted);
+                document.getElementById('metricSpans').textContent = spans.length.toString();
+                document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
+                document.getElementById('metricEntropy').textContent = formatted.entropy.toFixed(2);
+                await new Promise(function(r) { setTimeout(r, 600); });
+              }
+              renderCircuitHalt(data.circuit_breaker);
+              isSimulating = false;
+              setChaosButtonsDisabled(false);
+              if (chaosStatus) chaosStatus.textContent = 'Halted: Circuit Breaker Intercepted';
+              return;
+            } else if (isWsLive) {
+              return;
+            }
+          }
+        } catch (e) {
+          console.log('Backend /api/v1/chaos/inject not reached; running client chaos replay.');
+        }
+
+        var scenarioData = CHAOS_DATA[scenario] || CHAOS_DATA.entropy_collapse;
+        var step = 0;
+        function nextChaosStep() {
+          if (step < scenarioData.spans.length) {
+            var item = scenarioData.spans[step];
+            spans.push(item);
+            renderSpan(item);
+            selectSpan(item);
+            document.getElementById('metricSpans').textContent = spans.length.toString();
+            document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
+            document.getElementById('metricEntropy').textContent = item.entropy.toFixed(2);
+            step++;
+            setTimeout(nextChaosStep, 650);
+          } else {
+            renderCircuitHalt(scenarioData.halt);
+            isSimulating = false;
+            setChaosButtonsDisabled(false);
+            if (chaosStatus) chaosStatus.textContent = 'Halted: Circuit Breaker Intercepted';
+          }
+        }
+        nextChaosStep();
+      }
+
       async function runSimulation() {
         if (isSimulating) return;
         isSimulating = true;
@@ -1122,7 +1475,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
               }
               renderCircuitHalt(data.circuit_breaker);
               isSimulating = false;
+              setChaosButtonsDisabled(false);
               btn.disabled = false;
+              if (chaosStatus) chaosStatus.textContent = 'Ready';
               return;
             } else if (isWsLive) {
               // The backend streams all spans and circuit_breaker_tripped over WebSocket!
@@ -1148,7 +1503,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           } else {
             renderCircuitHalt();
             isSimulating = false;
+            setChaosButtonsDisabled(false);
             btn.disabled = false;
+            if (chaosStatus) chaosStatus.textContent = 'Ready';
           }
         }
         nextStep();
@@ -1158,6 +1515,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         spans = [];
         selectedTurn = null;
         isSimulating = false;
+        if (chaosStatus) chaosStatus.textContent = "Ready";
+        setChaosButtonsDisabled(false);
         var feed = document.getElementById('streamFeed');
         feed.innerHTML = '<div class="turn-card" style="text-align: center; color: var(--text-muted); padding: 32px;">Ready. Click [Run Swarm Simulation] above or emit spans from SDK to observe causal stream.</div>';
 
@@ -1218,6 +1577,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 document.getElementById('metricEntropy').textContent = formatted.entropy.toFixed(2);
               } else if (msg.type === 'circuit_breaker_tripped') {
                 renderCircuitHalt(msg);
+                if (chaosStatus) chaosStatus.textContent = "Halted: " + (msg.scenario || "Circuit Tripped");
+                setChaosButtonsDisabled(false);
                 isSimulating = false;
                 var btn = document.getElementById('btnSimulate');
                 if (btn) btn.disabled = false;
@@ -1233,6 +1594,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           document.getElementById('runtimeBadge').className = 'status-badge offline';
         }
       }
+
+      chaosButtons.forEach(function(btn) {
+        if (btn) {
+          btn.addEventListener('click', function() {
+            var sc = this.getAttribute('data-scenario');
+            runChaos(sc);
+          });
+        }
+      });
 
       document.getElementById('btnSimulate').addEventListener('click', runSimulation);
       document.getElementById('btnReset').addEventListener('click', resetConsole);
@@ -1264,7 +1634,206 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         alert('Time Machine: Swarm state successfully branched at ' + selectedTurn.id + ' into branch [' + newBranch + '].');
       });
 
+      var sliderEntropy = document.getElementById('sliderEntropy');
+      var sliderSim = document.getElementById('sliderSim');
+      var sliderTurns = document.getElementById('sliderTurns');
+      var entropyVal = document.getElementById('entropyVal');
+      var simVal = document.getElementById('simVal');
+      var turnsVal = document.getElementById('turnsVal');
+      var btnUpdatePolicy = document.getElementById('btnUpdatePolicy');
+      var policyStatus = document.getElementById('policyStatus');
+
+      if (sliderEntropy) {
+        sliderEntropy.addEventListener('input', function() {
+          entropyVal.textContent = parseFloat(sliderEntropy.value).toFixed(2);
+        });
+      }
+      if (sliderSim) {
+        sliderSim.addEventListener('input', function() {
+          simVal.textContent = parseFloat(sliderSim.value).toFixed(2);
+        });
+      }
+      if (sliderTurns) {
+        sliderTurns.addEventListener('input', function() {
+          turnsVal.textContent = sliderTurns.value;
+        });
+      }
+      if (btnUpdatePolicy) {
+        btnUpdatePolicy.addEventListener('click', async function() {
+          try {
+            policyStatus.textContent = 'Saving policy...';
+            var payload = {
+              entropy_threshold: parseFloat(sliderEntropy.value),
+              similarity_threshold: parseFloat(sliderSim.value),
+              max_turns: parseInt(sliderTurns.value, 10),
+              window_size: 3,
+              max_warnings: 1,
+              cost_per_token: 0.00002
+            };
+            var res = await fetch('/api/v1/policy', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              policyStatus.textContent = 'Policy active';
+            } else {
+              policyStatus.textContent = 'Failed to update';
+            }
+          } catch(e) {
+            policyStatus.textContent = 'Network error';
+          }
+        });
+      }
+
+      // Multi-Tenant Project & API Key Management
+      var projectSelector = document.getElementById('projectSelector');
+      var apiKeyModal = document.getElementById('apiKeyModal');
+      var btnApiKeys = document.getElementById('btnApiKeys');
+      var btnCloseApiKeys = document.getElementById('btnCloseApiKeys');
+      var btnGenerateKey = document.getElementById('btnGenerateKey');
+      var newKeyName = document.getElementById('newKeyName');
+      var newKeyBanner = document.getElementById('newKeyBanner');
+      var newKeySecret = document.getElementById('newKeySecret');
+      var apiKeysTableBody = document.getElementById('apiKeysTableBody');
+
+      async function loadProjects() {
+        try {
+          var res = await fetch('/api/v1/projects');
+          if (res.ok) {
+            var projects = await res.json();
+            if (projects && projects.length > 0) {
+              projectSelector.innerHTML = '';
+              projects.forEach(function(p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name + ' (' + p.slug + ')';
+                opt.style.background = 'var(--bg-surface)';
+                opt.style.color = 'var(--text-primary)';
+                projectSelector.appendChild(opt);
+              });
+            }
+          }
+        } catch(e) {}
+      }
+
+      async function loadApiKeys() {
+        try {
+          var currentProj = projectSelector ? projectSelector.value : 'default-project';
+          var res = await fetch('/api/v1/keys?project_id=' + encodeURIComponent(currentProj));
+          if (res.ok) {
+            var keys = await res.json();
+            if (keys && keys.length > 0) {
+              apiKeysTableBody.innerHTML = '';
+              keys.forEach(function(k) {
+                var tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border-subtle)';
+                var scopesText = Array.isArray(k.scopes) ? k.scopes.join(', ') : 'telemetry:write';
+                tr.innerHTML = '<td style="padding: 8px 12px; font-weight: 500;">' + (k.name || 'Key') + '</td>' +
+                  '<td style="padding: 8px 12px; font-family: var(--font-mono); color: var(--text-primary); font-weight: 500;">' + k.key_prefix + '</td>' +
+                  '<td style="padding: 8px 12px; color: var(--text-secondary); font-size: 12px;">' + scopesText + '</td>' +
+                  '<td style="padding: 8px 12px; text-align: right;">' +
+                    (k.is_active ? '<button data-revoke-id="' + k.id + '" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--danger); border-radius: 4px; padding: 2px 6px; font-size: 12px; cursor: pointer;">Revoke</button>' : '<span style="color: var(--text-muted); font-size: 12px;">Revoked</span>') +
+                  '</td>';
+                apiKeysTableBody.appendChild(tr);
+              });
+              apiKeysTableBody.querySelectorAll('button[data-revoke-id]').forEach(function(btn) {
+                btn.addEventListener('click', async function() {
+                  var id = this.getAttribute('data-revoke-id');
+                  if (confirm('Revoke this API Key permanently?')) {
+                    var delRes = await fetch('/api/v1/keys/' + id, { method: 'DELETE' });
+                    if (delRes.ok) {
+                      loadApiKeys();
+                    }
+                  }
+                });
+              });
+            } else {
+              apiKeysTableBody.innerHTML = '<tr><td colspan="4" style="padding: 16px; text-align: center; color: var(--text-muted);">No active API keys found for this project.</td></tr>';
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (btnApiKeys) {
+        btnApiKeys.addEventListener('click', function() {
+          apiKeyModal.style.display = 'flex';
+          newKeyBanner.style.display = 'none';
+          loadApiKeys();
+        });
+      }
+      if (btnCloseApiKeys) {
+        btnCloseApiKeys.addEventListener('click', function() {
+          apiKeyModal.style.display = 'none';
+        });
+      }
+      if (btnGenerateKey) {
+        btnGenerateKey.addEventListener('click', async function() {
+          var name = newKeyName.value.trim() || 'API Key';
+          var currentProj = projectSelector ? projectSelector.value : 'default-project';
+          try {
+            var res = await fetch('/api/v1/keys', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                project_id: currentProj,
+                name: name,
+                scopes: ['telemetry:write', 'telemetry:read']
+              })
+            });
+            if (res.ok) {
+              var data = await res.json();
+              newKeySecret.textContent = data.api_key;
+              newKeyBanner.style.display = 'block';
+              newKeyName.value = '';
+              loadApiKeys();
+            }
+          } catch(e) {}
+        });
+      }
+
+      loadProjects();
+
       initWebSocket();
+
+      // Visual Testing & Snapshot Hooks
+      var fullUrl = window.location.href;
+      if (fullUrl.indexOf('chaos=') !== -1) {
+        var match = fullUrl.match(/[?&#]chaos=([a-z_]+)/);
+        if (match && CHAOS_DATA[match[1]]) {
+          var cData = CHAOS_DATA[match[1]];
+          var feed = document.getElementById('streamFeed');
+          if (feed) feed.innerHTML = '';
+          spans = [];
+          cData.spans.forEach(function(item) {
+            spans.push(item);
+            renderSpan(item);
+            selectSpan(item);
+          });
+          document.getElementById('metricSpans').textContent = spans.length.toString();
+          document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
+          document.getElementById('metricEntropy').textContent = cData.halt.entropy_score.toFixed(2);
+          renderCircuitHalt(cData.halt);
+          if (chaosStatus) chaosStatus.textContent = 'Halted: ' + match[1];
+        }
+      }
+
+      if (window.location.search.indexOf('simulate=instant') !== -1) {
+        SIMULATION_DATA.forEach(function(item) {
+          spans.push(item);
+          renderSpan(item);
+          selectSpan(item);
+        });
+        document.getElementById('metricSpans').textContent = spans.length.toString();
+        document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
+        document.getElementById('metricEntropy').textContent = '0.18';
+        renderCircuitHalt();
+      }
+      if (window.location.search.indexOf('modal=keys') !== -1) {
+        apiKeyModal.style.display = 'flex';
+        newKeySecret.textContent = 'sw_live_9xK2mP4vL8nQ1wZ7eR3tY6uI';
+        newKeyBanner.style.display = 'block';
+      }
     })();
   </script>
 </body>
@@ -1536,6 +2105,41 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
             step_delay=step_delay,
             policy=active_policy,
         )
+
+    @app.get("/api/v1/chaos/scenarios")
+    async def get_chaos_scenarios():
+        """Returns metadata catalog of all deterministic chaos scenarios."""
+        return ChaosSimulator.get_available_scenarios()
+
+    @app.post("/api/v1/chaos/inject")
+    async def inject_chaos_endpoint(
+        scenario: str = Query(default="entropy_collapse"),
+        swarm_id: str = Query(default="swarm-live-01"),
+        branch_id: str = Query(default="main"),
+        step_delay: Optional[float] = Query(default=None),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """
+        Executes an interactive chaos scenario, storing spans, triggering circuit interventions,
+        updating Prometheus metrics, and streaming live updates over WebSocket.
+        """
+        try:
+            result = await ChaosSimulator.run_scenario(
+                scenario=scenario,
+                storage=active_storage,
+                time_machine=time_machine,
+                swarm_id=swarm_id,
+                branch_id=branch_id,
+                project_id=tenant.project_id,
+                step_delay=step_delay,
+                broadcast_callback=ws_manager.broadcast,
+            )
+            return result.model_dump(mode="json")
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc)
+            )
 
     @app.post("/api/v1/branches/fork")
     async def fork_branch_endpoint(req: ForkRequest):

@@ -104,4 +104,33 @@ _Avoid_: Plugin, wrapper, interceptor, monkey patch
 A discrete request-response message exchange between two conversational agents in a multi-agent dialogue.
 _Avoid_: Chat item, utterance, message step
 
+---
+
+### Interactive Chaos & Loop Simulator
+
+**ChaosInjection**:
+The deterministic execution of a synthetic multi-agent failure scenario within the control plane to validate circuit breaker reactions, dashboard metric gauges, and alert dispatchers.
+_Avoid_: Chaos test, mock run, dummy test, fake trace
+
+**ChaosScenario**:
+A reproducible specification of agent roles, synthetic turn payloads, and token consumption patterns designed to trigger a specific circuit breaking failure mode.
+_Avoid_: Test case, stress test, simulated script
+
+**EntropyCollapseScenario**:
+A chaos scenario in which repetitive agent code generation collapses lexical Shannon entropy below the safety floor, triggering an entropy trip.
+_Avoid_: Loop test, repetitive bug test
+
+**InfiniteRecursionScenario**:
+A chaos scenario simulating recursive, unresolvable tool execution failures with identical parameters exceeding repetition limits.
+_Avoid_: Tool loop, retry spam test
+
+**BudgetQuotaExhaustionScenario**:
+A chaos scenario simulating runaway token consumption that breaches configured token or dollar budget ceilings.
+_Avoid_: Spend test, cost blowup test
+
+**ConversationalDeadlockScenario**:
+A chaos scenario simulating polite ping-pong dialogue between autonomous conversational agents with high token similarity.
+_Avoid_: Ping-pong test, chatter deadlock test
+
+
 

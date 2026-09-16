@@ -109,8 +109,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
 - **Expanded Ecosystem Framework Adapters (Seam 5 & ADR 0015)**:
   - `SwarmWatchLlamaIndexHandler`: Non-invasive `BaseCallbackHandler` capturing query synthesis, tool retrieval, and agent steps with causal parent-child DAGs.
   - `SwarmWatchAutoGenListener`: Conversational message interceptor and `register_hook` listener breaking conversational deadlocks and ping-pong loops.
+- **Interactive Chaos & Loop Simulator (Seam 6 / Seam 5 Extension & ADR 0016)**:
+  - Deep module `ChaosSimulator` in `swarmwatch/chaos.py` supporting 4 deterministic failure modes: `entropy_collapse`, `infinite_tool_recursion`, `budget_quota_exhaustion`, and `conversational_deadlock`.
+  - Backend control plane injection endpoint `POST /api/v1/chaos/inject` streaming causal spans, state snapshots, and circuit halts over WebSocket.
+  - Austere Developer Console UI trigger panel in `dashboard.html` conforming strictly to Impeccable craft floor standards.
 - **Complete Test Coverage**:
-  - **123 automated tests passing 100% locally** (72 Python + 51 TypeScript).
+  - **123+ automated tests passing 100% locally** across Python and TypeScript.
+
 
 
 
