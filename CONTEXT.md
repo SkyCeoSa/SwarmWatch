@@ -72,3 +72,13 @@ _Avoid_: Lint report, check result, build status
 The detection of unmasked secrets, test caches, or internal dotfiles within a distribution artifact.
 _Avoid_: Leak, security bug, dirty file
 
+### Operational Metrics & Prometheus
+
+**PrometheusMetric**:
+A standardized OpenMetrics time-series sample (Counter, Gauge, or Histogram) measuring runtime swarm throughput, circuit safety events, and operational latency.
+_Avoid_: Log statistic, telemetry stat, monitoring value
+
+**ScrapeEndpoint**:
+The dedicated `/metrics` HTTP handler serving OpenMetrics formatted exposition payload to cluster Prometheus or Datadog agents.
+_Avoid_: Stats URL, monitoring page, ping route
+

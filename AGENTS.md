@@ -16,14 +16,20 @@ This repository strictly adheres to Matt Pocock's software engineering and auton
   ```powershell
   python scripts/verify_release.py --json
   ```
+- **Enterprise Operational Metrics Exporter**: Prometheus 0.0.4 / OpenMetrics exposition (`GET /metrics`) per [ADR 0014](./docs/adr/0014-enterprise-prometheus-metrics-exporter.md). Must pass unit and integration test suite:
+  ```powershell
+  .venv\Scripts\pytest.exe packages\sdk-python\tests\test_metrics_prometheus.py
+  ```
 
 ## Context Pointers
 
 - **[docs/reference/INDEX.md](./docs/reference/INDEX.md)**: **Canonical Reference Handbook** (Research, Roadmap, Policies, Workflows, Seams, Glossary, Runbook, and Monetization). **Consult this first in any new session.**
 - [CONTEXT.md](./CONTEXT.md): Ubiquitous domain vocabulary and core concepts. Consult whenever naming new entities or APIs.
 - [ARCHITECTURE.md](./ARCHITECTURE.md): Deep module interfaces, seams, and system invariants.
-- [docs/adr/](./docs/adr/): Sequential Architecture Decision Records (ADR 0001 through 0013).
+- [docs/adr/](./docs/adr/): Sequential Architecture Decision Records (ADR 0001 through 0014).
 - [docs/adr/0013-zero-cloud-distribution-package-validation.md](./docs/adr/0013-zero-cloud-distribution-package-validation.md): Package distribution validation architecture and zero-cloud integrity engine.
+- [docs/adr/0014-enterprise-prometheus-metrics-exporter.md](./docs/adr/0014-enterprise-prometheus-metrics-exporter.md): Enterprise Prometheus metrics exporter & OpenMetrics operational observability.
 - [PRODUCT.md](./PRODUCT.md): Product thesis, user stories, and craft floor requirements.
 - [DESIGN.md](./DESIGN.md): Design tokens, typography, layout, and component rules.
+
 

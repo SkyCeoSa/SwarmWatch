@@ -9,9 +9,11 @@ from datetime import datetime, timezone
 import json
 import logging
 import os
+import time
 from typing import Dict, List, Optional, Set
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from swarmwatch.schema import SwarmSpan, StateSnapshot
@@ -24,6 +26,16 @@ from swarmwatch.circuit import (
     CircuitPreset,
     SwarmCircuitBreakException,
 )
+from swarmwatch.metrics import (
+    PrometheusMetricsRegistry,
+    record_span_ingested,
+    record_circuit_trip,
+    record_state_snapshot,
+    record_branch_fork,
+    set_active_swarms,
+    set_active_websockets,
+)
+
 
 logger = logging.getLogger("swarmwatch.server")
 
@@ -37,12 +49,17 @@ class WebSocketManager:
     async def connect(self, swarm_id: str, websocket: WebSocket) -> None:
         await websocket.accept()
         self._active_connections[swarm_id].add(websocket)
+        set_active_websockets(sum(len(conns) for conns in self._active_connections.values()))
+        set_active_swarms(len(self._active_connections))
 
     def disconnect(self, swarm_id: str, websocket: WebSocket) -> None:
         if swarm_id in self._active_connections:
             self._active_connections[swarm_id].discard(websocket)
             if not self._active_connections[swarm_id]:
                 del self._active_connections[swarm_id]
+        set_active_websockets(sum(len(conns) for conns in self._active_connections.values()))
+        set_active_swarms(len(self._active_connections))
+
 
     async def broadcast(self, swarm_id: str, message: dict) -> None:
         if swarm_id in self._active_connections:
@@ -1313,6 +1330,14 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
     async def health():
         return {"status": "ok", "version": "0.1.0"}
 
+    @app.get("/metrics")
+    async def prometheus_metrics_endpoint():
+        """Prometheus 0.0.4 / OpenMetrics operational telemetry scrape endpoint."""
+        registry = PrometheusMetricsRegistry.get_default()
+        content = registry.export_openmetrics()
+        return Response(content=content, media_type="text/plain; version=0.0.4; charset=utf-8")
+
+
     @app.get("/api/v1/policy")
     async def get_policy():
         return active_policy.model_dump()
@@ -1447,16 +1472,27 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
         spans: List[SwarmSpan],
         tenant: TenantContext = Depends(get_tenant_context)
     ):
+        t0 = time.perf_counter()
         for s in spans:
             if not getattr(s, "project_id", None) or s.project_id == "default-project":
                 s.project_id = tenant.project_id
         await active_storage.save_spans(spans)
+        duration = time.perf_counter() - t0
+        per_span_duration = duration / max(len(spans), 1)
+
         for s in spans:
+            record_span_ingested(
+                project_id=s.project_id,
+                agent_type=getattr(s, "agent_name", "agent"),
+                status="ok",
+                duration_seconds=per_span_duration,
+            )
             await ws_manager.broadcast(s.swarm_id, {
                 "type": "span_update",
                 "span": s.model_dump(mode="json"),
             })
         return {"received": len(spans), "status": "persisted", "project_id": tenant.project_id}
+
 
     @app.get("/api/v1/swarms/{swarm_id}/spans")
     async def get_spans(
@@ -1509,7 +1545,9 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
                 target_span_id=req.target_span_id,
                 new_branch_id=req.new_branch_id,
             )
+            record_branch_fork(project_id="default-project")
             return {
+
                 "status": "forked",
                 "swarm_id": req.swarm_id,
                 "new_branch_id": req.new_branch_id,

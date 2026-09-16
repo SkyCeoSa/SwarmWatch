@@ -47,6 +47,20 @@ from swarmwatch.fleet import (
     FleetMetrics,
     FleetEvent,
 )
+from swarmwatch.metrics import (
+    PrometheusMetricsRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    record_span_ingested,
+    record_circuit_trip,
+    record_state_snapshot,
+    record_branch_fork,
+    set_active_swarms,
+    set_active_websockets,
+    set_telemetry_queue_depth,
+)
+
 
 __all__ = [
     "SwarmSpan",
@@ -89,4 +103,16 @@ __all__ = [
     "FleetCircuitCoordinator",
     "FleetMetrics",
     "FleetEvent",
+    "PrometheusMetricsRegistry",
+    "Counter",
+    "Gauge",
+    "Histogram",
+    "record_span_ingested",
+    "record_circuit_trip",
+    "record_state_snapshot",
+    "record_branch_fork",
+    "set_active_swarms",
+    "set_active_websockets",
+    "set_telemetry_queue_depth",
 ]
+

@@ -72,4 +72,8 @@ This document details the architectural topology, defined seams, and runtime dat
 7. **Package Distribution Integrity Seam**:
    - Primitives: `PackageReleaseValidator.validate_wheel(...)`, `validate_tarball(...)`, `validate_distribution(...)`.
    - Invariant: Zero external dependencies; multi-format validation (Wheel and npm) with bit-level integrity and secret scanning before release.
+8. **Enterprise Metrics & Prometheus Telemetry Seam**:
+   - Primitives: `PrometheusMetricsRegistry` and FastAPI `GET /metrics` exposition route.
+   - Invariant: Sub-microsecond atomic counters; zero external monitoring dependencies; strict Prometheus 0.0.4 text format compliance.
+
 
