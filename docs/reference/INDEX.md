@@ -53,7 +53,7 @@ Whenever beginning a new session or designing new features, consult this index t
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
 | **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (104/104 tests) |
-| **TypeScript Test Suite** | `cmd.exe /c npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (63/63 tests) |
+| **TypeScript Test Suite** | `cmd.exe /c npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (70/70 tests) |
 | **Prometheus Exporter** | `curl http://127.0.0.1:8765/metrics` | 100% OpenMetrics 0.0.4 Valid |
 | **Package Distribution Integrity** | `python scripts\verify_release.py` | 100% Valid (Wheel & Tarball) |
 | **Console Craft Floor** | Inspect `dashboard.html` (`#080B11`, `tabular-nums`) | 0 Anti-Patterns |

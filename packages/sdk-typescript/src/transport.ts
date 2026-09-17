@@ -11,6 +11,8 @@ export interface StorageSink {
   saveSpans(spans: SwarmSpan[]): Promise<void> | void;
   saveSnapshot?(snapshot: StateSnapshot): Promise<void> | void;
   recordCircuitEvent?(event: CircuitEvent): Promise<void> | void;
+  getSpans?(swarmId: string): Promise<SwarmSpan[]> | SwarmSpan[];
+  getCircuitEvents?(swarmId: string): Promise<CircuitEvent[]> | CircuitEvent[];
 }
 
 export class InMemoryStorageSink implements StorageSink {
@@ -28,6 +30,14 @@ export class InMemoryStorageSink implements StorageSink {
 
   public recordCircuitEvent(event: CircuitEvent): void {
     this.circuitEvents.push(event);
+  }
+
+  public getSpans(swarmId: string): SwarmSpan[] {
+    return this.spans.filter((s) => s.swarm_id === swarmId);
+  }
+
+  public getCircuitEvents(swarmId: string): CircuitEvent[] {
+    return this.circuitEvents.filter((e) => e.swarm_id === swarmId);
   }
 
   public clear(): void {

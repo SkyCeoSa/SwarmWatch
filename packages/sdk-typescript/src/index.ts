@@ -91,3 +91,15 @@ export { swarmWatchVercelOnFinish } from "./adapters/vercel.ts";
 
 export type { LangChainHandlerOptions } from "./adapters/langchain.ts";
 export { SwarmWatchLangChainCallbackHandler } from "./adapters/langchain.ts";
+
+// Incident Post-Mortem & Financial ROI Report Generator (Seam 11 / ADR 0020)
+export type {
+  FinancialRoiMetrics,
+  RootCauseDiagnosis,
+  EntropyTrajectoryPoint,
+  SecurityRedactionSummary,
+  IncidentPostMortem,
+  ReportFormat,
+  ReportStorageSource,
+} from "./report.ts";
+export { IncidentReportGenerator } from "./report.ts";

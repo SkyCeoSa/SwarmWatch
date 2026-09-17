@@ -124,13 +124,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Deep module `SensitiveDataMasker` implemented in both Python (`swarmwatch/security.py`) and TypeScript (`@swarmwatch/sdk/src/security.ts`).
   - High-throughput pre-compiled regex catalog covering 12 enterprise secret classes (cloud keys, database DSNs, JWTs, PEM keys, credit cards, PII).
   - Ingestion-level interception transparently sanitizing span payloads and state snapshots in both Python (`TelemetryTransport`, `SafeStateSerializer`) and TypeScript (`TelemetryTransport.emitSpan`, `SafeStateSerializer.sanitize`).
-- **Incident Post-Mortem & Financial ROI Report Generator (Seam 11 & ADR 0020)**:
-  - Deep module `IncidentReportGenerator` generating forensic post-mortems for interrupted or completed swarm sessions.
+- **Incident Post-Mortem & Financial ROI Report Generator (Seam 11 & ADR 0020 Dual-SDK Parity)**:
+  - Deep module `IncidentReportGenerator` implemented in both Python (`swarmwatch/report.py`) and TypeScript (`@swarmwatch/sdk/src/report.ts`).
   - Deterministic computation of counterfactual token savings, financial dollar savings, and turn prevention ratios.
   - Complete Root Cause Analysis (RCA: agent vector, failure mode, triggering prompt/payload), Shannon entropy trajectory table, and neutralized security credentials tally.
-  - Exposes 3 export formats (`markdown`, `json`, `terminal`) across CLI (`swarmwatch report`) and REST API (`GET /api/v1/swarms/{id}/report`).
+  - Exposes 3 export formats (`markdown`, `json`, `terminal`) across CLI (`swarmwatch report`), REST API (`GET /api/v1/swarms/{id}/report`), and programmatic TypeScript API (`generator.generateReport()`).
 - **Complete Test Coverage**:
-  - **167 automated tests passing 100% locally** across Python (104 tests) and TypeScript (63 tests).
+  - **174 automated tests passing 100% locally** across Python (104 tests) and TypeScript (70 tests).
 
 
 
