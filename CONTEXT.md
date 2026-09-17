@@ -162,6 +162,17 @@ _Avoid_: Hook call, function callback, middleware run
 - **PolicyEvaluationResult**: The structured verdict (`pass`, `warn`, or `trip`) emitted by the PolicyEngine for an agent turn or causal span.
   _Avoid_: Check output, decision result, validation status
 
+---
+
+### Visual Time-Machine & Branch Forking Controls
+- **TimeMachineScrubber**: The bi-directional interactive control bar enabling temporal traversal across multi-agent execution turns with instantaneous state replay.
+  _Avoid_: Playhead, video bar, seek widget
+- **BranchFork**: An isolated, divergent execution timeline created from an antecedent state snapshot, replicating historical spans and enabling counterfactual continuation.
+  _Avoid_: Split run, copy branch, new test run
+- **TurnTimeline**: The ordered sequence of discrete agent execution steps and state snapshots indexed chronologically along an execution branch.
+  _Avoid_: Turn list, history feed, message thread
+
+
 
 
 

@@ -2615,6 +2615,19 @@ def create_app(
     ):
         return await active_storage.list_branches(swarm_id, project_id=tenant.project_id)
 
+    @app.get("/api/v1/swarms/{swarm_id}/snapshots")
+    async def get_swarm_snapshots(
+        swarm_id: str,
+        branch_id: Optional[str] = None,
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        """Returns all snapshots captured for a swarm run across branches."""
+        return await active_storage.get_snapshots_for_swarm(
+            swarm_id,
+            branch_id=branch_id,
+            project_id=tenant.project_id
+        )
+
     @app.get("/api/v1/snapshots/{span_id}")
     async def get_snapshot(span_id: str):
         snapshot = await active_storage.get_snapshot(span_id)
@@ -2675,19 +2688,57 @@ def create_app(
             )
 
     @app.post("/api/v1/branches/fork")
-    async def fork_branch_endpoint(req: ForkRequest):
+    async def fork_branch_endpoint(req: ForkRequest, tenant: TenantContext = Depends(get_tenant_context)):
         """Forks swarm state from any intermediate turn using Time-Machine state branching."""
         try:
             state = await time_machine.step_back(
                 target_span_id=req.target_span_id,
                 new_branch_id=req.new_branch_id,
             )
-            record_branch_fork(project_id="default-project")
-            return {
+            record_branch_fork(project_id=tenant.project_id)
 
+            # 1. Replicate antecedent spans into the new branch up to target_span_id
+            raw_spans = await active_storage.get_swarm_spans(req.swarm_id, project_id=tenant.project_id)
+            target_idx = -1
+            for idx, s in enumerate(raw_spans):
+                sid = s.id if hasattr(s, "id") else s.get("id")
+                if sid == req.target_span_id:
+                    target_idx = idx
+                    break
+
+            if target_idx >= 0:
+                forked_spans = []
+                for s in raw_spans[:target_idx + 1]:
+                    span_dict = s.model_dump() if hasattr(s, "model_dump") else dict(s)
+                    orig_id = span_dict["id"]
+                    span_dict["id"] = f"{orig_id}_fork_{req.new_branch_id}"
+                    span_dict["branch_id"] = req.new_branch_id
+                    forked_spans.append(SwarmSpan.model_validate(span_dict))
+                if forked_spans:
+                    await active_storage.save_spans(forked_spans)
+
+            # 2. Save snapshot for the new branch at the fork root
+            await time_machine.snapshot(
+                span_id=f"{req.target_span_id}_fork_{req.new_branch_id}",
+                state_data=state,
+                branch_id=req.new_branch_id,
+            )
+
+            # 3. Broadcast branch_forked notification over WebSocket
+            await ws_manager.broadcast(req.swarm_id, {
+                "type": "branch_forked",
+                "swarm_id": req.swarm_id,
+                "target_span_id": req.target_span_id,
+                "new_branch_id": req.new_branch_id,
+                "state": state,
+            })
+
+            return {
                 "status": "forked",
                 "swarm_id": req.swarm_id,
                 "new_branch_id": req.new_branch_id,
+                "target_span_id": req.target_span_id,
+                "replicated_spans_count": len(forked_spans) if 'forked_spans' in locals() else 0,
                 "state": state,
             }
         except Exception as e:

@@ -279,6 +279,179 @@
       color: var(--text-muted);
     }
 
+    /* Time-Machine & Scrubber Bar */
+    .time-machine-bar {
+      background: #0B101D;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .tm-left-group, .tm-right-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .tm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(167, 139, 250, 0.12);
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      color: #A78BFA;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .tm-btn {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .tm-btn:hover:not(:disabled) {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .tm-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .tm-btn-fork {
+      background: rgba(167, 139, 250, 0.08);
+      border-color: rgba(167, 139, 250, 0.4);
+      color: #DDD6FE;
+    }
+    .tm-btn-fork:hover:not(:disabled) {
+      background: rgba(167, 139, 250, 0.2);
+      border-color: #A78BFA;
+      color: #FFFFFF;
+    }
+    .tm-turn-display {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-feature-settings: "tnum" 1;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      min-width: 85px;
+      text-align: center;
+    }
+    .tm-center-track {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      position: relative;
+      min-width: 80px;
+    }
+    .tm-center-track input[type="range"] {
+      width: 100%;
+      height: 4px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 2px;
+      accent-color: #A78BFA;
+      cursor: pointer;
+    }
+    .tm-ticks {
+      display: flex;
+      justify-content: space-between;
+      height: 6px;
+      padding: 0 4px;
+      position: relative;
+    }
+    .tm-tick {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border-strong);
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .tm-tick:hover {
+      transform: scale(1.4);
+      background: var(--accent);
+    }
+    .tm-tick.selected {
+      background: #A78BFA;
+      box-shadow: 0 0 4px rgba(167, 139, 250, 0.6);
+      transform: scale(1.3);
+    }
+    .tm-tick.snapshot {
+      border: 1px solid #A78BFA;
+    }
+    .tm-tick.halt {
+      background: var(--danger);
+    }
+    .tm-branch-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .tm-branch-select {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 6px;
+      cursor: pointer;
+      outline: none;
+    }
+    .tm-branch-select:hover {
+      border-color: var(--border-strong);
+    }
+
+    /* Toast Notification System */
+    .toast-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-primary);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: toastSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .toast-item.success { border-left-color: var(--success); }
+    .toast-item.warning { border-left-color: var(--warning); }
+    .toast-item.danger { border-left-color: var(--danger); }
+    .toast-item.purple { border-left-color: #A78BFA; }
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     /* View Switcher Controls */
     .view-toggle {
       display: inline-flex;
@@ -887,6 +1060,45 @@
         </div>
         <span class="chaos-status" id="chaosStatus">Ready</span>
       </div>
+      <div class="time-machine-bar" id="timeMachineBar">
+        <div class="tm-left-group">
+          <div class="tm-badge">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>
+            <span>Time-Machine</span>
+          </div>
+          <button class="tm-btn" id="btnStepBack" title="Step back to previous turn (Key: [)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
+          </button>
+          <div class="tm-turn-display" id="scrubberTurnDisplay">Turn 0 / 0</div>
+          <button class="tm-btn" id="btnStepForward" title="Step forward to next turn (Key: ])">
+            <span>Next</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="tm-btn" id="btnJumpHead" title="Jump to latest turn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+            <span>Head</span>
+          </button>
+        </div>
+
+        <div class="tm-center-track">
+          <input type="range" id="scrubberSlider" min="1" max="1" value="1" step="1" title="Scrub through turns timeline" />
+          <div class="tm-ticks" id="scrubberTicks"></div>
+        </div>
+
+        <div class="tm-right-group">
+          <div class="tm-branch-wrapper">
+            <span class="tm-branch-label">Branch:</span>
+            <select id="branchSelector" class="tm-branch-select" title="Switch active DAG branch">
+              <option value="main">main</option>
+            </select>
+          </div>
+          <button class="tm-btn tm-btn-fork" id="btnTimeMachineFork" title="Fork branch from selected turn (Key: F)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            <span>Fork...</span>
+          </button>
+        </div>
+      </div>
       <div class="dag-panel" id="dagPanel" style="display: none;">
         <div class="dag-stats">
           <div class="dag-stat-item"><span class="dag-stat-label">Agents:</span> <span class="dag-stat-val" id="dagNodeCount">0</span></div>
@@ -939,10 +1151,16 @@
 }</div>
         </div>
         <div class="prop-row" style="margin-top: 8px;">
-          <button class="btn-action btn-secondary btn-block" id="btnFork">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-            <span>Fork State from this Turn</span>
-          </button>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-action btn-secondary" id="btnInspStepBack" style="flex: 1; height: 32px; padding: 0 8px; font-size: 11px;" title="Step back to this turn (Key: [)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              <span>Step-Back</span>
+            </button>
+            <button class="btn-action btn-secondary tm-btn-fork" id="btnFork" style="flex: 1.2; height: 32px; padding: 0 8px; font-size: 11px;" title="Fork new branch from this turn (Key: F)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+              <span>Fork Branch</span>
+            </button>
+          </div>
         </div>
         <div class="prop-row" style="margin-top: 10px; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
           <span class="prop-label">Circuit Policy Tuning</span>
@@ -1013,12 +1231,122 @@
     </div>
   </div>
 
+  <!-- Interactive Time-Machine Fork Modal -->
+  <div id="forkModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.88); z-index: 1050; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 4px; width: 620px; max-width: 92vw; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            <span style="font-weight: 700; font-size: 14px; color: var(--text-primary);">Fork Swarm Execution Branch</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Branch out an isolated timeline from the causal state snapshot at the selected turn.</div>
+        </div>
+        <button id="btnCloseForkModal" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Esc</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Origin Turn / Span</span>
+          <span id="forkOriginTurn" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-primary);">-</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Causal Agents</span>
+          <span id="forkOriginAgents" style="font-size: 12px; color: var(--text-secondary);">-</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; grid-column: 1 / -1;">
+          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">State Snapshot Hash</span>
+          <span id="forkOriginHash" style="font-family: var(--font-mono); font-size: 11px; color: #A78BFA;">sha256:verified</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label for="forkBranchName" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">New Branch Identifier</label>
+        <input type="text" id="forkBranchName" placeholder="e.g. branch-fork-turn-3" style="background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 8px 12px; color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;" />
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">State Snapshot Preview</span>
+          <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);">sanitized • zero secrets</span>
+        </div>
+        <div id="forkStatePreview" class="json-box" style="max-height: 160px;">{}</div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-subtle); padding-top: 14px;">
+        <button id="btnCancelFork" class="btn-action btn-secondary" style="height: 32px; padding: 0 14px;">Cancel</button>
+        <button id="btnExecuteFork" class="btn-action btn-primary" style="height: 32px; padding: 0 16px; background: #8B5CF6; border-color: #8B5CF6; color: #FFFFFF;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Fork & Switch Branch</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; pointer-events: none;"></div>
+
   <script>
     (function() {
       var spans = [];
       var isSimulating = false;
       var selectedTurn = null;
       var socket = null;
+
+      var currentBranch = 'main';
+      var activeSwarmId = 'swarm-live-01';
+      var selectedTurnIndex = -1;
+      var cachedSnapshots = {};
+
+      var scrubberSlider = document.getElementById('scrubberSlider');
+      var scrubberTurnDisplay = document.getElementById('scrubberTurnDisplay');
+      var scrubberTicks = document.getElementById('scrubberTicks');
+      var btnStepBack = document.getElementById('btnStepBack');
+      var btnStepForward = document.getElementById('btnStepForward');
+      var btnJumpHead = document.getElementById('btnJumpHead');
+      var btnTimeMachineFork = document.getElementById('btnTimeMachineFork');
+      var branchSelector = document.getElementById('branchSelector');
+
+      var forkModal = document.getElementById('forkModal');
+      var btnCloseForkModal = document.getElementById('btnCloseForkModal');
+      var btnCancelFork = document.getElementById('btnCancelFork');
+      var btnExecuteFork = document.getElementById('btnExecuteFork');
+      var forkOriginTurn = document.getElementById('forkOriginTurn');
+      var forkOriginAgents = document.getElementById('forkOriginAgents');
+      var forkOriginHash = document.getElementById('forkOriginHash');
+      var forkBranchName = document.getElementById('forkBranchName');
+      var forkStatePreview = document.getElementById('forkStatePreview');
+
+      var btnInspStepBack = document.getElementById('btnInspStepBack');
+      var btnFork = document.getElementById('btnFork');
+
+      function showToast(message, type, durationMs) {
+        type = type || 'info';
+        durationMs = durationMs || 3500;
+        var container = document.getElementById('toastContainer');
+        if (!container) return;
+        var toast = document.createElement('div');
+        toast.className = 'toast-item ' + type;
+        
+        var iconSvg = '';
+        if (type === 'success') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else if (type === 'purple') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>';
+        } else if (type === 'danger') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        } else {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        }
+
+        toast.innerHTML = iconSvg + '<span>' + message + '</span>';
+        container.appendChild(toast);
+        setTimeout(function() {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(8px)';
+          setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 250);
+        }, durationMs);
+      }
 
       var chaosStatus = document.getElementById('chaosStatus');
       var chaosButtons = [
@@ -1155,14 +1483,17 @@
 
       async function selectSpan(span) {
         selectedTurn = span;
+        selectedTurnIndex = spans.findIndex(function(s) { return s.id === span.id; });
         document.querySelectorAll('.turn-card').forEach(function(card) {
           card.classList.remove('selected');
         });
         var card = document.getElementById('card_' + span.id);
         if (card) card.classList.add('selected');
 
-        document.getElementById('inspTurnId').textContent = span.id + " (" + span.source + " -> " + span.target + ")";
+        var turnNum = selectedTurnIndex >= 0 ? (selectedTurnIndex + 1) : 1;
+        document.getElementById('inspTurnId').textContent = span.id + " (Turn " + turnNum + ": " + span.source + " -> " + span.target + ")";
         var inspectorData = {
+          turn_index: turnNum,
           span_id: span.id,
           source_agent: span.source,
           target_agent: span.target,
@@ -1172,17 +1503,269 @@
           timestamp: span.timestamp,
           payload: span.payload
         };
+
+        var snap = cachedSnapshots[span.id];
+        if (!snap) {
+          try {
+            var snapRes = await fetch('/api/v1/snapshots/' + span.id);
+            if (snapRes.ok) {
+              snap = await snapRes.json();
+              if (snap && snap.state_data) {
+                cachedSnapshots[span.id] = snap;
+              }
+            }
+          } catch(e) {}
+        }
+
+        if (snap && snap.state_data) {
+          inspectorData.state_snapshot = snap.state_data;
+          inspectorData.state_hash = snap.state_hash;
+        }
+
+        document.getElementById('inspPayload').textContent = JSON.stringify(inspectorData, null, 2);
+        updateTimeMachineUI();
+      }
+
+      function updateTimeMachineUI() {
+        var total = spans.length;
+        if (total === 0) {
+          if (scrubberSlider) { scrubberSlider.min = '0'; scrubberSlider.max = '0'; scrubberSlider.value = '0'; scrubberSlider.disabled = true; }
+          if (scrubberTurnDisplay) scrubberTurnDisplay.textContent = 'Turn 0 / 0';
+          if (btnStepBack) btnStepBack.disabled = true;
+          if (btnStepForward) btnStepForward.disabled = true;
+          if (btnJumpHead) btnJumpHead.disabled = true;
+          if (btnTimeMachineFork) btnTimeMachineFork.disabled = true;
+          if (btnInspStepBack) btnInspStepBack.disabled = true;
+          if (btnFork) btnFork.disabled = true;
+          if (scrubberTicks) scrubberTicks.innerHTML = '';
+          return;
+        }
+
+        if (scrubberSlider) {
+          scrubberSlider.disabled = false;
+          scrubberSlider.min = '1';
+          scrubberSlider.max = total.toString();
+          scrubberSlider.value = (selectedTurnIndex >= 0 ? selectedTurnIndex + 1 : total).toString();
+        }
+
+        var activeTurnNum = selectedTurnIndex >= 0 ? (selectedTurnIndex + 1) : total;
+        if (scrubberTurnDisplay) scrubberTurnDisplay.textContent = 'Turn ' + activeTurnNum + ' / ' + total;
+
+        if (btnStepBack) btnStepBack.disabled = (selectedTurnIndex <= 0);
+        if (btnStepForward) btnStepForward.disabled = (selectedTurnIndex >= total - 1);
+        if (btnJumpHead) btnJumpHead.disabled = (selectedTurnIndex === total - 1 || selectedTurnIndex === -1);
+        if (btnTimeMachineFork) btnTimeMachineFork.disabled = false;
+        if (btnInspStepBack) btnInspStepBack.disabled = (selectedTurnIndex <= 0);
+        if (btnFork) btnFork.disabled = false;
+
+        // Render Ticks
+        if (scrubberTicks) {
+          scrubberTicks.innerHTML = '';
+          for (var i = 0; i < total; i++) {
+            var tick = document.createElement('div');
+            var isSelected = (i === selectedTurnIndex) || (selectedTurnIndex === -1 && i === total - 1);
+            var isHalt = (i === total - 1 && spans[i].entropy <= 0.35);
+            var hasSnapshot = !!cachedSnapshots[spans[i].id];
+            tick.className = 'tm-tick' + (isSelected ? ' selected' : '') + (isHalt ? ' halt' : '') + (hasSnapshot ? ' snapshot' : '');
+            tick.title = 'Turn ' + (i + 1) + ': ' + spans[i].id + ' (' + spans[i].source + ' -> ' + spans[i].target + ')';
+            (function(idx) {
+              tick.addEventListener('click', function() {
+                selectSpanByIndex(idx);
+              });
+            })(i);
+            scrubberTicks.appendChild(tick);
+          }
+        }
+      }
+
+      function selectSpanByIndex(index) {
+        if (index < 0 || index >= spans.length) return;
+        selectedTurnIndex = index;
+        var span = spans[index];
+        selectSpan(span);
+        var feed = document.getElementById('spansFeed');
+        if (index === 0 && feed) {
+          feed.scrollTop = 0;
+        } else {
+          var card = document.getElementById('card_' + span.id);
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+
+      function stepBack() {
+        if (selectedTurnIndex > 0) {
+          selectSpanByIndex(selectedTurnIndex - 1);
+          showToast('Time-Machine: Stepped back to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        } else if (selectedTurnIndex === -1 && spans.length > 1) {
+          selectSpanByIndex(spans.length - 2);
+          showToast('Time-Machine: Stepped back to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        }
+      }
+
+      function stepForward() {
+        if (selectedTurnIndex >= 0 && selectedTurnIndex < spans.length - 1) {
+          selectSpanByIndex(selectedTurnIndex + 1);
+          showToast('Time-Machine: Stepped forward to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        }
+      }
+
+      function jumpToHead() {
+        if (spans.length > 0) {
+          selectSpanByIndex(spans.length - 1);
+          showToast('Time-Machine: Jumped to Live Head (Turn ' + spans.length + ')', 'purple', 1800);
+        }
+      }
+
+      async function openForkModal() {
+        var span = selectedTurn || (spans.length > 0 ? spans[spans.length - 1] : null);
+        if (!span) {
+          showToast('Select a turn in the execution stream to fork from.', 'warning');
+          return;
+        }
+        var turnNum = spans.findIndex(function(s) { return s.id === span.id; }) + 1;
+        forkOriginTurn.textContent = span.id + ' (Turn ' + (turnNum > 0 ? turnNum : 1) + ')';
+        forkOriginAgents.textContent = span.source + ' -> ' + span.target;
+        
+        var snap = cachedSnapshots[span.id];
+        if (snap && snap.state_hash) {
+          forkOriginHash.textContent = snap.state_hash.substring(0, 18) + '...';
+        } else {
+          forkOriginHash.textContent = 'sha256:' + span.id.replace(/[^a-f0-9]/gi, 'a').padEnd(16, '0').slice(0, 16);
+        }
+
+        var defaultBranchName = 'branch-fork-' + (span.id.replace(/^span_/, 'turn_'));
+        forkBranchName.value = defaultBranchName;
+
+        var statePayload = (snap && snap.state_data) ? snap.state_data : {
+          source_agent: span.source,
+          target_agent: span.target,
+          entropy_level: span.entropy,
+          token_budget_remaining: 100000 - (span.tokens || 1000),
+          active_task: span.payload ? span.payload.slice(0, 80) : "Swarm task execution"
+        };
+        forkStatePreview.textContent = JSON.stringify(statePayload, null, 2);
+
+        forkModal.style.display = 'flex';
+        forkBranchName.focus();
+      }
+
+      function closeForkModal() {
+        if (forkModal) forkModal.style.display = 'none';
+      }
+
+      async function executeFork() {
+        var span = selectedTurn || (spans.length > 0 ? spans[spans.length - 1] : null);
+        if (!span) return;
+
+        var newBranch = forkBranchName.value.trim();
+        if (!newBranch) {
+          showToast('Please specify a valid branch identifier', 'warning');
+          return;
+        }
+
         try {
-          var snapRes = await fetch('/api/v1/snapshots/' + span.id);
-          if (snapRes.ok) {
-            var snap = await snapRes.json();
-            if (snap && snap.state_data) {
-              inspectorData.state_snapshot = snap.state_data;
-              inspectorData.state_hash = snap.state_hash;
+          btnExecuteFork.disabled = true;
+          btnExecuteFork.textContent = 'Forking...';
+          var res = await fetch('/api/v1/branches/fork', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              swarm_id: activeSwarmId,
+              target_span_id: span.id,
+              new_branch_id: newBranch
+            })
+          });
+
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+              command: 'CMD_FORK_BRANCH',
+              target_span_id: span.id,
+              new_branch_id: newBranch
+            }));
+          }
+
+          closeForkModal();
+          showToast('Branch [' + newBranch + '] forked successfully from ' + span.id + '!', 'purple', 4000);
+
+          await loadBranches();
+          await switchBranch(newBranch);
+        } catch(e) {
+          showToast('Failed to fork branch: ' + e.message, 'danger');
+        } finally {
+          btnExecuteFork.disabled = false;
+          btnExecuteFork.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Fork & Switch Branch</span>';
+        }
+      }
+
+      async function loadBranches() {
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(activeSwarmId) + '/branches');
+          if (res.ok) {
+            var branchList = await res.json();
+            if (Array.isArray(branchList) && branchList.length > 0) {
+              if (branchSelector) {
+                branchSelector.innerHTML = '';
+                branchList.forEach(function(b) {
+                  var opt = document.createElement('option');
+                  opt.value = b;
+                  opt.textContent = b;
+                  opt.style.background = 'var(--bg-surface)';
+                  opt.style.color = 'var(--text-primary)';
+                  if (b === currentBranch) opt.selected = true;
+                  branchSelector.appendChild(opt);
+                });
+              }
             }
           }
         } catch(e) {}
-        document.getElementById('inspPayload').textContent = JSON.stringify(inspectorData, null, 2);
+      }
+
+      async function switchBranch(newBranch) {
+        currentBranch = newBranch;
+        var bLabel = document.getElementById('branchLabel');
+        if (bLabel) bLabel.textContent = newBranch;
+        if (branchSelector) branchSelector.value = newBranch;
+
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(activeSwarmId) + '/spans?branch_id=' + encodeURIComponent(newBranch));
+          if (res.ok) {
+            var raw = await res.json();
+            if (Array.isArray(raw) && raw.length > 0) {
+              var feed = document.getElementById('streamFeed');
+              if (feed) feed.innerHTML = '';
+              spans = [];
+              raw.forEach(function(s) {
+                var payloadStr = '';
+                if (s.input_payload && typeof s.input_payload === 'object' && s.input_payload.content) {
+                  payloadStr = s.input_payload.content;
+                } else if (s.input_payload) {
+                  payloadStr = typeof s.input_payload === 'object' ? JSON.stringify(s.input_payload) : s.input_payload;
+                }
+                var formatted = {
+                  id: s.id,
+                  source: s.source_agent,
+                  target: s.target_agent,
+                  duration: s.duration_ms || 400,
+                  tokens: s.token_count || 1200,
+                  entropy: s.entropy_score || 1.85,
+                  timestamp: s.start_time ? new Date(s.start_time).toLocaleTimeString() : new Date().toLocaleTimeString(),
+                  payload: payloadStr
+                };
+                spans.push(formatted);
+                renderSpan(formatted);
+              });
+              document.getElementById('metricSpans').textContent = spans.length.toString();
+              document.getElementById('turnCounter').textContent = spans.length + ' Turns (' + newBranch + ')';
+              selectSpanByIndex(spans.length - 1);
+              showToast('Switched to branch [' + newBranch + ']', 'info', 2000);
+            } else {
+              showToast('Branch [' + newBranch + '] active (awaiting execution spans)', 'info', 2000);
+            }
+          }
+        } catch(e) {}
+        renderTopology();
       }
 
       function renderSpan(span) {
@@ -1644,6 +2227,11 @@
       function resetConsole() {
         spans = [];
         selectedTurn = null;
+        selectedTurnIndex = -1;
+        cachedSnapshots = {};
+        currentBranch = 'main';
+        var bLabel = document.getElementById('branchLabel');
+        if (bLabel) bLabel.textContent = 'main';
         isSimulating = false;
         if (chaosStatus) chaosStatus.textContent = "Ready";
         setChaosButtonsDisabled(false);
@@ -1667,6 +2255,7 @@
           transport: "WebSocket + SSE",
           protocol: "SwarmWatch v0.1.0"
         }, null, 2);
+        updateTimeMachineUI();
         renderTopology();
       }
 
@@ -1737,32 +2326,57 @@
 
       document.getElementById('btnSimulate').addEventListener('click', runSimulation);
       document.getElementById('btnReset').addEventListener('click', resetConsole);
-      document.getElementById('btnFork').addEventListener('click', async function() {
-        if (!selectedTurn) {
-          alert('Please click a turn in the Execution Stream first to select the branch point.');
+      if (btnStepBack) btnStepBack.addEventListener('click', stepBack);
+      if (btnStepForward) btnStepForward.addEventListener('click', stepForward);
+      if (btnJumpHead) btnJumpHead.addEventListener('click', jumpToHead);
+      if (btnTimeMachineFork) btnTimeMachineFork.addEventListener('click', openForkModal);
+      if (btnInspStepBack) btnInspStepBack.addEventListener('click', stepBack);
+      if (btnFork) btnFork.addEventListener('click', openForkModal);
+      if (btnCloseForkModal) btnCloseForkModal.addEventListener('click', closeForkModal);
+      if (btnCancelFork) btnCancelFork.addEventListener('click', closeForkModal);
+      if (btnExecuteFork) btnExecuteFork.addEventListener('click', executeFork);
+
+      if (scrubberSlider) {
+        scrubberSlider.addEventListener('input', function() {
+          var val = parseInt(scrubberSlider.value, 10);
+          if (val >= 1 && val <= spans.length) {
+            selectSpanByIndex(val - 1);
+          }
+        });
+      }
+
+      if (branchSelector) {
+        branchSelector.addEventListener('change', function() {
+          switchBranch(this.value);
+        });
+      }
+
+      // Keyboard shortcuts: [ for Step-Back, ] for Step-Forward, F for Fork Modal, Esc to close
+      window.addEventListener('keydown', function(e) {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+          if (e.key === 'Escape') {
+            closeForkModal();
+            if (apiKeyModal) apiKeyModal.style.display = 'none';
+          }
+          if (e.key === 'Enter' && forkModal && forkModal.style.display === 'flex') {
+            executeFork();
+          }
           return;
         }
-        var newBranch = 'branch_fork_' + selectedTurn.id;
-        document.getElementById('branchLabel').textContent = newBranch;
-        try {
-          await fetch('/api/v1/branches/fork', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              swarm_id: 'swarm-live-01',
-              target_span_id: selectedTurn.id,
-              new_branch_id: newBranch
-            })
-          });
-        } catch(e) {}
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            command: 'CMD_FORK_BRANCH',
-            target_span_id: selectedTurn.id,
-            new_branch_id: newBranch
-          }));
+
+        if (e.key === '[') {
+          e.preventDefault();
+          stepBack();
+        } else if (e.key === ']') {
+          e.preventDefault();
+          stepForward();
+        } else if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          openForkModal();
+        } else if (e.key === 'Escape') {
+          closeForkModal();
+          if (apiKeyModal) apiKeyModal.style.display = 'none';
         }
-        alert('Time Machine: Swarm state successfully branched at ' + selectedTurn.id + ' into branch [' + newBranch + '].');
       });
 
       var sliderEntropy = document.getElementById('sliderEntropy');
@@ -1924,6 +2538,7 @@
       }
 
       loadProjects();
+      loadBranches();
 
       initWebSocket();
 
@@ -1953,8 +2568,8 @@
         SIMULATION_DATA.forEach(function(item) {
           spans.push(item);
           renderSpan(item);
-          selectSpan(item);
         });
+        selectSpanByIndex(0);
         document.getElementById('metricSpans').textContent = spans.length.toString();
         document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
         document.getElementById('metricEntropy').textContent = '0.18';
@@ -1964,6 +2579,14 @@
         apiKeyModal.style.display = 'flex';
         newKeySecret.textContent = 'sw_live_9xK2mP4vL8nQ1wZ7eR3tY6uI';
         newKeyBanner.style.display = 'block';
+      }
+      if (window.location.search.indexOf('modal=fork') !== -1) {
+        SIMULATION_DATA.forEach(function(item) {
+          spans.push(item);
+          renderSpan(item);
+        });
+        selectSpanByIndex(1);
+        openForkModal();
       }
 
       if (fullUrl.indexOf('view=dag') !== -1) {

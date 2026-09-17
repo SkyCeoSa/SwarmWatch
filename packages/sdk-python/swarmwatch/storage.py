@@ -59,6 +59,15 @@ class StorageAdapter(abc.ABC):
         """List all execution branches for a swarm."""
         pass
 
+    async def get_snapshots_for_swarm(
+        self,
+        swarm_id: str,
+        branch_id: Optional[str] = None,
+        project_id: Optional[str] = None
+    ) -> List[StateSnapshot]:
+        """Fetch all state snapshots for a swarm across branches."""
+        return []
+
     async def create_organization(self, org: Organization) -> Organization:
         """Create a new tenant organization."""
         return org
@@ -657,13 +666,61 @@ class SQLiteStorageAdapter(StorageAdapter):
         if project_id:
             cursor = conn.execute("""
                 SELECT DISTINCT branch_id FROM spans WHERE swarm_id = ? AND project_id = ?
+                UNION
+                SELECT DISTINCT branch_id FROM snapshots WHERE branch_id IS NOT NULL AND branch_id != ''
             """, (swarm_id, project_id))
         else:
             cursor = conn.execute("""
                 SELECT DISTINCT branch_id FROM spans WHERE swarm_id = ?
+                UNION
+                SELECT DISTINCT branch_id FROM snapshots WHERE branch_id IS NOT NULL AND branch_id != ''
             """, (swarm_id,))
         rows = cursor.fetchall()
-        return [r["branch_id"] for r in rows]
+        branches = [r["branch_id"] for r in rows if r["branch_id"]]
+        if "main" not in branches:
+            branches.insert(0, "main")
+        return branches
+
+    async def get_snapshots_for_swarm(
+        self,
+        swarm_id: str,
+        branch_id: Optional[str] = None,
+        project_id: Optional[str] = None
+    ) -> List[StateSnapshot]:
+        conn = self._get_connection()
+        query = """
+            SELECT s.* FROM snapshots s
+            JOIN spans sp ON s.span_id = sp.id
+            WHERE sp.swarm_id = ?
+        """
+        params = [swarm_id]
+        if branch_id:
+            query += " AND s.branch_id = ?"
+            params.append(branch_id)
+        if project_id:
+            query += " AND s.project_id = ?"
+            params.append(project_id)
+        query += " ORDER BY s.created_at ASC"
+
+        cursor = conn.execute(query, params)
+        rows = cursor.fetchall()
+        snaps = []
+        for row in rows:
+            try:
+                decompressed_json = gzip.decompress(row["state_data_compressed"]).decode("utf-8")
+                state_data = json.loads(decompressed_json)
+                snaps.append(StateSnapshot(
+                    id=row["id"],
+                    span_id=row["span_id"],
+                    project_id=row["project_id"] if "project_id" in row.keys() else "default-project",
+                    branch_id=row["branch_id"],
+                    state_hash=row["state_hash"],
+                    state_data=state_data,
+                    created_at=datetime.fromisoformat(row["created_at"])
+                ))
+            except Exception:
+                continue
+        return snaps
 
     def close_sync(self) -> None:
         if hasattr(self._local, "conn") and self._local.conn:

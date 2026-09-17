@@ -141,8 +141,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - In-memory bounded Dead-Letter Queue (DLQ) capturing undeliverable events with programmatic replay (`replay_dlq()`).
   - Control plane REST endpoints: `GET /api/v1/alerts/dlq`, `POST /api/v1/alerts/dlq/replay`, `POST /api/v1/alerts/test`.
   - Non-blocking $<1\mu s$ enqueue invariant on calling agent threads.
+- **Visual Time-Machine Controls & In-Browser Branch Forking (Seam 14 & ADR 0024)**:
+  - Interactive, responsive Time-Machine control bar (`#timeMachineBar`) in `dashboard.html` with bi-directional stepping (`Back` / `Next`), Jump to Head (`Head`), turn timeline scrubber slider (`#scrubberSlider`), and tick marks indicating circuit halts and snapshots.
+  - Interactive branch fork dialog (`#forkModal`) displaying origin turn, causal agents, state snapshot hash, and sanitized state preview.
+  - Server-side antecedent span replication on `POST /api/v1/branches/fork` preserving historical context in the new branch timeline.
+  - Backend snapshot query endpoint `GET /api/v1/swarms/{swarm_id}/snapshots` and real-time WebSocket `branch_forked` broadcast.
+  - Non-blocking in-app toast notification system (`#toastContainer`) replacing jarring browser alerts, strictly compliant with Impeccable Craft Floor (#080B11 palette, tabular numerals, zero emojis).
+  - Single-key keyboard triage navigation: `[` (Step-Back), `]` (Step-Forward), `f` / `F` (Fork modal), `Escape` (Close modals).
 - **Complete Test Coverage**:
-  - **204 automated tests passing 100% locally** across Python (117 tests) and TypeScript (87 tests).
+  - **206 automated tests passing 100% locally** across Python (119 tests) and TypeScript (87 tests).
 
 
 

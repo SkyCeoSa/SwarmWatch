@@ -214,3 +214,76 @@ def test_server_dynamic_policy_and_budget_endpoints(tmp_path):
     assert budget_data["max_turns"] == 40
     assert budget_data["token_budget"] == 20000
     assert "dollars_saved" in budget_data
+
+
+def test_server_time_machine_snapshots_and_replicated_fork(tmp_path):
+    db_path = str(tmp_path / "tm_test.db")
+    storage = SQLiteStorageAdapter(db_path=db_path)
+    app = create_app(storage=storage)
+    client = TestClient(app)
+
+    # 1. Run simulation to populate spans and snapshots
+    sim_res = client.post("/api/v1/simulate?swarm_id=swarm-tm-test")
+    assert sim_res.status_code == 200
+
+    # 2. Query snapshots for the swarm
+    snap_res = client.get("/api/v1/swarms/swarm-tm-test/snapshots")
+    assert snap_res.status_code == 200
+    snapshots = snap_res.json()
+    assert len(snapshots) >= 4
+    assert snapshots[0]["span_id"] == "span_01"
+    assert "state_hash" in snapshots[0]
+    assert "state_data" in snapshots[0]
+
+    # 3. Fork execution branch at span_02
+    fork_payload = {
+        "swarm_id": "swarm-tm-test",
+        "target_span_id": "span_02",
+        "new_branch_id": "branch-time-machine-fork",
+    }
+    fork_res = client.post("/api/v1/branches/fork", json=fork_payload)
+    assert fork_res.status_code == 200
+    fork_data = fork_res.json()
+    assert fork_data["status"] == "forked"
+    assert fork_data["new_branch_id"] == "branch-time-machine-fork"
+    assert fork_data["replicated_spans_count"] == 2
+    assert "state" in fork_data
+
+    # 4. Verify branches list contains new branch
+    branches_res = client.get("/api/v1/swarms/swarm-tm-test/branches")
+    assert branches_res.status_code == 200
+    branches = branches_res.json()
+    assert "main" in branches
+    assert "branch-time-machine-fork" in branches
+
+    # 5. Verify replicated spans on the new branch
+    spans_res = client.get("/api/v1/swarms/swarm-tm-test/spans?branch_id=branch-time-machine-fork")
+    assert spans_res.status_code == 200
+    replicated = spans_res.json()
+    assert len(replicated) == 2
+    assert replicated[0]["branch_id"] == "branch-time-machine-fork"
+    assert replicated[1]["branch_id"] == "branch-time-machine-fork"
+
+
+def test_dashboard_ui_contains_time_machine_elements(tmp_path):
+    db_path = str(tmp_path / "ui_tm_test.db")
+    storage = SQLiteStorageAdapter(db_path=db_path)
+    app = create_app(storage=storage)
+    client = TestClient(app)
+
+    res = client.get("/")
+    assert res.status_code == 200
+    html = res.text
+
+    assert 'id="timeMachineBar"' in html
+    assert 'id="btnStepBack"' in html
+    assert 'id="btnStepForward"' in html
+    assert 'id="btnJumpHead"' in html
+    assert 'id="scrubberSlider"' in html
+    assert 'id="scrubberTicks"' in html
+    assert 'id="branchSelector"' in html
+    assert 'id="btnTimeMachineFork"' in html
+    assert 'id="forkModal"' in html
+    assert 'id="toastContainer"' in html
+    assert 'showToast' in html
+
