@@ -28,6 +28,7 @@ from swarmwatch.circuit import (
 )
 from swarmwatch.chaos import ChaosSimulator, ChaosScenario
 from swarmwatch.topology import build_topology_from_spans, CausalTopology
+from swarmwatch.report import IncidentReportGenerator
 from swarmwatch.metrics import (
     PrometheusMetricsRegistry,
     record_span_ingested,
@@ -2489,6 +2490,33 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
             branch_id=branch_id,
             project_id=tenant.project_id
         )
+
+    @app.get("/api/v1/swarms/{swarm_id}/report")
+    async def get_swarm_report(
+        swarm_id: str,
+        format: str = Query(default="json"),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Generates forensic incident post-mortem and financial ROI report."""
+        raw_spans = await active_storage.get_swarm_spans(
+            swarm_id,
+            project_id=tenant.project_id if tenant.key_id else None,
+        )
+        if not raw_spans:
+            raw_spans = await active_storage.get_swarm_spans(swarm_id)
+            if not raw_spans:
+                raise HTTPException(status_code=404, detail=f"Swarm '{swarm_id}' not found")
+
+        generator = IncidentReportGenerator(storage=active_storage)
+        fmt = format.lower()
+        if fmt == "markdown":
+            md_content = generator.generate_report(swarm_id, format="markdown")
+            return Response(content=md_content, media_type="text/markdown; charset=utf-8")
+        elif fmt == "terminal":
+            term_content = generator.generate_report(swarm_id, format="terminal")
+            return Response(content=term_content, media_type="text/plain; charset=utf-8")
+        else:
+            return generator.generate_report(swarm_id, format="json")
 
     @app.get("/api/v1/topology")
     async def get_topology(

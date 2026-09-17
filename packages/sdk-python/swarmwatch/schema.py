@@ -99,6 +99,18 @@ class CounterfactualSavings(BaseModel):
     budget_consumed: float = 0.0
     budget_protected: float = 0.0
 
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "turns_averted" not in data and "turns_prevented" in data:
+                data["turns_averted"] = data["turns_prevented"]
+        return data
+
+    @property
+    def turns_prevented(self) -> int:
+        return self.turns_averted
+
 
 class CircuitEvent(BaseModel):
     """
@@ -110,6 +122,16 @@ class CircuitEvent(BaseModel):
     span_id: Optional[str] = None
     event_type: str = "warning"  # "warning" | "trip"
     reason: str
-    metric_val: float
+    metric_val: float = 0.0
     counterfactual_savings: Optional[CounterfactualSavings] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "id" not in data and "event_id" in data:
+                data["id"] = data["event_id"]
+            if "metric_val" not in data and "entropy_score" in data:
+                data["metric_val"] = data["entropy_score"]
+        return data

@@ -80,9 +80,8 @@ This document details the architectural topology, defined seams, and runtime dat
    - Primitives: `CausalTopologyGraph.build_from_spans(spans) -> CausalTopology`, `GET /api/v1/topology`, and vector SVG DAG layout in `dashboard.html`.
    - Invariant: Non-blocking deterministic cycle detection; pure SVG rendering with zero heavy visualization library dependencies; negligible CPU utilization (<0.05%).
 10. **Enterprise Security & Secret Redaction Seam**:
-   - Primitives: `SensitiveDataMasker.mask_text(text)`, `SensitiveDataMasker.mask_payload(payload)`, and automatic ingestion sanitization in `TelemetryTransport.emit_span()`.
-   - Invariant: Pre-compiled regex catalog executing in $<0.5\mu s$; raw secrets (cloud keys, database DSNs, JWTs, PEM keys, credit cards, PII) NEVER reach disk storage or live client streams; zero LLM token cost.
-
-
-
-
+    - Primitives: `SensitiveDataMasker.mask_text(text)`, `SensitiveDataMasker.mask_payload(payload)`, and automatic ingestion sanitization in `TelemetryTransport.emit_span()`.
+    - Invariant: Pre-compiled regex catalog executing in $<0.5\mu s$; raw secrets (cloud keys, database DSNs, JWTs, PEM keys, credit cards, PII) NEVER reach disk storage or live client streams; zero LLM token cost.
+11. **Incident Post-Mortem & Financial ROI Engine Seam**:
+    - Primitives: `IncidentReportGenerator.generate_report(swarm_id, format)`, CLI `swarmwatch report --swarm-id <id>`, and REST endpoint `GET /api/v1/swarms/{id}/report`.
+    - Invariant: Zero-token deterministic forensic analysis; exact counterfactual dollar/token ROI computation; root-cause agent pair attribution and entropy trajectory diagnosis; $<5ms$ execution.

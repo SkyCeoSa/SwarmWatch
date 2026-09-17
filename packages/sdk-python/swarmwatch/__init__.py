@@ -79,6 +79,12 @@ from swarmwatch.security import (
     mask_payload,
     mask_text,
 )
+from swarmwatch.report import (
+    IncidentReportGenerator,
+    IncidentPostMortem,
+    FinancialRoiMetrics,
+    RootCauseDiagnosis,
+)
 
 
 
@@ -148,6 +154,10 @@ __all__ = [
     "SecuritySanitizationPolicy",
     "mask_payload",
     "mask_text",
+    "IncidentReportGenerator",
+    "IncidentPostMortem",
+    "FinancialRoiMetrics",
+    "RootCauseDiagnosis",
 ]
 
 

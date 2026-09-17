@@ -134,6 +134,21 @@ _Avoid_: Hook call, function callback, middleware run
 - **RedactedToken**: The safe placeholder string (e.g. `[REDACTED_API_KEY]`, `[REDACTED_DB_DSN]`) substituting sensitive values while preserving overall payload schema.
   _Avoid_: Starred password, blank text, hidden string
 
+---
+
+### Incident Post-Mortem & Financial ROI Engine
+- **IncidentPostMortem**: A structured forensic and financial audit document generated upon swarm completion or circuit trip, detailing prevented waste, root cause diagnosis, and entropy trajectory.
+  _Avoid_: Incident ticket, bug log, crash dump, error trace
+- **FinancialRoiMetrics**: The quantitative calculation of compute dollars and token expenditure prevented by circuit breaker intervention.
+  _Avoid_: Guess, profit stat, cost estimation
+- **RootCauseDiagnosis**: The deterministic attribution of the failure mode, causal agent pair, and trigger turn responsible for circuit intervention.
+  _Avoid_: Blame, error guess, bug attribution
+- **EntropyTrajectory**: The chronological time-series of normalized Shannon entropy ($H_{norm}$) and Jaccard similarity across agent conversational turns.
+  _Avoid_: Diversity graph, randomness history
+- **SecurityRedactionSummary**: The categorized tally of sensitive authentication tokens and PII neutralized during swarm execution.
+  _Avoid_: Censored list, scrub count
+
+
 
 
 

@@ -27,6 +27,13 @@ def main():
     ui_parser.add_argument("--db", default="swarmwatch.db", help="Path to SQLite database file")
     ui_parser.add_argument("--no-browser", action="store_true", help="Do not auto-open dashboard in default browser")
 
+    # `swarmwatch report` subcommand
+    report_parser = subparsers.add_parser("report", help="Generate an incident post-mortem and financial ROI report for a swarm")
+    report_parser.add_argument("--swarm-id", required=True, help="Target swarm session ID")
+    report_parser.add_argument("--format", choices=["markdown", "json", "terminal"], default="terminal", help="Report output format (default: terminal)")
+    report_parser.add_argument("--output", "-o", default=None, help="Optional output file path to write report")
+    report_parser.add_argument("--db", default="swarmwatch.db", help="Path to SQLite database file")
+
     args = parser.parse_args()
 
     if args.subcommand == "ui":
@@ -46,6 +53,20 @@ def main():
         storage = SQLiteStorageAdapter(db_path=args.db)
         app = create_app(storage=storage)
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    elif args.subcommand == "report":
+        from swarmwatch.report import IncidentReportGenerator
+        storage = SQLiteStorageAdapter(db_path=args.db)
+        generator = IncidentReportGenerator(storage=storage)
+        result = generator.generate_report(args.swarm_id, format=args.format)
+
+        output_text = json.dumps(result, indent=2) if isinstance(result, dict) else str(result)
+
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(output_text)
+            print(f"[SwarmWatch] Report for '{args.swarm_id}' written to {args.output}")
+        else:
+            print(output_text)
     else:
         parser.print_help()
         sys.exit(1)

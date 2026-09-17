@@ -9,7 +9,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent
+from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent, CounterfactualSavings
 from swarmwatch.tenant import Organization, Project, ApiKey
 
 
@@ -213,17 +213,20 @@ class SQLiteStorageAdapter(StorageAdapter):
                     event_type TEXT NOT NULL,
                     reason TEXT NOT NULL,
                     metric_val REAL NOT NULL,
+                    savings_json TEXT,
                     created_at TIMESTAMP NOT NULL
                 );
             """)
 
-            # Auto-migrate existing tables if missing project_id column
+            # Auto-migrate existing tables if missing project_id or savings_json column
             for table in ["swarms", "spans", "snapshots", "circuit_events"]:
                 try:
                     cursor = conn.execute(f"PRAGMA table_info({table});")
                     cols = [row[1] for row in cursor.fetchall()]
                     if cols and "project_id" not in cols:
                         conn.execute(f"ALTER TABLE {table} ADD COLUMN project_id TEXT NOT NULL DEFAULT 'default-project';")
+                    if table == "circuit_events" and cols and "savings_json" not in cols:
+                        conn.execute("ALTER TABLE circuit_events ADD COLUMN savings_json TEXT;")
                 except Exception:
                     pass
 
@@ -578,13 +581,14 @@ class SQLiteStorageAdapter(StorageAdapter):
             created_at=datetime.fromisoformat(row["created_at"])
         )
 
-    async def record_circuit_event(self, event: CircuitEvent) -> None:
+    def record_circuit_event_sync(self, event: CircuitEvent) -> None:
         conn = self._get_connection()
+        savings_str = event.counterfactual_savings.model_dump_json() if event.counterfactual_savings else None
         with conn:
             conn.execute("""
-                INSERT INTO circuit_events (
-                    id, swarm_id, project_id, span_id, event_type, reason, metric_val, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO circuit_events (
+                    id, swarm_id, project_id, span_id, event_type, reason, metric_val, savings_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event.id,
                 event.swarm_id,
@@ -593,8 +597,60 @@ class SQLiteStorageAdapter(StorageAdapter):
                 event.event_type,
                 event.reason,
                 event.metric_val,
+                savings_str,
                 event.created_at.isoformat()
             ))
+
+    async def record_circuit_event(self, event: CircuitEvent) -> None:
+        self.record_circuit_event_sync(event)
+
+    def get_circuit_events_sync(self, swarm_id: str, project_id: Optional[str] = None) -> List[CircuitEvent]:
+        conn = self._get_connection()
+        if project_id:
+            cursor = conn.execute("""
+                SELECT * FROM circuit_events
+                WHERE swarm_id = ? AND project_id = ?
+                ORDER BY created_at ASC
+            """, (swarm_id, project_id))
+        else:
+            cursor = conn.execute("""
+                SELECT * FROM circuit_events
+                WHERE swarm_id = ?
+                ORDER BY created_at ASC
+            """, (swarm_id,))
+        rows = cursor.fetchall()
+        events = []
+        for r in rows:
+            savings = None
+            if "savings_json" in r.keys() and r["savings_json"]:
+                try:
+                    savings = CounterfactualSavings.model_validate_json(r["savings_json"])
+                except Exception:
+                    pass
+            events.append(CircuitEvent(
+                id=r["id"],
+                swarm_id=r["swarm_id"],
+                project_id=r["project_id"] if "project_id" in r.keys() else "default-project",
+                span_id=r["span_id"],
+                event_type=r["event_type"],
+                reason=r["reason"],
+                metric_val=r["metric_val"],
+                counterfactual_savings=savings,
+                created_at=datetime.fromisoformat(r["created_at"])
+            ))
+        return events
+
+    async def get_circuit_events(self, swarm_id: str, project_id: Optional[str] = None) -> List[CircuitEvent]:
+        return self.get_circuit_events_sync(swarm_id=swarm_id, project_id=project_id)
+
+    def get_spans(
+        self,
+        swarm_id: str,
+        branch_id: str = "main",
+        project_id: Optional[str] = None
+    ) -> List[SwarmSpan]:
+        """Convenience sync getter for spans, matching query_spans."""
+        return self.query_spans(swarm_id=swarm_id, branch_id=branch_id, project_id=project_id)
 
     async def list_branches(self, swarm_id: str, project_id: Optional[str] = None) -> List[str]:
         conn = self._get_connection()
