@@ -148,6 +148,21 @@ _Avoid_: Hook call, function callback, middleware run
 - **SecurityRedactionSummary**: The categorized tally of sensitive authentication tokens and PII neutralized during swarm execution.
   _Avoid_: Censored list, scrub count
 
+---
+
+### Declarative Guardrail Policy Engine & Policy DSL
+- **GuardrailPolicy**: A declarative specification document (YAML or JSON) defining global baseline thresholds, role-based agent overrides, and event-condition-action guardrail rules.
+  _Avoid_: Config file, settings script, security ruleset
+- **PolicyEngine**: The deterministic, sub-microsecond in-memory evaluation engine that resolves agent rule inheritance and enforces declarative guardrail policies at runtime.
+  _Avoid_: Filter, rule checker, validator script
+- **RuleConfig**: The quantitative constraints applied to an agent or swarm session, including entropy floors, similarity ceilings, token budgets, turn limits, and prohibited tools.
+  _Avoid_: Agent limits, thresholds, budget dict
+- **DeclarativeRule**: An event-condition-action statement matching agent patterns and predicates to execute circuit trips, warnings, or redactions.
+  _Avoid_: Trigger, alert condition, check rule
+- **PolicyEvaluationResult**: The structured verdict (`pass`, `warn`, or `trip`) emitted by the PolicyEngine for an agent turn or causal span.
+  _Avoid_: Check output, decision result, validation status
+
+
 
 
 

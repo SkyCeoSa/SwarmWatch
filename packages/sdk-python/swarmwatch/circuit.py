@@ -9,7 +9,7 @@ from collections import Counter, deque
 from enum import Enum
 import math
 import re
-from typing import Deque, List, Optional, Union
+from typing import Any, Deque, List, Optional, Union
 from pydantic import BaseModel, Field
 
 from swarmwatch.schema import CounterfactualSavings
@@ -130,6 +130,7 @@ class EntropyCircuitBreaker:
         self,
         policy: Optional[CircuitPolicy] = None,
         preset: Optional[CircuitPreset] = None,
+        policy_engine: Optional[Any] = None,
     ):
         if policy is not None:
             self.policy = policy
@@ -138,6 +139,7 @@ class EntropyCircuitBreaker:
         else:
             self.policy = CircuitPolicy.from_preset(CircuitPreset.BALANCED)
 
+        self.policy_engine = policy_engine
         self._history: Deque[str] = deque(maxlen=self.policy.window_size)
         self.consecutive_warnings = 0
         self.turn_count = 0
@@ -185,13 +187,31 @@ class EntropyCircuitBreaker:
         agent_id: str = "agent",
         swarm_id: str = "swarm",
         token_count: Optional[int] = None,
+        tool_name: Optional[str] = None,
+        payload: Optional[dict] = None,
     ) -> CircuitDecision:
         """
         Evaluates message against historical window in < 1ms.
-        Enforces max turns, token budget, and cost budget quotas.
+        Enforces max turns, token budget, cost budget quotas, and declarative guardrail policies.
         Returns CircuitDecision ('pass' or 'warning') or raises SwarmCircuitBreakException.
         """
         if not message or not message.strip():
+            # Even if message is empty, if tool_name is present, evaluate policy engine
+            if tool_name and self.policy_engine:
+                policy_eval = self.policy_engine.evaluate_turn(
+                    agent=agent_id,
+                    tool_name=tool_name,
+                    payload=payload,
+                )
+                if policy_eval.decision == "trip":
+                    savings = self._compute_savings()
+                    raise SwarmCircuitBreakException(
+                        reason=policy_eval.reason or f"Policy violation on tool '{tool_name}'",
+                        metric_val=1.0,
+                        agent_id=agent_id,
+                        swarm_id=swarm_id,
+                        savings=savings,
+                    )
             return CircuitDecision(decision="pass")
 
         # 1. Track turn count and token usage
@@ -200,33 +220,53 @@ class EntropyCircuitBreaker:
         self.cumulative_tokens += effective_tokens
         self.token_history.append(effective_tokens)
 
+        # Resolve effective thresholds if policy engine is attached
+        eff_max_turns = self.policy.max_turns
+        eff_token_budget = self.policy.token_budget
+        eff_cost_budget = self.policy.cost_budget
+        eff_sim_threshold = self.policy.similarity_threshold
+        eff_entropy_threshold = self.policy.entropy_threshold
+
+        if self.policy_engine:
+            eff_cfg = self.policy_engine.get_effective_config(agent_id)
+            if eff_cfg.max_turns is not None:
+                eff_max_turns = eff_cfg.max_turns
+            if eff_cfg.token_budget is not None:
+                eff_token_budget = eff_cfg.token_budget
+            if eff_cfg.cost_budget is not None:
+                eff_cost_budget = eff_cfg.cost_budget
+            if eff_cfg.max_similarity is not None:
+                eff_sim_threshold = eff_cfg.max_similarity
+            if eff_cfg.min_entropy is not None:
+                eff_entropy_threshold = eff_cfg.min_entropy
+
         # 2. Check quota constraints: max_turns, token_budget, cost_budget
-        if self.policy.max_turns is not None and self.turn_count > self.policy.max_turns:
+        if eff_max_turns is not None and self.turn_count > eff_max_turns:
             savings = self._compute_savings()
             raise SwarmCircuitBreakException(
-                reason=f"Maximum turns ceiling exceeded ({self.turn_count} > {self.policy.max_turns})",
+                reason=f"Maximum turns ceiling exceeded ({self.turn_count} > {eff_max_turns})",
                 metric_val=float(self.turn_count),
                 agent_id=agent_id,
                 swarm_id=swarm_id,
                 savings=savings,
             )
 
-        if self.policy.token_budget is not None and self.cumulative_tokens > self.policy.token_budget:
+        if eff_token_budget is not None and self.cumulative_tokens > eff_token_budget:
             savings = self._compute_savings()
             raise SwarmCircuitBreakException(
-                reason=f"Session token budget exceeded ({self.cumulative_tokens} > {self.policy.token_budget})",
+                reason=f"Session token budget exceeded ({self.cumulative_tokens} > {eff_token_budget})",
                 metric_val=float(self.cumulative_tokens),
                 agent_id=agent_id,
                 swarm_id=swarm_id,
                 savings=savings,
             )
 
-        if self.policy.cost_budget is not None:
+        if eff_cost_budget is not None:
             cost = self.cumulative_tokens * self.policy.cost_per_token
-            if cost > self.policy.cost_budget:
+            if cost > eff_cost_budget:
                 savings = self._compute_savings()
                 raise SwarmCircuitBreakException(
-                    reason=f"Session cost budget exceeded (${cost:.4f} > ${self.policy.cost_budget:.4f})",
+                    reason=f"Session cost budget exceeded (${cost:.4f} > ${eff_cost_budget:.4f})",
                     metric_val=cost,
                     agent_id=agent_id,
                     swarm_id=swarm_id,
@@ -241,18 +281,48 @@ class EntropyCircuitBreaker:
             if sim > max_similarity:
                 max_similarity = sim
 
-        # 4. Check violation conditions
+        # 4. Check declarative policy rules via policy engine
+        if self.policy_engine:
+            policy_eval = self.policy_engine.evaluate_turn(
+                agent=agent_id,
+                text=message,
+                token_count=self.cumulative_tokens,
+                tool_name=tool_name,
+                payload=payload,
+                entropy_score=entropy,
+                similarity_score=max_similarity,
+            )
+            if policy_eval.decision == "trip":
+                savings = self._compute_savings()
+                raise SwarmCircuitBreakException(
+                    reason=policy_eval.reason or f"Declarative policy trip by agent '{agent_id}'",
+                    metric_val=entropy,
+                    agent_id=agent_id,
+                    swarm_id=swarm_id,
+                    savings=savings,
+                )
+            elif policy_eval.decision == "warn":
+                savings = self._compute_savings()
+                return CircuitDecision(
+                    decision="warning",
+                    reason=policy_eval.reason,
+                    metric_val=entropy,
+                    warning_hint=policy_eval.reason,
+                    counterfactual_savings=savings,
+                )
+
+        # 5. Check baseline violation conditions
         violation = False
         reason = ""
         metric_val = 0.0
 
-        if max_similarity >= self.policy.similarity_threshold and len(self._history) > 0:
+        if max_similarity >= eff_sim_threshold and len(self._history) > 0:
             violation = True
-            reason = f"High lexical repetition detected ({max_similarity:.2f} >= {self.policy.similarity_threshold:.2f})"
+            reason = f"High lexical repetition detected ({max_similarity:.2f} >= {eff_sim_threshold:.2f})"
             metric_val = max_similarity
-        elif entropy <= self.policy.entropy_threshold and len(message.split()) >= 5:
+        elif entropy <= eff_entropy_threshold and len(message.split()) >= 5:
             violation = True
-            reason = f"Low Shannon entropy detected ({entropy:.2f} <= {self.policy.entropy_threshold:.2f})"
+            reason = f"Low Shannon entropy detected ({entropy:.2f} <= {eff_entropy_threshold:.2f})"
             metric_val = entropy
 
         if violation:

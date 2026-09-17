@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import time
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status
 from fastapi.responses import HTMLResponse, Response
@@ -29,6 +29,7 @@ from swarmwatch.circuit import (
 from swarmwatch.chaos import ChaosSimulator, ChaosScenario
 from swarmwatch.topology import build_topology_from_spans, CausalTopology
 from swarmwatch.report import IncidentReportGenerator
+from swarmwatch.policy import PolicyEngine, GuardrailPolicy
 from swarmwatch.metrics import (
     PrometheusMetricsRegistry,
     record_span_ingested,
@@ -2256,13 +2257,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </html>"""
 
 
-def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
+def create_app(
+    storage: Optional[StorageAdapter] = None,
+    policy_engine: Optional[PolicyEngine] = None,
+) -> FastAPI:
     """FastAPI application factory for SwarmWatch ingestion server."""
     app = FastAPI(title="SwarmWatch Server", version="0.1.0")
     active_storage = storage or SQLiteStorageAdapter()
     ws_manager = WebSocketManager()
     time_machine = TimeMachine(storage=active_storage)
     active_policy = CircuitPolicy.from_preset(CircuitPreset.BALANCED)
+    active_policy_engine = policy_engine or PolicyEngine()
     api_key_manager = ApiKeyManager()
 
     async def get_tenant_context(
@@ -2332,6 +2337,20 @@ def create_app(storage: Optional[StorageAdapter] = None) -> FastAPI:
         nonlocal active_policy
         active_policy = policy
         return {"status": "updated", "policy": active_policy.model_dump()}
+
+    @app.get("/api/v1/policies")
+    async def get_guardrail_policy():
+        """Returns active declarative GuardrailPolicy document."""
+        return active_policy_engine.policy.model_dump(mode="json")
+
+    @app.post("/api/v1/policies")
+    async def update_guardrail_policy(payload: Dict[str, Any]):
+        """Hot-reloads active declarative GuardrailPolicy in memory without process restart."""
+        active_policy_engine.hot_reload(payload)
+        return {
+            "status": "hot_reloaded",
+            "policy": active_policy_engine.policy.model_dump(mode="json"),
+        }
 
     @app.get("/api/v1/budget")
     async def get_budget():

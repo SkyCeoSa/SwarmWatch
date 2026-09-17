@@ -85,3 +85,6 @@ This document details the architectural topology, defined seams, and runtime dat
 11. **Incident Post-Mortem & Financial ROI Engine Seam**:
     - Primitives: `IncidentReportGenerator.generate_report(swarm_id, format)`, CLI `swarmwatch report --swarm-id <id>`, and REST endpoint `GET /api/v1/swarms/{id}/report`.
     - Invariant: Zero-token deterministic forensic analysis; exact counterfactual dollar/token ROI computation; root-cause agent pair attribution and entropy trajectory diagnosis; $<5ms$ execution.
+12. **Declarative Guardrail Policy Engine & Policy DSL Seam**:
+    - Primitives: `PolicyEngine`, `GuardrailPolicy`, `RuleConfig`, `DeclarativeRule`, `RuleCondition`, `PolicyEvaluationResult`, `load_policy(path_or_content)`, `GET /api/v1/policies`, `POST /api/v1/policies`.
+    - Invariant: Zero-dependency YAML/JSON parsing; sub-microsecond ($<1\mu s$) deterministic rule evaluation; role-based inheritance with fallback defaults; zero external LLM tokens; zero-downtime hot-reloading.

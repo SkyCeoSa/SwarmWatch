@@ -85,6 +85,15 @@ from swarmwatch.report import (
     FinancialRoiMetrics,
     RootCauseDiagnosis,
 )
+from swarmwatch.policy import (
+    RuleConfig,
+    RuleCondition,
+    DeclarativeRule,
+    GuardrailPolicy,
+    PolicyEngine,
+    SafePolicyParser,
+    PolicyEvaluationResult,
+)
 
 
 
@@ -158,6 +167,13 @@ __all__ = [
     "IncidentPostMortem",
     "FinancialRoiMetrics",
     "RootCauseDiagnosis",
+    "RuleConfig",
+    "RuleCondition",
+    "DeclarativeRule",
+    "GuardrailPolicy",
+    "PolicyEngine",
+    "SafePolicyParser",
+    "PolicyEvaluationResult",
 ]
 
 
