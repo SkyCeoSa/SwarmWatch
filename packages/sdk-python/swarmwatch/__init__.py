@@ -73,6 +73,13 @@ from swarmwatch.topology import (
     CausalTopology,
     build_topology_from_spans,
 )
+from swarmwatch.security import (
+    SensitiveDataMasker,
+    SecuritySanitizationPolicy,
+    mask_payload,
+    mask_text,
+)
+
 
 
 
@@ -137,7 +144,12 @@ __all__ = [
     "CausalEdge",
     "CausalTopology",
     "build_topology_from_spans",
+    "SensitiveDataMasker",
+    "SecuritySanitizationPolicy",
+    "mask_payload",
+    "mask_text",
 ]
+
 
 
 

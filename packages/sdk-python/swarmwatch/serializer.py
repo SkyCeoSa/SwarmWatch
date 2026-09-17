@@ -30,13 +30,13 @@ class SafeStateSerializer:
 
     SENSITIVE_KEY_NAMES = {"password", "secret", "token", "api_key", "auth", "private_key"}
 
-    def __init__(self):
-        pass
+    def __init__(self, masker: Optional[Any] = None):
+        from swarmwatch.security import get_default_masker
+        self.masker = masker or get_default_masker()
 
     def redact_text(self, text: str) -> str:
-        for pattern, replacement in self.SECRET_PATTERNS:
-            text = pattern.sub(replacement, text)
-        return text
+        return self.masker.mask_text(text)
+
 
     def sanitize(self, obj: Any, seen: Optional[Set[int]] = None) -> Any:
         if seen is None:
@@ -63,13 +63,7 @@ class SafeStateSerializer:
                 str_k = str(k)
                 # Check if key implies sensitive data
                 if any(sens in str_k.lower() for sens in self.SENSITIVE_KEY_NAMES):
-                    if isinstance(v, str):
-                        result[str_k] = self.redact_text(v)
-                        # If no regex matched but key is sensitive, mask value
-                        if result[str_k] == v and len(v) > 0:
-                            result[str_k] = "[REDACTED]"
-                    else:
-                        result[str_k] = self.sanitize(v, seen)
+                    result[str_k] = "[REDACTED]"
                 else:
                     result[str_k] = self.sanitize(v, seen)
             seen.remove(obj_id)

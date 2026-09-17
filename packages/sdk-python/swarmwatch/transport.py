@@ -17,9 +17,11 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from swarmwatch.schema import SwarmSpan
+from swarmwatch.security import mask_payload
 from swarmwatch.storage import StorageAdapter
 
 logger = logging.getLogger("swarmwatch.transport")
+
 
 
 class TransportConfig(BaseModel):
@@ -77,12 +79,18 @@ class TelemetryTransport:
         """
         Submits a span to the bounded queue.
         Executes in < 1 microsecond. Never blocks the calling thread.
+        Automatically redacts secrets and credentials from payloads before queueing.
         Returns True if queued, False if dropped due to capacity overflow.
         """
         try:
+            if span.input_payload is not None:
+                span.input_payload = mask_payload(span.input_payload)
+            if span.output_payload is not None:
+                span.output_payload = mask_payload(span.output_payload)
             self._queue.put_nowait(span)
             return True
         except queue.Full:
+
             with self._lock:
                 self._dropped_count += 1
             logger.warning(

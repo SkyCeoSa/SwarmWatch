@@ -164,6 +164,23 @@ _Avoid_: Recursion line, bad link, loop circle
 Adjacency representation used to analyze message density and detect cycles across distributed agents.
 _Avoid_: Route table, map
 
+---
+
+### Enterprise Security & Secret Redaction Engine
+
+**SensitiveDataMasker**:
+A deterministic, in-process engine executing pre-compiled regex patterns to redact cloud keys, database DSNs, JWTs, PEM private keys, credit cards, and PII before telemetry persistence.
+_Avoid_: Cleaner, scrubber, filter script
+
+**SecretPattern**:
+A formalized regular expression targeting a specific credential or authentication token format within arbitrary payload structures.
+_Avoid_: Search regex, match rule, pattern check
+
+**RedactedToken**:
+The safe placeholder string (e.g. `[REDACTED_API_KEY]`, `[REDACTED_DB_DSN]`) substituting sensitive values while preserving overall payload schema.
+_Avoid_: Starred password, blank text, hidden string
+
+
 
 
 
