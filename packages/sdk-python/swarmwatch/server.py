@@ -11,14 +11,16 @@ import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Set
+import uuid
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
-from swarmwatch.schema import SwarmSpan, StateSnapshot
+from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent
 from swarmwatch.storage import StorageAdapter, SQLiteStorageAdapter
 from swarmwatch.serializer import TimeMachine
+from swarmwatch.webhooks import WebhookConfig, WebhookNotifier, format_webhook_payload, DeadLetterRecord
 from swarmwatch.tenant import Organization, Project, ApiKey, TenantContext, ApiKeyManager
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -2260,6 +2262,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 def create_app(
     storage: Optional[StorageAdapter] = None,
     policy_engine: Optional[PolicyEngine] = None,
+    webhook_notifier: Optional[WebhookNotifier] = None,
 ) -> FastAPI:
     """FastAPI application factory for SwarmWatch ingestion server."""
     app = FastAPI(title="SwarmWatch Server", version="0.1.0")
@@ -2268,6 +2271,7 @@ def create_app(
     time_machine = TimeMachine(storage=active_storage)
     active_policy = CircuitPolicy.from_preset(CircuitPreset.BALANCED)
     active_policy_engine = policy_engine or PolicyEngine()
+    active_webhook_notifier = webhook_notifier or WebhookNotifier()
     api_key_manager = ApiKeyManager()
 
     async def get_tenant_context(
@@ -2350,6 +2354,52 @@ def create_app(
         return {
             "status": "hot_reloaded",
             "policy": active_policy_engine.policy.model_dump(mode="json"),
+        }
+
+    @app.get("/api/v1/alerts/dlq")
+    async def get_alerts_dlq(context: TenantContext = Depends(get_tenant_context)):
+        """Returns records currently stored in Dead-Letter Queue along with transmission stats."""
+        records = [r.model_dump(mode="json") for r in active_webhook_notifier.get_dlq()]
+        stats = active_webhook_notifier.get_stats()
+        return {"stats": stats, "records": records, "count": len(records)}
+
+    @app.post("/api/v1/alerts/dlq/replay")
+    async def replay_alerts_dlq(context: TenantContext = Depends(get_tenant_context)):
+        """Replays all failed webhook events currently stored in Dead-Letter Queue."""
+        replayed = active_webhook_notifier.replay_dlq()
+        stats = active_webhook_notifier.get_stats()
+        return {"replayed": replayed, "stats": stats}
+
+    @app.post("/api/v1/alerts/test")
+    async def test_alert_dispatch(
+        payload: Dict[str, Any],
+        context: TenantContext = Depends(get_tenant_context),
+    ):
+        """Dispatches a synthetic test alert to verify Slack, Discord, or PagerDuty integration."""
+        target_format = payload.get("format", "slack").lower()
+        url = payload.get("url", "https://mock.example.com/alerts")
+        routing_key = payload.get("routing_key") or payload.get("secret")
+
+        simulated_event = CircuitEvent(
+            id=f"test-alert-{uuid.uuid4().hex[:8]}",
+            swarm_id=payload.get("swarm_id", "test-swarm"),
+            event_type=payload.get("event_type", "trip"),
+            reason=payload.get("reason", "Synthetic test alert from SwarmWatch Control Plane"),
+            metric_val=float(payload.get("metric_val", 0.15)),
+            created_at=datetime.now(timezone.utc),
+        )
+        test_config = WebhookConfig(
+            url=url,
+            format=target_format,
+            secret=payload.get("secret"),
+            routing_key=routing_key,
+        )
+        formatted = format_webhook_payload(simulated_event, test_config)
+        return {
+            "status": "generated",
+            "format": target_format,
+            "url": url,
+            "payload": formatted,
         }
 
     @app.get("/api/v1/budget")

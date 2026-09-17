@@ -135,8 +135,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-microsecond ($<1\mu s$) deterministic in-memory evaluation with zero remote LLM token expenditure.
   - Dynamic in-memory hot-reloading without process restarts via REST API (`GET /api/v1/policies` and `POST /api/v1/policies`) and programmatic `hotReload()`.
   - Seamless integration with `EntropyCircuitBreaker` across both SDKs, enforcing role-specific thresholds and blocking prohibited tools.
+- **Enterprise Incident Alerting & Dead-Letter Dispatcher (Seam 13 & ADR 0007 / ADR 0023 Dual-SDK Parity)**:
+  - Deep module `WebhookNotifier` implemented in both Python (`swarmwatch/webhooks.py`) and TypeScript (`@swarmwatch/sdk/src/webhooks.ts`).
+  - Native support for PagerDuty Events API v2 (with deduplication keys, severity mapping, and rich custom details), Slack Block Kit, and Discord embeds.
+  - In-memory bounded Dead-Letter Queue (DLQ) capturing undeliverable events with programmatic replay (`replay_dlq()`).
+  - Control plane REST endpoints: `GET /api/v1/alerts/dlq`, `POST /api/v1/alerts/dlq/replay`, `POST /api/v1/alerts/test`.
+  - Non-blocking $<1\mu s$ enqueue invariant on calling agent threads.
 - **Complete Test Coverage**:
-  - **194 automated tests passing 100% locally** across Python (114 tests) and TypeScript (80 tests).
+  - **204 automated tests passing 100% locally** across Python (117 tests) and TypeScript (87 tests).
+
 
 
 

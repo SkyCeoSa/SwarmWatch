@@ -6,7 +6,7 @@ SwarmWatch: Universal Observability, Entropy Circuit Breaker & Time-Machine Debu
 from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent, CounterfactualSavings
 from swarmwatch.storage import StorageAdapter, SQLiteStorageAdapter, ClickHouseStorageAdapter
 from swarmwatch.transport import TelemetryTransport, TransportConfig
-from swarmwatch.webhooks import WebhookConfig, WebhookNotifier
+from swarmwatch.webhooks import WebhookConfig, WebhookNotifier, format_webhook_payload, DeadLetterRecord
 from swarmwatch.otel import to_otel_genai_span, OtelGenAiExporter
 from swarmwatch.core import (
     SwarmClient,
@@ -110,6 +110,8 @@ __all__ = [
     "TransportConfig",
     "WebhookConfig",
     "WebhookNotifier",
+    "format_webhook_payload",
+    "DeadLetterRecord",
     "to_otel_genai_span",
     "OtelGenAiExporter",
     "SwarmClient",

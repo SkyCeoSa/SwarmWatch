@@ -119,3 +119,18 @@ export {
   mergeRuleConfigs,
 } from "./policy.ts";
 
+// Enterprise Webhook Alerting Dispatcher & PagerDuty (Seam 6 & 7 / ADR 0007 & ADR 0023)
+export type {
+  WebhookFormat,
+  WebhookConfig,
+  DeadLetterRecord,
+  WebhookStats,
+  WebhookHttpSender,
+} from "./webhooks.ts";
+export {
+  WebhookNotifier,
+  formatWebhookPayload,
+  defaultHttpSender,
+} from "./webhooks.ts";
+
+

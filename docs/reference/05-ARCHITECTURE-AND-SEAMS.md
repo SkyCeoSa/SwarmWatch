@@ -89,4 +89,9 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Python): `PolicyEngine`, `GuardrailPolicy`, `RuleConfig`, `DeclarativeRule`, `RuleCondition`, `PolicyEvaluationResult`, `load_policy(path_or_content)`, `GET /api/v1/policies`, `POST /api/v1/policies`.
     - Primitives (TypeScript): `PolicyEngine`, `SafePolicyParser`, `GuardrailPolicy`, `RuleConfig`, `DeclarativeRule`, `RuleCondition`, `PolicyEvaluationResult`, `EntropyCircuitBreaker(policyEngine)`.
     - Invariant: Zero-dependency YAML/JSON parsing; sub-microsecond ($<1\mu s$) deterministic rule evaluation; role-based inheritance with fallback defaults; zero external LLM tokens; zero-downtime hot-reloading; strict parity between Python and Node.js runtimes.
+13. **Enterprise Incident Alerting & Dead-Letter Dispatcher Seam (Dual-SDK Parity / ADR 0007 & ADR 0023)**:
+    - Primitives (Python): `WebhookNotifier`, `WebhookConfig`, `DeadLetterRecord`, `format_webhook_payload`, `GET /api/v1/alerts/dlq`, `POST /api/v1/alerts/dlq/replay`, `POST /api/v1/alerts/test`.
+    - Primitives (TypeScript): `WebhookNotifier`, `WebhookConfig`, `DeadLetterRecord`, `formatWebhookPayload`, `defaultHttpSender`.
+    - Invariant: Non-blocking sub-microsecond queue enqueue on caller threads; native PagerDuty Events API v2 with deduplication, Slack Block Kit, and Discord embeds; in-memory bounded Dead-Letter Queue (DLQ) with retry and replay; zero remote token burn.
+
 
