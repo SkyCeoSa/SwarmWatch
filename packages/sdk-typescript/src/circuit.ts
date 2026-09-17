@@ -7,6 +7,7 @@
  */
 
 import { computeShannonEntropy, computeLexicalSimilarity } from "./entropy.ts";
+import { globMatch, type PolicyEngine } from "./policy.ts";
 import type { CircuitEvent, CounterfactualSavings } from "./schema.ts";
 
 export type CircuitPresetType = "strict" | "balanced" | "lenient";
@@ -108,13 +109,18 @@ export class SwarmCircuitBreakException extends Error {
 
 export class EntropyCircuitBreaker {
   public policy: CircuitPolicy;
+  public policyEngine?: PolicyEngine;
   private history: string[] = [];
   public consecutive_warnings = 0;
   public turn_count = 0;
   public cumulative_tokens = 0;
   public token_history: number[] = [];
 
-  constructor(options?: { policy?: CircuitPolicy; preset?: CircuitPresetType | string }) {
+  constructor(options?: {
+    policy?: CircuitPolicy;
+    preset?: CircuitPresetType | string;
+    policyEngine?: PolicyEngine;
+  }) {
     if (options?.policy) {
       this.policy = options.policy;
     } else if (options?.preset) {
@@ -122,12 +128,14 @@ export class EntropyCircuitBreaker {
     } else {
       this.policy = CircuitPolicy.fromPreset("balanced");
     }
+    this.policyEngine = options?.policyEngine;
   }
 
-  public computeSavings(): CounterfactualSavings {
+  public computeSavings(customPolicy?: CircuitPolicy): CounterfactualSavings {
+    const pol = customPolicy ?? this.policy;
     let turns_averted = 0;
-    if (this.policy.max_turns !== null && this.policy.max_turns > this.turn_count) {
-      turns_averted = this.policy.max_turns - this.turn_count;
+    if (pol.max_turns !== null && pol.max_turns > this.turn_count) {
+      turns_averted = pol.max_turns - this.turn_count;
     }
 
     const avg_tokens = this.token_history.length > 0
@@ -135,15 +143,15 @@ export class EntropyCircuitBreaker {
       : 500.0;
 
     const tokens_saved = Math.floor(turns_averted * avg_tokens);
-    const dollars_saved = Number((tokens_saved * this.policy.cost_per_token).toFixed(4));
-    const budget_consumed = Number((this.cumulative_tokens * this.policy.cost_per_token).toFixed(4));
+    const dollars_saved = Number((tokens_saved * pol.cost_per_token).toFixed(4));
+    const budget_consumed = Number((this.cumulative_tokens * pol.cost_per_token).toFixed(4));
 
     let budget_protected = 0.0;
-    if (this.policy.cost_budget !== null) {
-      budget_protected = Math.max(0.0, Number((this.policy.cost_budget - budget_consumed).toFixed(4)));
-    } else if (this.policy.token_budget !== null) {
-      const remaining_tokens = Math.max(0, this.policy.token_budget - this.cumulative_tokens);
-      budget_protected = Number((remaining_tokens * this.policy.cost_per_token).toFixed(4));
+    if (pol.cost_budget !== null) {
+      budget_protected = Math.max(0.0, Number((pol.cost_budget - budget_consumed).toFixed(4)));
+    } else if (pol.token_budget !== null) {
+      const remaining_tokens = Math.max(0, pol.token_budget - this.cumulative_tokens);
+      budget_protected = Number((remaining_tokens * pol.cost_per_token).toFixed(4));
     }
 
     return {
@@ -160,9 +168,77 @@ export class EntropyCircuitBreaker {
     agent_id: string = "agent",
     swarm_id: string = "swarm",
     token_count?: number | null,
+    tool_name?: string | null,
+    payload?: Record<string, any> | null,
   ): CircuitDecision {
     if (!message || !message.trim()) {
       return { decision: "pass", metric_val: 0.0 };
+    }
+
+    // Resolve dynamic role config from policyEngine if present
+    let effectivePolicy = this.policy;
+    if (this.policyEngine) {
+      const dynamicConfig = this.policyEngine.getEffectiveConfig(agent_id);
+
+      // 0. Prohibited tool check
+      if (tool_name && dynamicConfig.prohibited_tools && dynamicConfig.prohibited_tools.length > 0) {
+        if (dynamicConfig.prohibited_tools.some((p) => globMatch(tool_name, p))) {
+          const savings = this.computeSavings();
+          throw new SwarmCircuitBreakException(
+            `Prohibited tool '${tool_name}' invoked by agent '${agent_id}'`,
+            1.0,
+            agent_id,
+            swarm_id,
+            savings,
+          );
+        }
+      }
+
+      // Check declarative custom rules evaluation
+      const policyRes = this.policyEngine.evaluateTurn({
+        agent: agent_id,
+        text: message,
+        token_count: token_count ?? null,
+        tool_name: tool_name ?? null,
+        payload: payload ?? null,
+      });
+      if (policyRes.decision === "trip") {
+        const savings = this.computeSavings();
+        throw new SwarmCircuitBreakException(
+          policyRes.reason || `Policy violation by agent '${agent_id}'`,
+          1.0,
+          agent_id,
+          swarm_id,
+          savings,
+        );
+      } else if (policyRes.decision === "warn") {
+        return {
+          decision: "warning",
+          reason: policyRes.reason,
+          metric_val: 1.0,
+          warning_hint: `[SWARMWATCH POLICY WARNING] ${policyRes.reason}`,
+          counterfactual_savings: this.computeSavings(),
+        };
+      }
+
+      if (
+        (dynamicConfig.min_entropy !== undefined && dynamicConfig.min_entropy !== null) ||
+        (dynamicConfig.max_similarity !== undefined && dynamicConfig.max_similarity !== null) ||
+        (dynamicConfig.token_budget !== undefined && dynamicConfig.token_budget !== null) ||
+        (dynamicConfig.max_turns !== undefined && dynamicConfig.max_turns !== null) ||
+        (dynamicConfig.cost_budget !== undefined && dynamicConfig.cost_budget !== null)
+      ) {
+        effectivePolicy = new CircuitPolicy({
+          entropy_threshold: dynamicConfig.min_entropy ?? this.policy.entropy_threshold,
+          similarity_threshold: dynamicConfig.max_similarity ?? this.policy.similarity_threshold,
+          token_budget: dynamicConfig.token_budget ?? this.policy.token_budget,
+          max_turns: dynamicConfig.max_turns ?? this.policy.max_turns,
+          cost_budget: dynamicConfig.cost_budget ?? this.policy.cost_budget,
+          cost_per_token: dynamicConfig.cost_per_token ?? this.policy.cost_per_token,
+          window_size: dynamicConfig.window_size ?? this.policy.window_size,
+          max_warnings: this.policy.max_warnings,
+        });
+      }
     }
 
     // 1. Track turn count and token usage
@@ -173,10 +249,10 @@ export class EntropyCircuitBreaker {
     this.token_history.push(effective_tokens);
 
     // 2. Check quota constraints: max_turns, token_budget, cost_budget
-    if (this.policy.max_turns !== null && this.turn_count > this.policy.max_turns) {
-      const savings = this.computeSavings();
+    if (effectivePolicy.max_turns !== null && this.turn_count > effectivePolicy.max_turns) {
+      const savings = this.computeSavings(effectivePolicy);
       throw new SwarmCircuitBreakException(
-        `Maximum turns ceiling exceeded (${this.turn_count} > ${this.policy.max_turns})`,
+        `Maximum turns ceiling exceeded (${this.turn_count} > ${effectivePolicy.max_turns})`,
         this.turn_count,
         agent_id,
         swarm_id,
@@ -184,10 +260,10 @@ export class EntropyCircuitBreaker {
       );
     }
 
-    if (this.policy.token_budget !== null && this.cumulative_tokens > this.policy.token_budget) {
-      const savings = this.computeSavings();
+    if (effectivePolicy.token_budget !== null && this.cumulative_tokens > effectivePolicy.token_budget) {
+      const savings = this.computeSavings(effectivePolicy);
       throw new SwarmCircuitBreakException(
-        `Session token budget exceeded (${this.cumulative_tokens} > ${this.policy.token_budget})`,
+        `Session token budget exceeded (${this.cumulative_tokens} > ${effectivePolicy.token_budget})`,
         this.cumulative_tokens,
         agent_id,
         swarm_id,
@@ -195,12 +271,12 @@ export class EntropyCircuitBreaker {
       );
     }
 
-    if (this.policy.cost_budget !== null) {
-      const cost = this.cumulative_tokens * this.policy.cost_per_token;
-      if (cost > this.policy.cost_budget) {
-        const savings = this.computeSavings();
+    if (effectivePolicy.cost_budget !== null) {
+      const cost = this.cumulative_tokens * effectivePolicy.cost_per_token;
+      if (cost > effectivePolicy.cost_budget) {
+        const savings = this.computeSavings(effectivePolicy);
         throw new SwarmCircuitBreakException(
-          `Session cost budget exceeded ($${cost.toFixed(4)} > $${this.policy.cost_budget.toFixed(4)})`,
+          `Session cost budget exceeded ($${cost.toFixed(4)} > $${effectivePolicy.cost_budget.toFixed(4)})`,
           cost,
           agent_id,
           swarm_id,
@@ -224,25 +300,25 @@ export class EntropyCircuitBreaker {
     let reason = "";
     let metric_val = 0.0;
 
-    if (max_similarity >= this.policy.similarity_threshold && this.history.length > 0) {
+    if (max_similarity >= effectivePolicy.similarity_threshold && this.history.length > 0) {
       violation = true;
-      reason = `High lexical repetition detected (${max_similarity.toFixed(2)} >= ${this.policy.similarity_threshold.toFixed(2)})`;
+      reason = `High lexical repetition detected (${max_similarity.toFixed(2)} >= ${effectivePolicy.similarity_threshold.toFixed(2)})`;
       metric_val = max_similarity;
-    } else if (entropy <= this.policy.entropy_threshold && tokens.length >= 5) {
+    } else if (entropy <= effectivePolicy.entropy_threshold && tokens.length >= 5) {
       violation = true;
-      reason = `Low Shannon entropy detected (${entropy.toFixed(2)} <= ${this.policy.entropy_threshold.toFixed(2)})`;
+      reason = `Low Shannon entropy detected (${entropy.toFixed(2)} <= ${effectivePolicy.entropy_threshold.toFixed(2)})`;
       metric_val = entropy;
     }
 
     if (violation) {
-      const savings = this.computeSavings();
-      if (this.consecutive_warnings < this.policy.max_warnings) {
+      const savings = this.computeSavings(effectivePolicy);
+      if (this.consecutive_warnings < effectivePolicy.max_warnings) {
         this.consecutive_warnings += 1;
         const hint = (
           `[SWARMWATCH CIRCUIT WARNING] Potential repetitive loop detected: ${reason}. ` +
           "Please diversify your approach, try an alternative tool, or summarize current findings."
         );
-        this.appendHistory(message);
+        this.appendHistory(message, effectivePolicy.window_size);
         return {
           decision: "warning",
           reason,
@@ -263,7 +339,7 @@ export class EntropyCircuitBreaker {
     } else {
       // Message is healthy; reset warning streak
       this.consecutive_warnings = 0;
-      this.appendHistory(message);
+      this.appendHistory(message, effectivePolicy.window_size);
       return {
         decision: "pass",
         metric_val: max_similarity > 0 ? max_similarity : entropy,
@@ -271,9 +347,9 @@ export class EntropyCircuitBreaker {
     }
   }
 
-  private appendHistory(message: string): void {
+  private appendHistory(message: string, windowSize: number = this.policy.window_size): void {
     this.history.push(message);
-    if (this.history.length > this.policy.window_size) {
+    if (this.history.length > windowSize) {
       this.history.shift();
     }
   }

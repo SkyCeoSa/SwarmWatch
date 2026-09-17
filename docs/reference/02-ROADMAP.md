@@ -129,14 +129,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Deterministic computation of counterfactual token savings, financial dollar savings, and turn prevention ratios.
   - Complete Root Cause Analysis (RCA: agent vector, failure mode, triggering prompt/payload), Shannon entropy trajectory table, and neutralized security credentials tally.
   - Exposes 3 export formats (`markdown`, `json`, `terminal`) across CLI (`swarmwatch report`), REST API (`GET /api/v1/swarms/{id}/report`), and programmatic TypeScript API (`generator.generateReport()`).
-- **Declarative Guardrail Policy Engine & Policy DSL (Seam 12 & ADR 0021)**:
-  - Deep module `PolicyEngine` and lightweight zero-dependency YAML/JSON parser `SafePolicyParser` in `swarmwatch/policy.py`.
+- **Declarative Guardrail Policy Engine & Policy DSL (Seam 12 & ADR 0021 / ADR 0022 Dual-SDK Parity)**:
+  - Deep module `PolicyEngine` and lightweight zero-dependency YAML/JSON parser `SafePolicyParser` implemented in both Python (`swarmwatch/policy.py`) and TypeScript (`@swarmwatch/sdk/src/policy.ts`).
   - Declarative policy schema (`GuardrailPolicy`, `RuleConfig`, `DeclarativeRule`, `RuleCondition`) supporting global defaults, role-based overrides, tool invocations, and custom event-condition-action statements.
   - Sub-microsecond ($<1\mu s$) deterministic in-memory evaluation with zero remote LLM token expenditure.
-  - Dynamic in-memory hot-reloading without process restarts via REST API (`GET /api/v1/policies` and `POST /api/v1/policies`).
-  - Seamless integration with `EntropyCircuitBreaker` enforcing role-specific thresholds and prohibited tools.
+  - Dynamic in-memory hot-reloading without process restarts via REST API (`GET /api/v1/policies` and `POST /api/v1/policies`) and programmatic `hotReload()`.
+  - Seamless integration with `EntropyCircuitBreaker` across both SDKs, enforcing role-specific thresholds and blocking prohibited tools.
 - **Complete Test Coverage**:
-  - **184 automated tests passing 100% locally** across Python (114 tests) and TypeScript (70 tests).
+  - **194 automated tests passing 100% locally** across Python (114 tests) and TypeScript (80 tests).
 
 
 

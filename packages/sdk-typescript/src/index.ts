@@ -103,3 +103,19 @@ export type {
   ReportStorageSource,
 } from "./report.ts";
 export { IncidentReportGenerator } from "./report.ts";
+
+// Declarative Guardrail Policy Engine & Policy DSL (Seam 12 / ADR 0021 & ADR 0022)
+export type {
+  RuleConfig,
+  RuleCondition,
+  DeclarativeRule,
+  GuardrailPolicy,
+  PolicyEvaluationResult,
+} from "./policy.ts";
+export {
+  SafePolicyParser,
+  PolicyEngine,
+  globMatch,
+  mergeRuleConfigs,
+} from "./policy.ts";
+

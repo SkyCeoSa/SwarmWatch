@@ -45,7 +45,8 @@ Whenever beginning a new session or designing new features, consult this index t
    - [ADR 0018: DSPy and Microsoft Semantic Kernel Framework Adapters](../adr/0018-dspy-and-semantic-kernel-framework-adapters.md)
     - [ADR 0019: Enterprise Security & Automated Secret Redaction Engine](../adr/0019-enterprise-security-and-secret-redaction-engine.md)
     - [ADR 0020: Incident Post-Mortem & Financial ROI Report Generator](../adr/0020-incident-post-mortem-and-roi-report-engine.md)
-    - [ADR 0021: Declarative Guardrail Policy Engine & Policy DSL](../adr/0021-declarative-guardrail-policy-dsl.md)
+     - [ADR 0021: Declarative Guardrail Policy Engine & Policy DSL](../adr/0021-declarative-guardrail-policy-dsl.md)
+     - [ADR 0022: TypeScript Declarative Policy Engine Parity](../adr/0022-typescript-declarative-policy-engine-parity.md)
 
 ---
 
@@ -54,7 +55,7 @@ Whenever beginning a new session or designing new features, consult this index t
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
 | **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (114/114 tests) |
-| **TypeScript Test Suite** | `cmd.exe /c npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (70/70 tests) |
+| **TypeScript Test Suite** | `cmd.exe /c npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (80/80 tests) |
 | **Prometheus Exporter** | `curl http://127.0.0.1:8765/metrics` | 100% OpenMetrics 0.0.4 Valid |
 | **Package Distribution Integrity** | `python scripts\verify_release.py` | 100% Valid (Wheel & Tarball) |
 | **Console Craft Floor** | Inspect `dashboard.html` (`#080B11`, `tabular-nums`) | 0 Anti-Patterns |
