@@ -46,6 +46,13 @@ export {
   TelemetryTransport,
 } from "./transport.ts";
 
+// Enterprise Security & Secret Redaction Engine
+export type { SecuritySanitizationPolicy } from "./security.ts";
+export {
+  SensitiveDataMasker,
+  getDefaultMasker,
+} from "./security.ts";
+
 // Multi-Tenant Core & Cryptographic API Keys
 export type {
   Organization,

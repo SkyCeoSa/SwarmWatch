@@ -120,12 +120,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
 - **Enterprise DSPy & Semantic Kernel Adapters (Seam 5 Extension & ADR 0018)**:
   - `SwarmWatchDSPyTracker`: Context manager and programmatic teleprompter tracker halting degenerate prompt optimization loops and recording module causal lineages.
   - `SwarmWatchSemanticKernelFilter`: Microsoft Semantic Kernel function and tool invocation filter intercepting recursive tool execution loops with zero-token Shannon entropy evaluation.
-- **Enterprise Security & Secret Redaction Engine (Seam 10 & ADR 0019)**:
-  - Deep module `SensitiveDataMasker` in `swarmwatch/security.py` executing high-throughput pre-compiled regex catalog (cloud tokens, database DSNs, JWTs, PEM keys, credit cards, PII).
-  - Ingestion-level interception transparently sanitizing span payloads and state snapshots before persistent storage or WebSocket dispatch.
-  - Zero-token cost, $<0.5\mu s$ latency, and zero cloud dependencies.
+- **Enterprise Security & Secret Redaction Engine (Seam 10 & ADR 0019 Dual-SDK Parity)**:
+  - Deep module `SensitiveDataMasker` implemented in both Python (`swarmwatch/security.py`) and TypeScript (`@swarmwatch/sdk/src/security.ts`).
+  - High-throughput pre-compiled regex catalog covering 12 enterprise secret classes (cloud keys, database DSNs, JWTs, PEM keys, credit cards, PII).
+  - Ingestion-level interception transparently sanitizing span payloads and state snapshots in both Python (`TelemetryTransport`, `SafeStateSerializer`) and TypeScript (`TelemetryTransport.emitSpan`, `SafeStateSerializer.sanitize`).
+  - Zero-token cost, $<0.5\mu s$ latency, and zero external cloud or npm dependencies.
 - **Complete Test Coverage**:
-  - **143+ automated tests passing 100% locally** across Python and TypeScript.
+  - **162 automated tests passing 100% locally** across Python (99 tests) and TypeScript (63 tests).
+
 
 
 

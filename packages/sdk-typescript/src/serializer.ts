@@ -6,21 +6,25 @@
 
 import * as crypto from "node:crypto";
 import type { StateSnapshot } from "./schema.ts";
+import { SensitiveDataMasker, getDefaultMasker } from "./security.ts";
 
 export interface SerializerConfig {
   max_string_length?: number;
   max_depth?: number;
   mask_keys?: string[];
+  masker?: SensitiveDataMasker;
 }
 
 export class SafeStateSerializer {
   private maxStringLength: number;
   private maxDepth: number;
   private maskKeys: Set<string>;
+  private masker: SensitiveDataMasker;
 
   constructor(config: SerializerConfig = {}) {
     this.maxStringLength = config.max_string_length ?? 5000;
     this.maxDepth = config.max_depth ?? 8;
+    this.masker = config.masker ?? getDefaultMasker();
     const defaultMasks = [
       "password", "secret", "api_key", "apikey", "token",
       "access_token", "private_key", "authorization", "auth",
@@ -45,10 +49,11 @@ export class SafeStateSerializer {
     }
 
     if (t === "string") {
-      if (data.length > this.maxStringLength) {
-        return data.slice(0, this.maxStringLength) + "... [TRUNCATED]";
+      const masked = this.masker.maskText(data);
+      if (masked.length > this.maxStringLength) {
+        return masked.slice(0, this.maxStringLength) + "... [TRUNCATED]";
       }
-      return data;
+      return masked;
     }
 
     if (t === "bigint" || t === "symbol") {

@@ -5,6 +5,7 @@
  */
 
 import type { CircuitEvent, StateSnapshot, SwarmSpan } from "./schema.ts";
+import { SensitiveDataMasker, getDefaultMasker } from "./security.ts";
 
 export interface StorageSink {
   saveSpans(spans: SwarmSpan[]): Promise<void> | void;
@@ -133,6 +134,7 @@ export interface TransportConfig {
   batch_size?: number;
   flush_interval_ms?: number;
   max_queue_size?: number;
+  masker?: SensitiveDataMasker;
 }
 
 export class TelemetryTransport {
@@ -140,6 +142,7 @@ export class TelemetryTransport {
   public batchSize: number;
   public flushIntervalMs: number;
   public maxQueueSize: number;
+  private masker: SensitiveDataMasker;
 
   private queue: SwarmSpan[] = [];
   private timer: NodeJS.Timeout | null = null;
@@ -152,6 +155,7 @@ export class TelemetryTransport {
     this.batchSize = config.batch_size ?? 100;
     this.flushIntervalMs = config.flush_interval_ms ?? 500;
     this.maxQueueSize = config.max_queue_size ?? 10000;
+    this.masker = config.masker ?? getDefaultMasker();
   }
 
   public get queueSize(): number {
@@ -184,6 +188,14 @@ export class TelemetryTransport {
       this.droppedCount++;
       return false;
     }
+
+    if (span.input_payload !== undefined && span.input_payload !== null) {
+      span.input_payload = this.masker.maskPayload(span.input_payload);
+    }
+    if (span.output_payload !== undefined && span.output_payload !== null) {
+      span.output_payload = this.masker.maskPayload(span.output_payload);
+    }
+
     this.queue.push(span);
     if (this.queue.length >= this.batchSize && !this.isFlushing) {
       this.flush().catch(() => {});
