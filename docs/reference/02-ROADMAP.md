@@ -117,8 +117,11 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Deep module `CausalTopologyGraph` in `swarmwatch/topology.py` computing agent adjacency networks, token/latency metrics, and deterministic cycle detection.
   - Non-blocking vector SVG graph rendering in `dashboard.html` with stream/DAG/split view toggling and animated loop trip highlights.
   - Zero-cloud, zero-token, and <0.05% CPU footprint guarantee.
+- **Enterprise DSPy & Semantic Kernel Adapters (Seam 5 Extension & ADR 0018)**:
+  - `SwarmWatchDSPyTracker`: Context manager and programmatic teleprompter tracker halting degenerate prompt optimization loops and recording module causal lineages.
+  - `SwarmWatchSemanticKernelFilter`: Microsoft Semantic Kernel function and tool invocation filter intercepting recursive tool execution loops with zero-token Shannon entropy evaluation.
 - **Complete Test Coverage**:
-  - **130+ automated tests passing 100% locally** across Python and TypeScript.
+  - **136+ automated tests passing 100% locally** across Python and TypeScript.
 
 
 

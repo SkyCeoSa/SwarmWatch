@@ -92,6 +92,14 @@ _Avoid_: Plugin, wrapper, interceptor, monkey patch
 A discrete request-response message exchange between two conversational agents in a multi-agent dialogue.
 _Avoid_: Chat item, utterance, message step
 
+**TeleprompterIteration**:
+A compilation candidate generation cycle executed by a prompt optimizer (e.g. BootstrapFewShot, MIPRO) evaluated for Shannon entropy stability and budget limits.
+_Avoid_: Tuning step, prompt retry, optimization loop
+
+**FunctionFilterInvocation**:
+A discrete tool or function execution intercepted within a Semantic Kernel multi-agent workflow before tool dispatch.
+_Avoid_: Hook call, function callback, middleware run
+
 ---
 
 ### Interactive Chaos & Loop Simulator
