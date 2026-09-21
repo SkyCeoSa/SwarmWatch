@@ -38,7 +38,7 @@ class SpanContext:
         source: str = "system",
         target: str = "system",
         span_type: str = "span",
-        branch_id: str = "main",
+        branch_id: Optional[str] = None,
         input_payload: Optional[Dict[str, Any]] = None,
     ):
         self.client = client
@@ -46,13 +46,13 @@ class SpanContext:
         self.source = source
         self.target = target
         self.span_type = span_type
-        self.branch_id = branch_id
+        self.parent_span: Optional[SwarmSpan] = current_span_var.get()
+        self.branch_id = branch_id or (self.parent_span.branch_id if self.parent_span else "main")
         self.input_payload = input_payload or {}
         self.output_payload: Dict[str, Any] = {}
         self.token_count = 0
         self.entropy_score = 1.0
 
-        self.parent_span: Optional[SwarmSpan] = current_span_var.get()
         self.span_id = str(uuid.uuid4())
         self.span: Optional[SwarmSpan] = None
         self._token: Optional[contextvars.Token] = None
@@ -133,6 +133,11 @@ class SwarmClient:
         if self.webhook_notifier:
             self.webhook_notifier.start()
 
+        from swarmwatch.serializer import TimeMachine
+        from swarmwatch.runner import ForkRunner
+        self.timemachine = TimeMachine(storage=self.storage)
+        self.runner = ForkRunner(client=self)
+
     def record_circuit_event(self, event: CircuitEvent) -> None:
         """Records a circuit event in storage and dispatches to enterprise webhooks."""
         self.transport._call_storage("record_circuit_event", event)
@@ -145,7 +150,7 @@ class SwarmClient:
         source: str = "system",
         target: str = "system",
         span_type: str = "span",
-        branch_id: str = "main",
+        branch_id: Optional[str] = None,
         input_payload: Optional[Dict[str, Any]] = None,
     ) -> SpanContext:
         return SpanContext(
@@ -163,7 +168,7 @@ class SwarmClient:
         name: Optional[str] = None,
         role: Optional[str] = None,
         target: str = "environment",
-        branch_id: str = "main",
+        branch_id: Optional[str] = None,
     ) -> Callable:
         """
         Decorator wrapping an agent action or function.
@@ -247,6 +252,44 @@ class SwarmClient:
         self.transport._call_storage("save_snapshot", snap)
         return snap
 
+    async def snapshot(self, state_data: Dict[str, Any], branch_id: Optional[str] = None) -> Any:
+        current_span = current_span_var.get()
+        span_id = current_span.id if current_span else str(uuid.uuid4())
+        branch = branch_id or (current_span.branch_id if current_span else "main")
+        return await self.timemachine.snapshot(span_id=span_id, state_data=state_data, branch_id=branch)
+
+    async def step_back(self, target_span_id: str, new_branch_id: Optional[str] = None) -> Dict[str, Any]:
+        return await self.timemachine.step_back(target_span_id=target_span_id, new_branch_id=new_branch_id)
+
+    async def fork_branch(self, target_span_id: str, new_branch_id: str) -> Dict[str, Any]:
+        return await self.timemachine.fork_branch(
+            swarm_id=self.swarm_id,
+            target_span_id=target_span_id,
+            new_branch_id=new_branch_id,
+        )
+
+    async def list_branches(self) -> List[str]:
+        return await self.timemachine.list_branches(swarm_id=self.swarm_id)
+
+    async def list_snapshots(self, branch_id: Optional[str] = None) -> List[Any]:
+        return await self.timemachine.get_snapshots(swarm_id=self.swarm_id, branch_id=branch_id)
+
+    async def resume_from_fork(
+        self,
+        branch_id: str,
+        handler: Callable[..., Any],
+        state_overrides: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        return await self.runner.resume(branch_id=branch_id, handler=handler, state_overrides=state_overrides)
+
+    def resume_from_fork_sync(
+        self,
+        branch_id: str,
+        handler: Callable[..., Any],
+        state_overrides: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        return self.runner.resume_sync(branch_id=branch_id, handler=handler, state_overrides=state_overrides)
+
     def flush(self) -> None:
         self.transport.flush()
 
@@ -298,7 +341,7 @@ def span(
     source: str = "system",
     target: str = "system",
     span_type: str = "span",
-    branch_id: str = "main",
+    branch_id: Optional[str] = None,
     input_payload: Optional[Dict[str, Any]] = None,
 ) -> SpanContext:
     return get_client().span(
@@ -315,13 +358,53 @@ def agent(
     name: Optional[str] = None,
     role: Optional[str] = None,
     target: str = "environment",
-    branch_id: str = "main",
+    branch_id: Optional[str] = None,
 ) -> Callable:
     return get_client().agent(name=name, role=role, target=target, branch_id=branch_id)
 
 
 def sync_state(state_data: Dict[str, Any], branch_id: Optional[str] = None) -> Any:
     return get_client().sync_state(state_data, branch_id=branch_id)
+
+
+async def snapshot(state_data: Dict[str, Any], branch_id: Optional[str] = None) -> Any:
+    return await get_client().snapshot(state_data, branch_id=branch_id)
+
+
+async def step_back(target_span_id: str, new_branch_id: Optional[str] = None) -> Dict[str, Any]:
+    return await get_client().step_back(target_span_id=target_span_id, new_branch_id=new_branch_id)
+
+
+async def fork_branch(target_span_id: str, new_branch_id: str) -> Dict[str, Any]:
+    return await get_client().fork_branch(target_span_id=target_span_id, new_branch_id=new_branch_id)
+
+
+async def list_branches() -> List[str]:
+    return await get_client().list_branches()
+
+
+async def list_snapshots(branch_id: Optional[str] = None) -> List[Any]:
+    return await get_client().list_snapshots(branch_id=branch_id)
+
+
+async def resume_from_fork(
+    branch_id: str,
+    handler: Callable[..., Any],
+    state_overrides: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return await get_client().resume_from_fork(
+        branch_id=branch_id, handler=handler, state_overrides=state_overrides
+    )
+
+
+def resume_from_fork_sync(
+    branch_id: str,
+    handler: Callable[..., Any],
+    state_overrides: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return get_client().resume_from_fork_sync(
+        branch_id=branch_id, handler=handler, state_overrides=state_overrides
+    )
 
 
 def flush() -> None:

@@ -152,8 +152,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Deep module `TimeMachine` in `@swarmwatch/sdk` (`packages/sdk-typescript/src/timemachine.ts`) providing zero-dependency state snapshotting, deterministic SHA-256 state hashing, non-destructive `stepBack()`, and DAG `forkBranch()`.
   - StorageSink interface extensions implemented in `InMemoryStorageSink` and `HttpStorageSink` (`transport.ts`).
   - Seamless integration on `SwarmClient` (`client.timeMachine`, `client.snapshot`, `client.stepBack`, `client.forkBranch`).
+- **Live Fork Resumption Runner & Context Propagation (Seam 15 & ADR 0026 Dual-SDK Parity)**:
+  - Deep module `ForkRunner` and contextual abstraction `ForkResumptionContext` in both Python (`swarmwatch/runner.py`) and TypeScript (`@swarmwatch/sdk/src/runner.ts`).
+  - Programmatic agent resumption (`client.resume_from_fork` / `client.resumeFromFork`) resuming agent workflows from any state snapshot with optional deterministic `state_overrides`.
+  - Scoped asynchronous context propagation using `contextvars` (Python) and `AsyncLocalStorage` (Node.js), ensuring child spans and agent tasks seamlessly inherit the target `branch_id` and link to boundary `fork_resumption` spans.
+  - Server-side REST endpoint `POST /api/v1/branches/{branch_id}/resume` with WebSocket `branch_resumed` broadcast.
+  - Zero external LLM token expenditure (100% deterministic local computation) and sub-millisecond execution dispatch (<500µs).
 - **Complete Test Coverage**:
-  - **218 automated tests passing 100% locally** across Python (119 tests) and TypeScript (99 tests).
+  - **228 automated tests passing 100% locally** across Python (125 tests) and TypeScript (103 tests).
+
 
 
 

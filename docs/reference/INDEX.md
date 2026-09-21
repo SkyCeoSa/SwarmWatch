@@ -50,6 +50,7 @@ Whenever beginning a new session or designing new features, consult this index t
       - [ADR 0023: Enterprise PagerDuty Events API v2, Slack Block Kit & Dead-Letter Alerting](../adr/0023-enterprise-pagerduty-and-dead-letter-alerting.md)
       - [ADR 0024: Visual Time-Machine Controls, Turn Timeline Scrubber & In-Browser Branch Forking](../adr/0024-visual-timemachine-controls-and-branch-forking.md)
       - [ADR 0025: TypeScript TimeMachine & State Branching Parity](../adr/0025-typescript-timemachine-and-state-branching-parity.md)
+      - [ADR 0026: Live Fork Resumption Runner & Context Propagation](../adr/0026-live-fork-resumption-runner-and-context-propagation.md)
 
 ---
 
@@ -57,8 +58,8 @@ Whenever beginning a new session or designing new features, consult this index t
 
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
-| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (119/119 tests) |
-| **TypeScript Test Suite** | `cmd.exe /c npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (99/99 tests) |
+| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (125/125 tests) |
+| **TypeScript Test Suite** | `cmd.exe /c npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (103/103 tests) |
 | **Prometheus Exporter** | `curl http://127.0.0.1:8765/metrics` | 100% OpenMetrics 0.0.4 Valid |
 | **Package Distribution Integrity** | `python scripts\verify_release.py` | 100% Valid (Wheel & Tarball) |
 | **Console Craft Floor** | Inspect `dashboard.html` (`#080B11`, `tabular-nums`) | 0 Anti-Patterns |

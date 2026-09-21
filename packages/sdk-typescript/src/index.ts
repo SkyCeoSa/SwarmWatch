@@ -69,6 +69,13 @@ export {
 export type { ForkBranchResult } from "./timemachine.ts";
 export { TimeMachine } from "./timemachine.ts";
 
+// Live Fork Resumption Runner (Seam 15 / ADR 0026)
+export type {
+  ForkResumptionContext,
+  ForkResumptionResult,
+} from "./runner.ts";
+export { ForkRunner } from "./runner.ts";
+
 // Developer Surface & Client Singleton
 export type {
   SpanOptions,
@@ -86,6 +93,7 @@ export {
   forkBranch,
   listBranches,
   listSnapshots,
+  resumeFromFork,
   evaluateOutput,
   flush,
   shutdown,

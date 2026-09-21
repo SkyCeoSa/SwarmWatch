@@ -85,6 +85,11 @@ class ForkRequest(BaseModel):
     new_branch_id: str = Field(default="fork-01")
 
 
+class BranchResumeRequest(BaseModel):
+    swarm_id: str = Field(default="swarm-live-01")
+    state_overrides: Optional[Dict[str, Any]] = None
+
+
 class CreateProjectRequest(BaseModel):
     name: str
     slug: str
@@ -2740,6 +2745,87 @@ def create_app(
                 "target_span_id": req.target_span_id,
                 "replicated_spans_count": len(forked_spans) if 'forked_spans' in locals() else 0,
                 "state": state,
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    @app.post("/api/v1/branches/{branch_id}/resume")
+    async def resume_branch_endpoint(
+        branch_id: str,
+        req: BranchResumeRequest,
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        """Programmatically resumes or validates branch execution readiness from a forked state snapshot."""
+        try:
+            snapshots = await active_storage.get_snapshots_for_swarm(
+                req.swarm_id,
+                branch_id=branch_id,
+                project_id=tenant.project_id
+            )
+            raw_spans = await active_storage.get_swarm_spans(req.swarm_id, project_id=tenant.project_id)
+            branch_spans = [s for s in raw_spans if (s.branch_id if hasattr(s, "branch_id") else s.get("branch_id")) == branch_id]
+
+            if not snapshots and not branch_spans:
+                return {
+                    "status": "error",
+                    "message": f"Branch '{branch_id}' does not exist or has no state snapshot"
+                }
+
+            base_state = dict(snapshots[-1].state_data) if snapshots else {}
+            source_span_id = snapshots[-1].span_id if snapshots else (branch_spans[-1].id if hasattr(branch_spans[-1], "id") else branch_spans[-1].get("id"))
+
+            from swarmwatch.serializer import SafeStateSerializer
+            serializer = SafeStateSerializer()
+            merged_state = dict(base_state)
+            sanitized_overrides = {}
+            if req.state_overrides:
+                sanitized_overrides = serializer.sanitize(req.state_overrides)
+                merged_state.update(sanitized_overrides)
+
+            resumption_span_id = str(uuid.uuid4())
+            now_dt = datetime.now(timezone.utc)
+
+            # Record boundary resumption span
+            resumption_span = SwarmSpan(
+                id=resumption_span_id,
+                swarm_id=req.swarm_id,
+                project_id=tenant.project_id,
+                branch_id=branch_id,
+                parent_span_id=source_span_id,
+                source_agent="fork_runner",
+                target_agent="resumed_agent",
+                span_type="fork_resumption",
+                input_payload={
+                    "branch_id": branch_id,
+                    "source_span_id": source_span_id,
+                    "state_overrides": sanitized_overrides,
+                    "initial_state": merged_state,
+                },
+                output_payload={"status": "resumed"},
+                token_count=0,
+                entropy_score=1.0,
+                start_time=now_dt,
+                end_time=now_dt,
+                duration_ms=0.001,
+            )
+            await active_storage.save_spans([resumption_span])
+
+            # Broadcast branch_resumed event over WebSocket
+            await ws_manager.broadcast(req.swarm_id, {
+                "type": "branch_resumed",
+                "swarm_id": req.swarm_id,
+                "branch_id": branch_id,
+                "resumption_span_id": resumption_span_id,
+                "state": merged_state,
+            })
+
+            return {
+                "status": "resumed",
+                "swarm_id": req.swarm_id,
+                "branch_id": branch_id,
+                "resumption_span_id": resumption_span_id,
+                "root_span_id": source_span_id,
+                "state": merged_state,
             }
         except Exception as e:
             return {"status": "error", "message": str(e)}

@@ -14,8 +14,10 @@ import { TimeMachine } from "./timemachine.ts";
 import type { ForkBranchResult } from "./timemachine.ts";
 import { InMemoryStorageSink, TelemetryTransport } from "./transport.ts";
 import type { StorageSink, TransportConfig } from "./transport.ts";
+import { ForkRunner } from "./runner.ts";
+import type { ForkResumptionContext, ForkResumptionResult } from "./runner.ts";
 
-const currentSpanStorage = new AsyncLocalStorage<SwarmSpan>();
+export const currentSpanStorage = new AsyncLocalStorage<SwarmSpan>();
 
 export interface SpanOptions {
   name: string;
@@ -43,6 +45,7 @@ export class SwarmClient {
   public circuitBreaker: EntropyCircuitBreaker;
   public serializer: SafeStateSerializer;
   public timeMachine: TimeMachine;
+  public runner: ForkRunner;
 
   constructor(options: ClientOptions = {}) {
     this.swarmId = options.swarm_id || "default-swarm";
@@ -53,6 +56,7 @@ export class SwarmClient {
     this.circuitBreaker = new EntropyCircuitBreaker({ policy: options.circuit_policy });
     this.serializer = new SafeStateSerializer();
     this.timeMachine = new TimeMachine(this.transport.sink, this.serializer);
+    this.runner = new ForkRunner(this);
   }
 
   public getCurrentSpan(): SwarmSpan | undefined {
@@ -206,6 +210,14 @@ export class SwarmClient {
     return await this.timeMachine.getSnapshots(this.swarmId, branchId);
   }
 
+  public async resumeFromFork<T = any>(
+    branchId: string,
+    handler: (ctx: ForkResumptionContext) => Promise<T> | T,
+    stateOverrides?: Record<string, any>
+  ): Promise<ForkResumptionResult<T>> {
+    return await this.runner.resume(branchId, handler, stateOverrides);
+  }
+
   public async flush(): Promise<void> {
     await this.transport.flush();
   }
@@ -270,6 +282,14 @@ export function listBranches(): Promise<string[]> {
 
 export function listSnapshots(branchId?: string): Promise<StateSnapshot[]> {
   return getClient().listSnapshots(branchId);
+}
+
+export function resumeFromFork<T = any>(
+  branchId: string,
+  handler: (ctx: ForkResumptionContext) => Promise<T> | T,
+  stateOverrides?: Record<string, any>
+): Promise<ForkResumptionResult<T>> {
+  return getClient().resumeFromFork(branchId, handler, stateOverrides);
 }
 
 export function evaluateOutput(

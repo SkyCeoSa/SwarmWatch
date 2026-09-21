@@ -172,6 +172,16 @@ _Avoid_: Hook call, function callback, middleware run
 - **TurnTimeline**: The ordered sequence of discrete agent execution steps and state snapshots indexed chronologically along an execution branch.
   _Avoid_: Turn list, history feed, message thread
 
+---
+
+### Live Fork Resumption Runner
+- **ForkRunner**: A deep module and runtime execution coordinator that programmatically resumes autonomous agent execution from an antecedent state snapshot on a designated branch.
+  _Avoid_: Resume script, restart handler, runner bot, execution manager
+- **ForkResumptionContext**: The isolated, scoped execution context providing the resumed agent handler with sanitized antecedent state, applied state overrides, active branch binding, and causal span linkage.
+  _Avoid_: Resume info, state bag, context dict
+- **ResumptionSpan**: An immutable atomic boundary span linking the antecedent target span of a forked branch to newly resumed agent execution turns.
+  _Avoid_: Resume marker, fork log, restart event
+
 
 
 

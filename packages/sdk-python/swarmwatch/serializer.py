@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import re
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 import uuid
 
 from swarmwatch.schema import StateSnapshot
@@ -87,6 +87,24 @@ class SafeStateSerializer:
         serialized = self.serialize(obj)
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
+    def create_snapshot(
+        self,
+        span_id: str,
+        state_data: Dict[str, Any],
+        branch_id: str = "main",
+    ) -> StateSnapshot:
+        """Creates a sanitized, hashed StateSnapshot instance."""
+        sanitized = self.sanitize(state_data)
+        state_hash = self.compute_hash(sanitized)
+        return StateSnapshot(
+            id=str(uuid.uuid4()),
+            span_id=span_id,
+            branch_id=branch_id,
+            state_hash=state_hash,
+            state_data=sanitized,
+            created_at=datetime.now(timezone.utc),
+        )
+
 
 class TimeMachine:
     """
@@ -132,3 +150,78 @@ class TimeMachine:
             raise ValueError(f"No state snapshot found for span '{target_span_id}'")
 
         return snapshot.state_data
+
+    async def fork_branch(
+        self,
+        swarm_id: str,
+        target_span_id: str,
+        new_branch_id: str,
+        project_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Forks state from target_span_id into new_branch_id, replicating antecedent
+        spans and saving the root snapshot of the new branch.
+        """
+        state = await self.step_back(target_span_id=target_span_id, new_branch_id=new_branch_id)
+
+        raw_spans = await self.storage.get_swarm_spans(swarm_id, project_id=project_id)
+        target_idx = -1
+        for idx, s in enumerate(raw_spans):
+            sid = s.id if hasattr(s, "id") else s.get("id")
+            if sid == target_span_id:
+                target_idx = idx
+                break
+
+        forked_spans = []
+        if target_idx >= 0:
+            for s in raw_spans[:target_idx + 1]:
+                span_dict = s.model_dump() if hasattr(s, "model_dump") else dict(s)
+                orig_id = span_dict["id"]
+                span_dict["id"] = f"{orig_id}_fork_{new_branch_id}"
+                span_dict["branch_id"] = new_branch_id
+                from swarmwatch.schema import SwarmSpan
+                forked_spans.append(SwarmSpan.model_validate(span_dict))
+            if forked_spans:
+                await self.storage.save_spans(forked_spans)
+
+        fork_root_span_id = f"{target_span_id}_fork_{new_branch_id}"
+        await self.snapshot(
+            span_id=fork_root_span_id,
+            state_data=state,
+            branch_id=new_branch_id,
+        )
+
+        return {
+            "status": "forked",
+            "swarm_id": swarm_id,
+            "new_branch_id": new_branch_id,
+            "target_span_id": target_span_id,
+            "root_span_id": fork_root_span_id,
+            "replicated_spans_count": len(forked_spans),
+            "state": state,
+        }
+
+    async def get_snapshots(
+        self,
+        swarm_id: str,
+        branch_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> List[StateSnapshot]:
+        """Returns state snapshots recorded for the given swarm and optional branch."""
+        if hasattr(self.storage, "get_snapshots_for_swarm"):
+            return await self.storage.get_snapshots_for_swarm(
+                swarm_id=swarm_id,
+                branch_id=branch_id,
+                project_id=project_id,
+            )
+        return []
+
+    async def list_branches(
+        self,
+        swarm_id: str,
+        project_id: Optional[str] = None,
+    ) -> List[str]:
+        """Lists distinct branches existing within the given swarm."""
+        if hasattr(self.storage, "list_branches"):
+            return await self.storage.list_branches(swarm_id=swarm_id, project_id=project_id)
+        return ["main"]

@@ -51,7 +51,7 @@ test("ApiKeyManager Cryptographic Key Operations", async (t) => {
     assert.equal(verified?.id, record.id);
 
     // Constant-time rejection on incorrect or altered secret
-    const tampered = rawKey.slice(0, -1) + "X";
+    const tampered = rawKey.endsWith("X") ? rawKey.slice(0, -1) + "Y" : rawKey.slice(0, -1) + "X";
     assert.equal(manager.verifyRawKey(tampered), null, "Tampered key must be rejected");
     assert.equal(manager.verifyRawKey("invalid-prefix-1234"), null, "Invalid prefix must be rejected");
 

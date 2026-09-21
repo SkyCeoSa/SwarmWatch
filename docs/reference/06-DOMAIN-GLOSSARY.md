@@ -228,6 +228,22 @@ _Avoid_: Trigger, alert condition, check rule
 The structured verdict (`pass`, `warn`, or `trip`) emitted by the PolicyEngine for an agent turn or causal span.
 _Avoid_: Check output, decision result, validation status
 
+---
+
+### Live Fork Resumption Runner
+
+**ForkRunner**:
+A deep module and runtime execution coordinator that programmatically resumes autonomous agent execution from an antecedent state snapshot on a designated branch.
+_Avoid_: Resume script, restart handler, runner bot, execution manager
+
+**ForkResumptionContext**:
+The isolated, scoped execution context providing the resumed agent handler with sanitized antecedent state, applied state overrides, active branch binding, and causal span linkage.
+_Avoid_: Resume info, state bag, context dict
+
+**ResumptionSpan**:
+An immutable atomic boundary span linking the antecedent target span of a forked branch to newly resumed agent execution turns.
+_Avoid_: Resume marker, fork log, restart event
+
 
 
 

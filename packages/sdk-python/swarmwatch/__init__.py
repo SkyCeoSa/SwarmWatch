@@ -19,10 +19,22 @@ from swarmwatch.core import (
     shutdown,
     sync_state,
     record_circuit_event,
+    snapshot,
+    step_back,
+    fork_branch,
+    list_branches,
+    list_snapshots,
+    resume_from_fork,
+    resume_from_fork_sync,
 )
 from swarmwatch.serializer import (
     SafeStateSerializer,
     TimeMachine,
+)
+from swarmwatch.runner import (
+    ForkRunner,
+    ForkResumptionContext,
+    ForkResumptionResult,
 )
 
 from swarmwatch.circuit import (
@@ -125,7 +137,17 @@ __all__ = [
     "compute_lexical_similarity",
     "SafeStateSerializer",
     "TimeMachine",
+    "ForkRunner",
+    "ForkResumptionContext",
+    "ForkResumptionResult",
     "sync_state",
+    "snapshot",
+    "step_back",
+    "fork_branch",
+    "list_branches",
+    "list_snapshots",
+    "resume_from_fork",
+    "resume_from_fork_sync",
     "init",
     "get_client",
     "agent",
