@@ -4,8 +4,10 @@
  * and zero network latency impact on host agent execution.
  */
 
+import * as crypto from "node:crypto";
 import type { CircuitEvent, StateSnapshot, SwarmSpan } from "./schema.ts";
 import { SensitiveDataMasker, getDefaultMasker } from "./security.ts";
+import type { ForkBranchResult } from "./timemachine.ts";
 
 export interface StorageSink {
   saveSpans(spans: SwarmSpan[]): Promise<void> | void;
@@ -13,6 +15,10 @@ export interface StorageSink {
   recordCircuitEvent?(event: CircuitEvent): Promise<void> | void;
   getSpans?(swarmId: string): Promise<SwarmSpan[]> | SwarmSpan[];
   getCircuitEvents?(swarmId: string): Promise<CircuitEvent[]> | CircuitEvent[];
+  getSnapshot?(spanId: string): Promise<StateSnapshot | null> | StateSnapshot | null;
+  getSnapshotsForSwarm?(swarmId: string, branchId?: string): Promise<StateSnapshot[]> | StateSnapshot[];
+  forkBranch?(swarmId: string, targetSpanId: string, newBranchId: string): Promise<ForkBranchResult> | ForkBranchResult;
+  listBranches?(swarmId: string): Promise<string[]> | string[];
 }
 
 export class InMemoryStorageSink implements StorageSink {
@@ -38,6 +44,77 @@ export class InMemoryStorageSink implements StorageSink {
 
   public getCircuitEvents(swarmId: string): CircuitEvent[] {
     return this.circuitEvents.filter((e) => e.swarm_id === swarmId);
+  }
+
+  public getSnapshot(spanId: string): StateSnapshot | null {
+    return this.snapshots.find((s) => s.span_id === spanId) || null;
+  }
+
+  public getSnapshotsForSwarm(swarmId: string, branchId?: string): StateSnapshot[] {
+    const swarmSpanIds = new Set(
+      this.spans
+        .filter((s) => s.swarm_id === swarmId && (!branchId || s.branch_id === branchId))
+        .map((s) => s.id)
+    );
+    return this.snapshots.filter((snap) => {
+      if (branchId && snap.branch_id !== branchId) return false;
+      return swarmSpanIds.has(snap.span_id) || snap.span_id.includes(swarmId);
+    });
+  }
+
+  public forkBranch(swarmId: string, targetSpanId: string, newBranchId: string): ForkBranchResult {
+    const snapshot = this.getSnapshot(targetSpanId);
+    if (!snapshot) {
+      throw new Error(`No state snapshot found for span '${targetSpanId}'`);
+    }
+
+    const swarmSpans = this.spans.filter((s) => s.swarm_id === swarmId);
+    const targetIdx = swarmSpans.findIndex((s) => s.id === targetSpanId);
+    let replicatedCount = 0;
+
+    if (targetIdx >= 0) {
+      const antecedent = swarmSpans.slice(0, targetIdx + 1);
+      const forkedSpans: SwarmSpan[] = antecedent.map((s) => ({
+        ...s,
+        id: `${s.id}_fork_${newBranchId}`,
+        branch_id: newBranchId,
+      }));
+      this.saveSpans(forkedSpans);
+      replicatedCount = forkedSpans.length;
+    }
+
+    const rootBranchSnapshot: StateSnapshot = {
+      id: crypto.randomUUID(),
+      span_id: `${targetSpanId}_fork_${newBranchId}`,
+      branch_id: newBranchId,
+      state_hash: snapshot.state_hash,
+      state_data: { ...snapshot.state_data },
+      created_at: new Date().toISOString(),
+    };
+    this.saveSnapshot(rootBranchSnapshot);
+
+    return {
+      status: "forked",
+      new_branch_id: newBranchId,
+      target_span_id: targetSpanId,
+      replicated_spans_count: replicatedCount,
+      state: snapshot.state_data,
+    };
+  }
+
+  public listBranches(swarmId?: string): string[] {
+    const branches = new Set<string>(["main"]);
+    for (const s of this.spans) {
+      if ((!swarmId || s.swarm_id === swarmId) && s.branch_id) {
+        branches.add(s.branch_id);
+      }
+    }
+    for (const snap of this.snapshots) {
+      if (snap.branch_id) {
+        branches.add(snap.branch_id);
+      }
+    }
+    return Array.from(branches);
   }
 
   public clear(): void {
@@ -136,6 +213,67 @@ export class HttpStorageSink implements StorageSink {
       });
     } catch {
       // Fire-and-forget
+    }
+  }
+
+  public async getSnapshot(spanId: string): Promise<StateSnapshot | null> {
+    try {
+      const res = await fetch(`${this.endpoint}/api/v1/snapshots/${encodeURIComponent(spanId)}`, {
+        headers: this.getHeaders(),
+      });
+      if (!res.ok) return null;
+      return (await res.json()) as StateSnapshot;
+    } catch {
+      return null;
+    }
+  }
+
+  public async getSnapshotsForSwarm(swarmId: string, branchId?: string): Promise<StateSnapshot[]> {
+    try {
+      const url = new URL(`${this.endpoint}/api/v1/swarms/${encodeURIComponent(swarmId)}/snapshots`);
+      if (branchId) {
+        url.searchParams.set("branch_id", branchId);
+      }
+      const res = await fetch(url.toString(), {
+        headers: this.getHeaders(),
+      });
+      if (!res.ok) return [];
+      return (await res.json()) as StateSnapshot[];
+    } catch {
+      return [];
+    }
+  }
+
+  public async forkBranch(
+    swarmId: string,
+    targetSpanId: string,
+    newBranchId: string
+  ): Promise<ForkBranchResult> {
+    const res = await fetch(`${this.endpoint}/api/v1/branches/fork`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        swarm_id: swarmId,
+        target_span_id: targetSpanId,
+        new_branch_id: newBranchId,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Failed to fork branch: HTTP ${res.status} - ${errText}`);
+    }
+    return (await res.json()) as ForkBranchResult;
+  }
+
+  public async listBranches(swarmId: string): Promise<string[]> {
+    try {
+      const res = await fetch(`${this.endpoint}/api/v1/swarms/${encodeURIComponent(swarmId)}/branches`, {
+        headers: this.getHeaders(),
+      });
+      if (!res.ok) return ["main"];
+      return (await res.json()) as string[];
+    } catch {
+      return ["main"];
     }
   }
 }

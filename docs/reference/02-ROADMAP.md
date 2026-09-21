@@ -148,8 +148,12 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Backend snapshot query endpoint `GET /api/v1/swarms/{swarm_id}/snapshots` and real-time WebSocket `branch_forked` broadcast.
   - Non-blocking in-app toast notification system (`#toastContainer`) replacing jarring browser alerts, strictly compliant with Impeccable Craft Floor (#080B11 palette, tabular numerals, zero emojis).
   - Single-key keyboard triage navigation: `[` (Step-Back), `]` (Step-Forward), `f` / `F` (Fork modal), `Escape` (Close modals).
+- **TypeScript TimeMachine & State Branching Parity (Seam 14 TS Parity & ADR 0025)**:
+  - Deep module `TimeMachine` in `@swarmwatch/sdk` (`packages/sdk-typescript/src/timemachine.ts`) providing zero-dependency state snapshotting, deterministic SHA-256 state hashing, non-destructive `stepBack()`, and DAG `forkBranch()`.
+  - StorageSink interface extensions implemented in `InMemoryStorageSink` and `HttpStorageSink` (`transport.ts`).
+  - Seamless integration on `SwarmClient` (`client.timeMachine`, `client.snapshot`, `client.stepBack`, `client.forkBranch`).
 - **Complete Test Coverage**:
-  - **206 automated tests passing 100% locally** across Python (119 tests) and TypeScript (87 tests).
+  - **218 automated tests passing 100% locally** across Python (119 tests) and TypeScript (99 tests).
 
 
 

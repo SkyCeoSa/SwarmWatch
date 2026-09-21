@@ -65,6 +65,10 @@ export {
   isApiKeyActive,
 } from "./tenant.ts";
 
+// Time-Machine & State Branching Coordinator (Seam 14 / ADR 0025)
+export type { ForkBranchResult } from "./timemachine.ts";
+export { TimeMachine } from "./timemachine.ts";
+
 // Developer Surface & Client Singleton
 export type {
   SpanOptions,
@@ -77,6 +81,11 @@ export {
   withSpan,
   agent,
   syncState,
+  snapshot,
+  stepBack,
+  forkBranch,
+  listBranches,
+  listSnapshots,
   evaluateOutput,
   flush,
   shutdown,

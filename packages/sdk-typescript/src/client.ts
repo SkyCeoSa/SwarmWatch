@@ -10,6 +10,8 @@ import type { CircuitDecision } from "./circuit.ts";
 import { computeShannonEntropy } from "./entropy.ts";
 import type { CircuitEvent, StateSnapshot, SwarmSpan } from "./schema.ts";
 import { SafeStateSerializer } from "./serializer.ts";
+import { TimeMachine } from "./timemachine.ts";
+import type { ForkBranchResult } from "./timemachine.ts";
 import { InMemoryStorageSink, TelemetryTransport } from "./transport.ts";
 import type { StorageSink, TransportConfig } from "./transport.ts";
 
@@ -40,6 +42,7 @@ export class SwarmClient {
   public transport: TelemetryTransport;
   public circuitBreaker: EntropyCircuitBreaker;
   public serializer: SafeStateSerializer;
+  public timeMachine: TimeMachine;
 
   constructor(options: ClientOptions = {}) {
     this.swarmId = options.swarm_id || "default-swarm";
@@ -49,6 +52,7 @@ export class SwarmClient {
     this.transport.start();
     this.circuitBreaker = new EntropyCircuitBreaker({ policy: options.circuit_policy });
     this.serializer = new SafeStateSerializer();
+    this.timeMachine = new TimeMachine(this.transport.sink, this.serializer);
   }
 
   public getCurrentSpan(): SwarmSpan | undefined {
@@ -179,6 +183,29 @@ export class SwarmClient {
     return snap;
   }
 
+  public async snapshot(stateData: Record<string, any>, branchId?: string): Promise<StateSnapshot> {
+    const currentSpan = this.getCurrentSpan();
+    const spanId = currentSpan?.id || crypto.randomUUID();
+    const branch = branchId || currentSpan?.branch_id || "main";
+    return await this.timeMachine.snapshot(spanId, stateData, branch);
+  }
+
+  public async stepBack(targetSpanId: string, newBranchId?: string): Promise<Record<string, any>> {
+    return await this.timeMachine.stepBack(targetSpanId, newBranchId);
+  }
+
+  public async forkBranch(targetSpanId: string, newBranchId: string): Promise<ForkBranchResult> {
+    return await this.timeMachine.forkBranch(this.swarmId, targetSpanId, newBranchId);
+  }
+
+  public async listBranches(): Promise<string[]> {
+    return await this.timeMachine.listBranches(this.swarmId);
+  }
+
+  public async listSnapshots(branchId?: string): Promise<StateSnapshot[]> {
+    return await this.timeMachine.getSnapshots(this.swarmId, branchId);
+  }
+
   public async flush(): Promise<void> {
     await this.transport.flush();
   }
@@ -223,6 +250,26 @@ export function agent<TArgs extends any[], TReturn>(
 
 export function syncState(stateData: Record<string, any>, branchId?: string): StateSnapshot {
   return getClient().syncState(stateData, branchId);
+}
+
+export function snapshot(stateData: Record<string, any>, branchId?: string): Promise<StateSnapshot> {
+  return getClient().snapshot(stateData, branchId);
+}
+
+export function stepBack(targetSpanId: string, newBranchId?: string): Promise<Record<string, any>> {
+  return getClient().stepBack(targetSpanId, newBranchId);
+}
+
+export function forkBranch(targetSpanId: string, newBranchId: string): Promise<ForkBranchResult> {
+  return getClient().forkBranch(targetSpanId, newBranchId);
+}
+
+export function listBranches(): Promise<string[]> {
+  return getClient().listBranches();
+}
+
+export function listSnapshots(branchId?: string): Promise<StateSnapshot[]> {
+  return getClient().listSnapshots(branchId);
 }
 
 export function evaluateOutput(
