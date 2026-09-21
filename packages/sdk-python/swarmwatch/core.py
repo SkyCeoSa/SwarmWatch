@@ -274,6 +274,14 @@ class SwarmClient:
     async def list_snapshots(self, branch_id: Optional[str] = None) -> List[Any]:
         return await self.timemachine.get_snapshots(swarm_id=self.swarm_id, branch_id=branch_id)
 
+    async def diff_snapshots(self, span_id_a: str, span_id_b: str) -> Any:
+        return await self.timemachine.diff_snapshots(
+            swarm_id=self.swarm_id,
+            span_id_a=span_id_a,
+            span_id_b=span_id_b,
+            project_id=getattr(self, "project_id", "default-project"),
+        )
+
     async def resume_from_fork(
         self,
         branch_id: str,

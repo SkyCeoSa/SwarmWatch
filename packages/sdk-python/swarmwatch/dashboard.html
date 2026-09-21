@@ -305,7 +305,7 @@
       background: rgba(167, 139, 250, 0.12);
       border: 1px solid rgba(167, 139, 250, 0.3);
       color: #A78BFA;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.3px;
       text-transform: uppercase;
@@ -315,7 +315,7 @@
       border: 1px solid var(--border-subtle);
       border-radius: 4px;
       padding: 4px 8px;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 500;
       color: var(--text-secondary);
       cursor: pointer;
@@ -338,16 +338,16 @@
     .tm-btn-fork {
       background: rgba(167, 139, 250, 0.08);
       border-color: rgba(167, 139, 250, 0.4);
-      color: #DDD6FE;
+      color: #A78BFA;
     }
     .tm-btn-fork:hover:not(:disabled) {
       background: rgba(167, 139, 250, 0.2);
       border-color: #A78BFA;
-      color: #FFFFFF;
+      color: var(--text-primary);
     }
     .tm-turn-display {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 12px;
       font-feature-settings: "tnum" 1;
       padding: 3px 8px;
       border-radius: 3px;
@@ -370,7 +370,7 @@
       height: 4px;
       background: var(--bg-canvas);
       border: 1px solid var(--border-subtle);
-      border-radius: 2px;
+      border-radius: 3px;
       accent-color: #A78BFA;
       cursor: pointer;
     }
@@ -408,7 +408,7 @@
       display: flex;
       align-items: center;
       gap: 5px;
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-muted);
     }
     .tm-branch-select {
@@ -417,7 +417,7 @@
       border-radius: 3px;
       color: var(--text-primary);
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 12px;
       padding: 3px 6px;
       cursor: pointer;
       outline: none;
@@ -435,7 +435,6 @@
       padding: 10px 16px;
       font-size: 12px;
       color: var(--text-primary);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
       pointer-events: auto;
       display: flex;
       align-items: center;
@@ -902,6 +901,252 @@
       max-height: 260px;
       white-space: pre;
     }
+
+    /* Inspector Tabs & Diff Inspector (Seam 16 / ADR 0027) */
+    .insp-tab-bar {
+      display: flex;
+      gap: 3px;
+      background: var(--bg-canvas);
+      padding: 3px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .insp-tab-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .insp-tab-btn:hover {
+      color: var(--text-primary);
+    }
+    .insp-tab-btn.active {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+      border-bottom: 2px solid var(--accent);
+    }
+    .diff-badge-pill {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10B981;
+    }
+    .diff-badge-pill.has-changes {
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+    }
+
+    /* Diff View Container */
+    .diff-view-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .diff-toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--bg-canvas);
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .diff-toolbar-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .diff-select {
+      flex: 1;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    .diff-mode-toggle {
+      display: flex;
+      gap: 3px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      padding: 3px 4px;
+    }
+    .diff-mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .diff-mode-btn.active {
+      background: var(--border-strong);
+      color: var(--text-primary);
+    }
+    .diff-filter-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .diff-filter-chip {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      padding: 3px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .diff-filter-chip.active {
+      border-color: var(--accent);
+      color: var(--text-primary);
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .diff-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 4px 6px;
+    }
+    .diff-entries-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 280px;
+      overflow-y: auto;
+      background: var(--bg-canvas);
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+    }
+    .diff-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 10px;
+      border-radius: 3px;
+      border-left: 3px solid transparent;
+      background: rgba(255, 255, 255, 0.015);
+    }
+    .diff-row.added {
+      border-left-color: #10B981;
+      background: rgba(16, 185, 129, 0.06);
+    }
+    .diff-row.modified {
+      border-left-color: #F59E0B;
+      background: rgba(245, 158, 11, 0.06);
+    }
+    .diff-row.removed {
+      border-left-color: #EF4444;
+      background: rgba(239, 68, 68, 0.06);
+    }
+    .diff-row.unchanged {
+      border-left-color: var(--border-subtle);
+      opacity: 0.6;
+    }
+    .diff-header-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .diff-path {
+      font-weight: 600;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+    .diff-tag {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+    .diff-tag.added { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+    .diff-tag.modified { background: rgba(245, 158, 11, 0.2); color: #F59E0B; }
+    .diff-tag.removed { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+    .diff-tag.unchanged { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); }
+    .diff-tag.redacted { background: rgba(167, 139, 250, 0.2); color: var(--branch-purple); }
+    .diff-val-change {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 12px;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .diff-val-old {
+      color: #EF4444;
+      text-decoration: line-through;
+      opacity: 0.8;
+    }
+    .diff-val-new {
+      color: #10B981;
+    }
+    .diff-val-arrow {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    /* Split Diff Mode */
+    .diff-split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 12px;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--border-subtle);
+    }
+    .diff-split-col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .diff-split-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -1143,20 +1388,70 @@
           <span class="prop-value" id="inspTurnId">None selected</span>
         </div>
         <div class="prop-row">
-          <span class="prop-label">Inspection Payload</span>
-          <div class="json-box" id="inspPayload">{
+          <div class="insp-tab-bar" id="inspTabBar">
+            <button class="insp-tab-btn active" id="tabInspPayload" data-view="viewPayload">Payload</button>
+            <button class="insp-tab-btn" id="tabInspSnapshot" data-view="viewSnapshot">State</button>
+            <button class="insp-tab-btn" id="tabInspDiff" data-view="viewDiff">
+              <span>Diff</span>
+              <span class="diff-badge-pill" id="diffBadgePill" style="display: none;">0</span>
+            </button>
+          </div>
+          
+          <div id="viewPayload" class="insp-view">
+            <div class="json-box" id="inspPayload">{
   "status": "listening",
   "transport": "WebSocket + SSE",
   "protocol": "SwarmWatch v0.1.0"
 }</div>
+          </div>
+
+          <div id="viewSnapshot" class="insp-view" style="display: none;">
+            <div class="json-box" id="inspSnapshot">{
+  "status": "No state snapshot recorded for current turn"
+}</div>
+          </div>
+
+          <div id="viewDiff" class="insp-view diff-view-panel" style="display: none;">
+            <div class="diff-toolbar">
+              <div class="diff-toolbar-row">
+                <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Base:</span>
+                <select id="diffTargetSelect" class="diff-select" title="Select comparison base snapshot">
+                  <option value="prev">Previous Turn (N-1)</option>
+                  <option value="root">Initial Turn (Root)</option>
+                  <option value="fork">Fork Origin</option>
+                </select>
+                <div class="diff-mode-toggle">
+                  <button class="diff-mode-btn active" id="btnDiffUnified" title="Unified Diff View">Unified</button>
+                  <button class="diff-mode-btn" id="btnDiffSplit" title="Split Side-by-Side View">Split</button>
+                </div>
+              </div>
+              <div class="diff-filter-bar">
+                <button class="diff-filter-chip active" data-filter="all" id="diffFilterAll">All (<span id="diffCountAll">0</span>)</button>
+                <button class="diff-filter-chip" data-filter="changed" id="diffFilterChanged">Changed (<span id="diffCountChanged">0</span>)</button>
+                <button class="diff-filter-chip" data-filter="added" id="diffFilterAdded" style="color: #10B981;">+<span id="diffCountAdded">0</span></button>
+                <button class="diff-filter-chip" data-filter="modified" id="diffFilterModified" style="color: #F59E0B;">~<span id="diffCountModified">0</span></button>
+                <button class="diff-filter-chip" data-filter="removed" id="diffFilterRemoved" style="color: #EF4444;">-<span id="diffCountRemoved">0</span></button>
+                <button class="diff-filter-chip" data-filter="redacted" id="diffFilterRedacted" style="color: #A78BFA;">[R] <span id="diffCountRedacted">0</span></button>
+              </div>
+            </div>
+
+            <div class="diff-meta-row" id="diffMetaRow">
+              <span id="diffBaseLabel">Base: Previous Turn</span>
+              <span id="diffFingerprintDelta">SHA: -</span>
+            </div>
+
+            <div class="diff-entries-list" id="diffEntriesList">
+              <div style="color: var(--text-muted); text-align: center; padding: 20px 0;">Select a turn to inspect state mutations.</div>
+            </div>
+          </div>
         </div>
         <div class="prop-row" style="margin-top: 8px;">
           <div style="display: flex; gap: 6px;">
-            <button class="btn-action btn-secondary" id="btnInspStepBack" style="flex: 1; height: 32px; padding: 0 8px; font-size: 11px;" title="Step back to this turn (Key: [)">
+            <button class="btn-action btn-secondary" id="btnInspStepBack" style="flex: 1; height: 32px; padding: 0 8px; font-size: 12px;" title="Step back to this turn (Key: [)">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
               <span>Step-Back</span>
             </button>
-            <button class="btn-action btn-secondary tm-btn-fork" id="btnFork" style="flex: 1.2; height: 32px; padding: 0 8px; font-size: 11px;" title="Fork new branch from this turn (Key: F)">
+            <button class="btn-action btn-secondary tm-btn-fork" id="btnFork" style="flex: 1.2; height: 32px; padding: 0 8px; font-size: 12px;" title="Fork new branch from this turn (Key: F)">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
               <span>Fork Branch</span>
             </button>
@@ -1247,16 +1542,16 @@
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 12px;">
         <div style="display: flex; flex-direction: column; gap: 2px;">
-          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Origin Turn / Span</span>
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Origin Turn / Span</span>
           <span id="forkOriginTurn" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-primary);">-</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 2px;">
-          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Causal Agents</span>
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Causal Agents</span>
           <span id="forkOriginAgents" style="font-size: 12px; color: var(--text-secondary);">-</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 2px; grid-column: 1 / -1;">
-          <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">State Snapshot Hash</span>
-          <span id="forkOriginHash" style="font-family: var(--font-mono); font-size: 11px; color: #A78BFA;">sha256:verified</span>
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">State Snapshot Hash</span>
+          <span id="forkOriginHash" style="font-family: var(--font-mono); font-size: 12px; color: #A78BFA;">sha256:verified</span>
         </div>
       </div>
 
@@ -1268,14 +1563,14 @@
       <div style="display: flex; flex-direction: column; gap: 6px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">State Snapshot Preview</span>
-          <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);">sanitized • zero secrets</span>
+          <span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">sanitized • zero secrets</span>
         </div>
         <div id="forkStatePreview" class="json-box" style="max-height: 160px;">{}</div>
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-subtle); padding-top: 14px;">
         <button id="btnCancelFork" class="btn-action btn-secondary" style="height: 32px; padding: 0 14px;">Cancel</button>
-        <button id="btnExecuteFork" class="btn-action btn-primary" style="height: 32px; padding: 0 16px; background: #8B5CF6; border-color: #8B5CF6; color: #FFFFFF;">
+        <button id="btnExecuteFork" class="btn-action btn-primary" style="height: 32px; padding: 0 16px; background: #A78BFA; border-color: #A78BFA; color: #080B11;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
           <span>Fork & Switch Branch</span>
         </button>
@@ -1319,6 +1614,24 @@
 
       var btnInspStepBack = document.getElementById('btnInspStepBack');
       var btnFork = document.getElementById('btnFork');
+
+      var tabInspPayload = document.getElementById('tabInspPayload');
+      var tabInspSnapshot = document.getElementById('tabInspSnapshot');
+      var tabInspDiff = document.getElementById('tabInspDiff');
+      var viewPayload = document.getElementById('viewPayload');
+      var viewSnapshot = document.getElementById('viewSnapshot');
+      var viewDiff = document.getElementById('viewDiff');
+      var inspSnapshot = document.getElementById('inspSnapshot');
+      var diffBadgePill = document.getElementById('diffBadgePill');
+      var diffTargetSelect = document.getElementById('diffTargetSelect');
+      var btnDiffUnified = document.getElementById('btnDiffUnified');
+      var btnDiffSplit = document.getElementById('btnDiffSplit');
+      var diffEntriesList = document.getElementById('diffEntriesList');
+      var diffBaseLabel = document.getElementById('diffBaseLabel');
+      var diffFingerprintDelta = document.getElementById('diffFingerprintDelta');
+      var currentDiffFilter = 'all';
+      var currentDiffMode = 'unified';
+      var currentDiffData = null;
 
       function showToast(message, type, durationMs) {
         type = type || 'info';
@@ -1520,10 +1833,343 @@
         if (snap && snap.state_data) {
           inspectorData.state_snapshot = snap.state_data;
           inspectorData.state_hash = snap.state_hash;
+          if (inspSnapshot) {
+            inspSnapshot.textContent = JSON.stringify(snap.state_data, null, 2);
+          }
+        } else {
+          if (inspSnapshot) {
+            inspSnapshot.textContent = JSON.stringify({
+              status: "No explicit state snapshot recorded for " + span.id,
+              source_agent: span.source,
+              target_agent: span.target,
+              tokens: span.tokens
+            }, null, 2);
+          }
         }
 
         document.getElementById('inspPayload').textContent = JSON.stringify(inspectorData, null, 2);
         updateTimeMachineUI();
+        await updateStateDiffInspector();
+      }
+
+      function isValRedactedClient(val) {
+        if (typeof val === 'string') {
+          return val.indexOf('[REDACTED') !== -1 || val === '[REDACTED]';
+        }
+        if (val && typeof val === 'object') {
+          if (Array.isArray(val)) {
+            return val.some(isValRedactedClient);
+          }
+          return Object.values(val).some(isValRedactedClient);
+        }
+        return false;
+      }
+
+      function computeStateDiffClient(stateA, stateB, hashA, hashB) {
+        var a = (stateA && typeof stateA === 'object') ? stateA : {};
+        var b = (stateB && typeof stateB === 'object') ? stateB : {};
+        var entries = [];
+        var summary = {
+          added_count: 0,
+          modified_count: 0,
+          removed_count: 0,
+          unchanged_count: 0,
+          redacted_count: 0,
+          total_changes: 0
+        };
+
+        function diffRec(objA, objB, currentPath) {
+          if (
+            objA && typeof objA === 'object' && !Array.isArray(objA) &&
+            objB && typeof objB === 'object' && !Array.isArray(objB)
+          ) {
+            var keysA = Object.keys(objA);
+            var keysB = Object.keys(objB);
+            var allKeys = Array.from(new Set(keysA.concat(keysB))).sort();
+
+            for (var i = 0; i < allKeys.length; i++) {
+              var k = allKeys[i];
+              var keyPath = currentPath ? (currentPath + '.' + k) : k;
+              if (!(k in objA)) {
+                var val = objB[k];
+                var red = isValRedactedClient(val);
+                entries.push({
+                  path: keyPath,
+                  kind: 'added',
+                  old_value: undefined,
+                  new_value: val,
+                  is_redacted: red
+                });
+                summary.added_count++;
+                if (red) summary.redacted_count++;
+              } else if (!(k in objB)) {
+                var val = objA[k];
+                var red = isValRedactedClient(val);
+                entries.push({
+                  path: keyPath,
+                  kind: 'removed',
+                  old_value: val,
+                  new_value: undefined,
+                  is_redacted: red
+                });
+                summary.removed_count++;
+                if (red) summary.redacted_count++;
+              } else {
+                diffRec(objA[k], objB[k], keyPath);
+              }
+            }
+          } else {
+            var eq = JSON.stringify(objA) === JSON.stringify(objB);
+            if (eq) {
+              var red = isValRedactedClient(objA);
+              entries.push({
+                path: currentPath,
+                kind: 'unchanged',
+                old_value: objA,
+                new_value: objB,
+                is_redacted: red
+              });
+              summary.unchanged_count++;
+              if (red) summary.redacted_count++;
+            } else {
+              var red = isValRedactedClient(objA) || isValRedactedClient(objB);
+              entries.push({
+                path: currentPath,
+                kind: 'modified',
+                old_value: objA,
+                new_value: objB,
+                is_redacted: red
+              });
+              summary.modified_count++;
+              if (red) summary.redacted_count++;
+            }
+          }
+        }
+
+        diffRec(a, b, '');
+        summary.total_changes = summary.added_count + summary.modified_count + summary.removed_count;
+
+        return {
+          summary: summary,
+          entries: entries,
+          hash_a: hashA || '-',
+          hash_b: hashB || '-'
+        };
+      }
+
+      async function updateStateDiffInspector() {
+        if (!selectedTurn) return;
+
+        updateDiffTargetOptions();
+
+        var currSpan = selectedTurn;
+        var currIdx = selectedTurnIndex;
+        var currSnap = cachedSnapshots[currSpan.id];
+        var currState = (currSnap && currSnap.state_data) ? currSnap.state_data : {
+          source_agent: currSpan.source,
+          target_agent: currSpan.target,
+          entropy: currSpan.entropy,
+          tokens: currSpan.tokens,
+          payload: (currSpan.payload || '').slice(0, 60)
+        };
+        var currHash = (currSnap && currSnap.state_hash) ? currSnap.state_hash : ('sha256:' + currSpan.id);
+
+        var targetVal = diffTargetSelect ? diffTargetSelect.value : 'prev';
+        var baseSpan = null;
+        var baseLabel = 'Previous Turn';
+
+        if (targetVal === 'root') {
+          baseSpan = spans.length > 0 ? spans[0] : null;
+          baseLabel = 'Initial Turn (1)';
+        } else if (targetVal === 'fork') {
+          baseSpan = spans.find(function(s) { return s.id.indexOf('_fork_') !== -1; }) || (spans.length > 0 ? spans[0] : null);
+          baseLabel = 'Fork Origin';
+        } else if (targetVal === 'prev') {
+          baseSpan = (currIdx > 0 && currIdx < spans.length) ? spans[currIdx - 1] : null;
+          baseLabel = baseSpan ? ('Turn ' + currIdx) : 'Initial Turn';
+        } else {
+          baseSpan = spans.find(function(s) { return s.id === targetVal; });
+          baseLabel = baseSpan ? baseSpan.id : targetVal;
+        }
+
+        var baseState = {};
+        var baseHash = '-';
+        if (baseSpan) {
+          var baseSnap = cachedSnapshots[baseSpan.id];
+          if (!baseSnap) {
+            try {
+              var bRes = await fetch('/api/v1/snapshots/' + baseSpan.id);
+              if (bRes.ok) {
+                baseSnap = await bRes.json();
+                if (baseSnap && baseSnap.state_data) {
+                  cachedSnapshots[baseSpan.id] = baseSnap;
+                }
+              }
+            } catch(e) {}
+          }
+          if (baseSnap && baseSnap.state_data) {
+            baseState = baseSnap.state_data;
+            baseHash = baseSnap.state_hash;
+          } else {
+            baseState = {
+              source_agent: baseSpan.source,
+              target_agent: baseSpan.target,
+              entropy: baseSpan.entropy,
+              tokens: baseSpan.tokens,
+              payload: (baseSpan.payload || '').slice(0, 60)
+            };
+            baseHash = 'sha256:' + baseSpan.id;
+          }
+        }
+
+        var diffData = null;
+        if (baseSpan && currSpan) {
+          try {
+            var diffUrl = '/api/v1/swarms/' + encodeURIComponent(activeSwarmId) +
+              '/snapshots/diff?base_span_id=' + encodeURIComponent(baseSpan.id) +
+              '&target_span_id=' + encodeURIComponent(currSpan.id);
+            var dRes = await fetch(diffUrl);
+            if (dRes.ok) {
+              diffData = await dRes.json();
+            }
+          } catch(e) {}
+        }
+
+        if (!diffData) {
+          diffData = computeStateDiffClient(baseState, currState, baseHash, currHash);
+        }
+
+        currentDiffData = diffData;
+
+        if (diffBadgePill) {
+          diffBadgePill.textContent = diffData.summary.total_changes.toString();
+          diffBadgePill.style.display = 'inline-block';
+          if (diffData.summary.total_changes > 0) {
+            diffBadgePill.className = 'diff-badge-pill has-changes';
+          } else {
+            diffBadgePill.className = 'diff-badge-pill';
+          }
+        }
+
+        var countAll = document.getElementById('diffCountAll');
+        var countChanged = document.getElementById('diffCountChanged');
+        var countAdded = document.getElementById('diffCountAdded');
+        var countModified = document.getElementById('diffCountModified');
+        var countRemoved = document.getElementById('diffCountRemoved');
+        var countRedacted = document.getElementById('diffCountRedacted');
+
+        if (countAll) countAll.textContent = diffData.entries.length.toString();
+        if (countChanged) countChanged.textContent = diffData.summary.total_changes.toString();
+        if (countAdded) countAdded.textContent = diffData.summary.added_count.toString();
+        if (countModified) countModified.textContent = diffData.summary.modified_count.toString();
+        if (countRemoved) countRemoved.textContent = diffData.summary.removed_count.toString();
+        if (countRedacted) countRedacted.textContent = diffData.summary.redacted_count.toString();
+
+        if (diffBaseLabel) {
+          diffBaseLabel.textContent = 'Base: ' + baseLabel + (baseSpan ? (' (' + baseSpan.id + ')') : ' (Genesis)');
+        }
+        if (diffFingerprintDelta) {
+          var hA = (diffData.hash_a || baseHash || '').slice(0, 10);
+          var hB = (diffData.hash_b || currHash || '').slice(0, 10);
+          diffFingerprintDelta.textContent = 'SHA: ' + hA + ' \u2192 ' + hB;
+        }
+
+        renderDiffEntries();
+      }
+
+      function updateDiffTargetOptions() {
+        if (!diffTargetSelect || !selectedTurn) return;
+        var currentVal = diffTargetSelect.value;
+        var html = '<option value="prev">Previous Turn (N-1)</option>' +
+                   '<option value="root">Initial Turn (Root)</option>' +
+                   '<option value="fork">Fork Origin</option>';
+
+        for (var i = 0; i < spans.length; i++) {
+          var s = spans[i];
+          if (s.id !== selectedTurn.id) {
+            html += '<option value="' + s.id + '">Turn ' + (i + 1) + ' (' + s.id + ')</option>';
+          }
+        }
+        diffTargetSelect.innerHTML = html;
+        if (currentVal && diffTargetSelect.querySelector('option[value="' + currentVal + '"]')) {
+          diffTargetSelect.value = currentVal;
+        } else {
+          diffTargetSelect.value = 'prev';
+        }
+      }
+
+      function renderDiffEntries() {
+        if (!diffEntriesList || !currentDiffData) return;
+
+        var entries = currentDiffData.entries || [];
+        var filtered = entries.filter(function(e) {
+          if (currentDiffFilter === 'all') return true;
+          if (currentDiffFilter === 'changed') return e.kind !== 'unchanged';
+          if (currentDiffFilter === 'added') return e.kind === 'added';
+          if (currentDiffFilter === 'modified') return e.kind === 'modified';
+          if (currentDiffFilter === 'removed') return e.kind === 'removed';
+          if (currentDiffFilter === 'redacted') return e.is_redacted;
+          return true;
+        });
+
+        if (filtered.length === 0) {
+          diffEntriesList.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px 0;">No properties match filter [' + currentDiffFilter + '].</div>';
+          return;
+        }
+
+        var html = '';
+        for (var i = 0; i < filtered.length; i++) {
+          var item = filtered[i];
+          var kindClass = item.kind;
+          var tagLabel = item.kind.toUpperCase();
+          if (item.is_redacted) {
+            tagLabel += ' \u2022 REDACTED';
+          }
+
+          if (currentDiffMode === 'split') {
+            var oldStr = item.old_value !== undefined ? JSON.stringify(item.old_value) : '<span style="color: var(--text-muted);">(none)</span>';
+            var newStr = item.new_value !== undefined ? JSON.stringify(item.new_value) : '<span style="color: var(--text-muted);">(none)</span>';
+
+            html += '<div class="diff-row ' + kindClass + '">' +
+                      '<div class="diff-header-line">' +
+                        '<span class="diff-path">' + escapeHtml(item.path) + '</span>' +
+                        '<span class="diff-tag ' + (item.is_redacted ? 'redacted' : kindClass) + '">' + tagLabel + '</span>' +
+                      '</div>' +
+                      '<div class="diff-split-grid">' +
+                        '<div class="diff-split-col"><span class="diff-split-label">Antecedent</span><span class="diff-val-old">' + oldStr + '</span></div>' +
+                        '<div class="diff-split-col"><span class="diff-split-label">Target</span><span class="diff-val-new">' + newStr + '</span></div>' +
+                      '</div>' +
+                    '</div>';
+          } else {
+            var valLine = '';
+            if (item.kind === 'added') {
+              valLine = '<span class="diff-val-new">+ ' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            } else if (item.kind === 'removed') {
+              valLine = '<span class="diff-val-old">- ' + escapeHtml(JSON.stringify(item.old_value)) + '</span>';
+            } else if (item.kind === 'modified') {
+              valLine = '<span class="diff-val-old">' + escapeHtml(JSON.stringify(item.old_value)) + '</span>' +
+                        '<span class="diff-val-arrow">\u2192</span>' +
+                        '<span class="diff-val-new">' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            } else {
+              valLine = '<span style="color: var(--text-muted);">= ' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            }
+
+            html += '<div class="diff-row ' + kindClass + '">' +
+                      '<div class="diff-header-line">' +
+                        '<span class="diff-path">' + escapeHtml(item.path) + '</span>' +
+                        '<span class="diff-tag ' + (item.is_redacted ? 'redacted' : kindClass) + '">' + tagLabel + '</span>' +
+                      '</div>' +
+                      '<div class="diff-val-change">' + valLine + '</div>' +
+                    '</div>';
+          }
+        }
+
+        diffEntriesList.innerHTML = html;
+      }
+
+      function escapeHtml(str) {
+        if (typeof str !== 'string') str = String(str);
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       }
 
       function updateTimeMachineUI() {
@@ -2255,6 +2901,19 @@
           transport: "WebSocket + SSE",
           protocol: "SwarmWatch v0.1.0"
         }, null, 2);
+        if (inspSnapshot) {
+          inspSnapshot.textContent = JSON.stringify({
+            status: "No state snapshot recorded for current turn"
+          }, null, 2);
+        }
+        currentDiffData = null;
+        if (diffBadgePill) {
+          diffBadgePill.style.display = 'none';
+          diffBadgePill.textContent = '0';
+        }
+        if (diffEntriesList) {
+          diffEntriesList.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px 0;">Select a turn to inspect state mutations.</div>';
+        }
         updateTimeMachineUI();
         renderTopology();
       }
@@ -2350,6 +3009,65 @@
           switchBranch(this.value);
         });
       }
+
+      function switchInspTab(viewId) {
+        document.querySelectorAll('.insp-tab-btn').forEach(function(b) {
+          b.classList.remove('active');
+          if (b.getAttribute('data-view') === viewId) b.classList.add('active');
+        });
+        document.querySelectorAll('.insp-view').forEach(function(v) {
+          v.style.display = 'none';
+        });
+        var targetView = document.getElementById(viewId);
+        if (targetView) targetView.style.display = viewId === 'viewDiff' ? 'flex' : 'block';
+      }
+
+      if (tabInspPayload) {
+        tabInspPayload.addEventListener('click', function() {
+          switchInspTab('viewPayload');
+        });
+      }
+      if (tabInspSnapshot) {
+        tabInspSnapshot.addEventListener('click', function() {
+          switchInspTab('viewSnapshot');
+        });
+      }
+      if (tabInspDiff) {
+        tabInspDiff.addEventListener('click', function() {
+          switchInspTab('viewDiff');
+        });
+      }
+
+      if (btnDiffUnified) {
+        btnDiffUnified.addEventListener('click', function() {
+          currentDiffMode = 'unified';
+          btnDiffUnified.classList.add('active');
+          if (btnDiffSplit) btnDiffSplit.classList.remove('active');
+          renderDiffEntries();
+        });
+      }
+      if (btnDiffSplit) {
+        btnDiffSplit.addEventListener('click', function() {
+          currentDiffMode = 'split';
+          btnDiffSplit.classList.add('active');
+          if (btnDiffUnified) btnDiffUnified.classList.remove('active');
+          renderDiffEntries();
+        });
+      }
+      if (diffTargetSelect) {
+        diffTargetSelect.addEventListener('change', function() {
+          updateStateDiffInspector();
+        });
+      }
+      diffFilterChips = document.querySelectorAll('.diff-filter-chip');
+      diffFilterChips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          diffFilterChips.forEach(function(c) { c.classList.remove('active'); });
+          this.classList.add('active');
+          currentDiffFilter = this.getAttribute('data-filter') || 'all';
+          renderDiffEntries();
+        });
+      });
 
       // Keyboard shortcuts: [ for Step-Back, ] for Step-Forward, F for Fork Modal, Esc to close
       window.addEventListener('keydown', function(e) {

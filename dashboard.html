@@ -279,6 +279,178 @@
       color: var(--text-muted);
     }
 
+    /* Time-Machine & Scrubber Bar */
+    .time-machine-bar {
+      background: #0B101D;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .tm-left-group, .tm-right-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .tm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(167, 139, 250, 0.12);
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      color: #A78BFA;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .tm-btn {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .tm-btn:hover:not(:disabled) {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .tm-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .tm-btn-fork {
+      background: rgba(167, 139, 250, 0.08);
+      border-color: rgba(167, 139, 250, 0.4);
+      color: #A78BFA;
+    }
+    .tm-btn-fork:hover:not(:disabled) {
+      background: rgba(167, 139, 250, 0.2);
+      border-color: #A78BFA;
+      color: var(--text-primary);
+    }
+    .tm-turn-display {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-feature-settings: "tnum" 1;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      min-width: 85px;
+      text-align: center;
+    }
+    .tm-center-track {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      position: relative;
+      min-width: 80px;
+    }
+    .tm-center-track input[type="range"] {
+      width: 100%;
+      height: 4px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      accent-color: #A78BFA;
+      cursor: pointer;
+    }
+    .tm-ticks {
+      display: flex;
+      justify-content: space-between;
+      height: 6px;
+      padding: 0 4px;
+      position: relative;
+    }
+    .tm-tick {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border-strong);
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .tm-tick:hover {
+      transform: scale(1.4);
+      background: var(--accent);
+    }
+    .tm-tick.selected {
+      background: #A78BFA;
+      box-shadow: 0 0 4px rgba(167, 139, 250, 0.6);
+      transform: scale(1.3);
+    }
+    .tm-tick.snapshot {
+      border: 1px solid #A78BFA;
+    }
+    .tm-tick.halt {
+      background: var(--danger);
+    }
+    .tm-branch-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .tm-branch-select {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 3px 6px;
+      cursor: pointer;
+      outline: none;
+    }
+    .tm-branch-select:hover {
+      border-color: var(--border-strong);
+    }
+
+    /* Toast Notification System */
+    .toast-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-primary);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: toastSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .toast-item.success { border-left-color: var(--success); }
+    .toast-item.warning { border-left-color: var(--warning); }
+    .toast-item.danger { border-left-color: var(--danger); }
+    .toast-item.purple { border-left-color: #A78BFA; }
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     /* View Switcher Controls */
     .view-toggle {
       display: inline-flex;
@@ -729,6 +901,252 @@
       max-height: 260px;
       white-space: pre;
     }
+
+    /* Inspector Tabs & Diff Inspector (Seam 16 / ADR 0027) */
+    .insp-tab-bar {
+      display: flex;
+      gap: 3px;
+      background: var(--bg-canvas);
+      padding: 3px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .insp-tab-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .insp-tab-btn:hover {
+      color: var(--text-primary);
+    }
+    .insp-tab-btn.active {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+      border-bottom: 2px solid var(--accent);
+    }
+    .diff-badge-pill {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10B981;
+    }
+    .diff-badge-pill.has-changes {
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+    }
+
+    /* Diff View Container */
+    .diff-view-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .diff-toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--bg-canvas);
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .diff-toolbar-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .diff-select {
+      flex: 1;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    .diff-mode-toggle {
+      display: flex;
+      gap: 3px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      padding: 3px 4px;
+    }
+    .diff-mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .diff-mode-btn.active {
+      background: var(--border-strong);
+      color: var(--text-primary);
+    }
+    .diff-filter-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .diff-filter-chip {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      padding: 3px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .diff-filter-chip.active {
+      border-color: var(--accent);
+      color: var(--text-primary);
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .diff-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 4px 6px;
+    }
+    .diff-entries-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 280px;
+      overflow-y: auto;
+      background: var(--bg-canvas);
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+    }
+    .diff-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 10px;
+      border-radius: 3px;
+      border-left: 3px solid transparent;
+      background: rgba(255, 255, 255, 0.015);
+    }
+    .diff-row.added {
+      border-left-color: #10B981;
+      background: rgba(16, 185, 129, 0.06);
+    }
+    .diff-row.modified {
+      border-left-color: #F59E0B;
+      background: rgba(245, 158, 11, 0.06);
+    }
+    .diff-row.removed {
+      border-left-color: #EF4444;
+      background: rgba(239, 68, 68, 0.06);
+    }
+    .diff-row.unchanged {
+      border-left-color: var(--border-subtle);
+      opacity: 0.6;
+    }
+    .diff-header-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .diff-path {
+      font-weight: 600;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+    .diff-tag {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+    .diff-tag.added { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+    .diff-tag.modified { background: rgba(245, 158, 11, 0.2); color: #F59E0B; }
+    .diff-tag.removed { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+    .diff-tag.unchanged { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); }
+    .diff-tag.redacted { background: rgba(167, 139, 250, 0.2); color: var(--branch-purple); }
+    .diff-val-change {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 12px;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .diff-val-old {
+      color: #EF4444;
+      text-decoration: line-through;
+      opacity: 0.8;
+    }
+    .diff-val-new {
+      color: #10B981;
+    }
+    .diff-val-arrow {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    /* Split Diff Mode */
+    .diff-split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 12px;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--border-subtle);
+    }
+    .diff-split-col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .diff-split-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -887,6 +1305,45 @@
         </div>
         <span class="chaos-status" id="chaosStatus">Ready</span>
       </div>
+      <div class="time-machine-bar" id="timeMachineBar">
+        <div class="tm-left-group">
+          <div class="tm-badge">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>
+            <span>Time-Machine</span>
+          </div>
+          <button class="tm-btn" id="btnStepBack" title="Step back to previous turn (Key: [)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
+          </button>
+          <div class="tm-turn-display" id="scrubberTurnDisplay">Turn 0 / 0</div>
+          <button class="tm-btn" id="btnStepForward" title="Step forward to next turn (Key: ])">
+            <span>Next</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="tm-btn" id="btnJumpHead" title="Jump to latest turn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+            <span>Head</span>
+          </button>
+        </div>
+
+        <div class="tm-center-track">
+          <input type="range" id="scrubberSlider" min="1" max="1" value="1" step="1" title="Scrub through turns timeline" />
+          <div class="tm-ticks" id="scrubberTicks"></div>
+        </div>
+
+        <div class="tm-right-group">
+          <div class="tm-branch-wrapper">
+            <span class="tm-branch-label">Branch:</span>
+            <select id="branchSelector" class="tm-branch-select" title="Switch active DAG branch">
+              <option value="main">main</option>
+            </select>
+          </div>
+          <button class="tm-btn tm-btn-fork" id="btnTimeMachineFork" title="Fork branch from selected turn (Key: F)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            <span>Fork...</span>
+          </button>
+        </div>
+      </div>
       <div class="dag-panel" id="dagPanel" style="display: none;">
         <div class="dag-stats">
           <div class="dag-stat-item"><span class="dag-stat-label">Agents:</span> <span class="dag-stat-val" id="dagNodeCount">0</span></div>
@@ -931,18 +1388,74 @@
           <span class="prop-value" id="inspTurnId">None selected</span>
         </div>
         <div class="prop-row">
-          <span class="prop-label">Inspection Payload</span>
-          <div class="json-box" id="inspPayload">{
+          <div class="insp-tab-bar" id="inspTabBar">
+            <button class="insp-tab-btn active" id="tabInspPayload" data-view="viewPayload">Payload</button>
+            <button class="insp-tab-btn" id="tabInspSnapshot" data-view="viewSnapshot">State</button>
+            <button class="insp-tab-btn" id="tabInspDiff" data-view="viewDiff">
+              <span>Diff</span>
+              <span class="diff-badge-pill" id="diffBadgePill" style="display: none;">0</span>
+            </button>
+          </div>
+          
+          <div id="viewPayload" class="insp-view">
+            <div class="json-box" id="inspPayload">{
   "status": "listening",
   "transport": "WebSocket + SSE",
   "protocol": "SwarmWatch v0.1.0"
 }</div>
+          </div>
+
+          <div id="viewSnapshot" class="insp-view" style="display: none;">
+            <div class="json-box" id="inspSnapshot">{
+  "status": "No state snapshot recorded for current turn"
+}</div>
+          </div>
+
+          <div id="viewDiff" class="insp-view diff-view-panel" style="display: none;">
+            <div class="diff-toolbar">
+              <div class="diff-toolbar-row">
+                <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Base:</span>
+                <select id="diffTargetSelect" class="diff-select" title="Select comparison base snapshot">
+                  <option value="prev">Previous Turn (N-1)</option>
+                  <option value="root">Initial Turn (Root)</option>
+                  <option value="fork">Fork Origin</option>
+                </select>
+                <div class="diff-mode-toggle">
+                  <button class="diff-mode-btn active" id="btnDiffUnified" title="Unified Diff View">Unified</button>
+                  <button class="diff-mode-btn" id="btnDiffSplit" title="Split Side-by-Side View">Split</button>
+                </div>
+              </div>
+              <div class="diff-filter-bar">
+                <button class="diff-filter-chip active" data-filter="all" id="diffFilterAll">All (<span id="diffCountAll">0</span>)</button>
+                <button class="diff-filter-chip" data-filter="changed" id="diffFilterChanged">Changed (<span id="diffCountChanged">0</span>)</button>
+                <button class="diff-filter-chip" data-filter="added" id="diffFilterAdded" style="color: #10B981;">+<span id="diffCountAdded">0</span></button>
+                <button class="diff-filter-chip" data-filter="modified" id="diffFilterModified" style="color: #F59E0B;">~<span id="diffCountModified">0</span></button>
+                <button class="diff-filter-chip" data-filter="removed" id="diffFilterRemoved" style="color: #EF4444;">-<span id="diffCountRemoved">0</span></button>
+                <button class="diff-filter-chip" data-filter="redacted" id="diffFilterRedacted" style="color: #A78BFA;">[R] <span id="diffCountRedacted">0</span></button>
+              </div>
+            </div>
+
+            <div class="diff-meta-row" id="diffMetaRow">
+              <span id="diffBaseLabel">Base: Previous Turn</span>
+              <span id="diffFingerprintDelta">SHA: -</span>
+            </div>
+
+            <div class="diff-entries-list" id="diffEntriesList">
+              <div style="color: var(--text-muted); text-align: center; padding: 20px 0;">Select a turn to inspect state mutations.</div>
+            </div>
+          </div>
         </div>
         <div class="prop-row" style="margin-top: 8px;">
-          <button class="btn-action btn-secondary btn-block" id="btnFork">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-            <span>Fork State from this Turn</span>
-          </button>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-action btn-secondary" id="btnInspStepBack" style="flex: 1; height: 32px; padding: 0 8px; font-size: 12px;" title="Step back to this turn (Key: [)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              <span>Step-Back</span>
+            </button>
+            <button class="btn-action btn-secondary tm-btn-fork" id="btnFork" style="flex: 1.2; height: 32px; padding: 0 8px; font-size: 12px;" title="Fork new branch from this turn (Key: F)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+              <span>Fork Branch</span>
+            </button>
+          </div>
         </div>
         <div class="prop-row" style="margin-top: 10px; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
           <span class="prop-label">Circuit Policy Tuning</span>
@@ -1013,12 +1526,140 @@
     </div>
   </div>
 
+  <!-- Interactive Time-Machine Fork Modal -->
+  <div id="forkModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.88); z-index: 1050; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 4px; width: 620px; max-width: 92vw; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            <span style="font-weight: 700; font-size: 14px; color: var(--text-primary);">Fork Swarm Execution Branch</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Branch out an isolated timeline from the causal state snapshot at the selected turn.</div>
+        </div>
+        <button id="btnCloseForkModal" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Esc</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Origin Turn / Span</span>
+          <span id="forkOriginTurn" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-primary);">-</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Causal Agents</span>
+          <span id="forkOriginAgents" style="font-size: 12px; color: var(--text-secondary);">-</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; grid-column: 1 / -1;">
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">State Snapshot Hash</span>
+          <span id="forkOriginHash" style="font-family: var(--font-mono); font-size: 12px; color: #A78BFA;">sha256:verified</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label for="forkBranchName" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">New Branch Identifier</label>
+        <input type="text" id="forkBranchName" placeholder="e.g. branch-fork-turn-3" style="background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 8px 12px; color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;" />
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">State Snapshot Preview</span>
+          <span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">sanitized • zero secrets</span>
+        </div>
+        <div id="forkStatePreview" class="json-box" style="max-height: 160px;">{}</div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-subtle); padding-top: 14px;">
+        <button id="btnCancelFork" class="btn-action btn-secondary" style="height: 32px; padding: 0 14px;">Cancel</button>
+        <button id="btnExecuteFork" class="btn-action btn-primary" style="height: 32px; padding: 0 16px; background: #A78BFA; border-color: #A78BFA; color: #080B11;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Fork & Switch Branch</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; pointer-events: none;"></div>
+
   <script>
     (function() {
       var spans = [];
       var isSimulating = false;
       var selectedTurn = null;
       var socket = null;
+
+      var currentBranch = 'main';
+      var activeSwarmId = 'swarm-live-01';
+      var selectedTurnIndex = -1;
+      var cachedSnapshots = {};
+
+      var scrubberSlider = document.getElementById('scrubberSlider');
+      var scrubberTurnDisplay = document.getElementById('scrubberTurnDisplay');
+      var scrubberTicks = document.getElementById('scrubberTicks');
+      var btnStepBack = document.getElementById('btnStepBack');
+      var btnStepForward = document.getElementById('btnStepForward');
+      var btnJumpHead = document.getElementById('btnJumpHead');
+      var btnTimeMachineFork = document.getElementById('btnTimeMachineFork');
+      var branchSelector = document.getElementById('branchSelector');
+
+      var forkModal = document.getElementById('forkModal');
+      var btnCloseForkModal = document.getElementById('btnCloseForkModal');
+      var btnCancelFork = document.getElementById('btnCancelFork');
+      var btnExecuteFork = document.getElementById('btnExecuteFork');
+      var forkOriginTurn = document.getElementById('forkOriginTurn');
+      var forkOriginAgents = document.getElementById('forkOriginAgents');
+      var forkOriginHash = document.getElementById('forkOriginHash');
+      var forkBranchName = document.getElementById('forkBranchName');
+      var forkStatePreview = document.getElementById('forkStatePreview');
+
+      var btnInspStepBack = document.getElementById('btnInspStepBack');
+      var btnFork = document.getElementById('btnFork');
+
+      var tabInspPayload = document.getElementById('tabInspPayload');
+      var tabInspSnapshot = document.getElementById('tabInspSnapshot');
+      var tabInspDiff = document.getElementById('tabInspDiff');
+      var viewPayload = document.getElementById('viewPayload');
+      var viewSnapshot = document.getElementById('viewSnapshot');
+      var viewDiff = document.getElementById('viewDiff');
+      var inspSnapshot = document.getElementById('inspSnapshot');
+      var diffBadgePill = document.getElementById('diffBadgePill');
+      var diffTargetSelect = document.getElementById('diffTargetSelect');
+      var btnDiffUnified = document.getElementById('btnDiffUnified');
+      var btnDiffSplit = document.getElementById('btnDiffSplit');
+      var diffEntriesList = document.getElementById('diffEntriesList');
+      var diffBaseLabel = document.getElementById('diffBaseLabel');
+      var diffFingerprintDelta = document.getElementById('diffFingerprintDelta');
+      var currentDiffFilter = 'all';
+      var currentDiffMode = 'unified';
+      var currentDiffData = null;
+
+      function showToast(message, type, durationMs) {
+        type = type || 'info';
+        durationMs = durationMs || 3500;
+        var container = document.getElementById('toastContainer');
+        if (!container) return;
+        var toast = document.createElement('div');
+        toast.className = 'toast-item ' + type;
+        
+        var iconSvg = '';
+        if (type === 'success') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else if (type === 'purple') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>';
+        } else if (type === 'danger') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        } else {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        }
+
+        toast.innerHTML = iconSvg + '<span>' + message + '</span>';
+        container.appendChild(toast);
+        setTimeout(function() {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(8px)';
+          setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 250);
+        }, durationMs);
+      }
 
       var chaosStatus = document.getElementById('chaosStatus');
       var chaosButtons = [
@@ -1155,14 +1796,17 @@
 
       async function selectSpan(span) {
         selectedTurn = span;
+        selectedTurnIndex = spans.findIndex(function(s) { return s.id === span.id; });
         document.querySelectorAll('.turn-card').forEach(function(card) {
           card.classList.remove('selected');
         });
         var card = document.getElementById('card_' + span.id);
         if (card) card.classList.add('selected');
 
-        document.getElementById('inspTurnId').textContent = span.id + " (" + span.source + " -> " + span.target + ")";
+        var turnNum = selectedTurnIndex >= 0 ? (selectedTurnIndex + 1) : 1;
+        document.getElementById('inspTurnId').textContent = span.id + " (Turn " + turnNum + ": " + span.source + " -> " + span.target + ")";
         var inspectorData = {
+          turn_index: turnNum,
           span_id: span.id,
           source_agent: span.source,
           target_agent: span.target,
@@ -1172,17 +1816,602 @@
           timestamp: span.timestamp,
           payload: span.payload
         };
+
+        var snap = cachedSnapshots[span.id];
+        if (!snap) {
+          try {
+            var snapRes = await fetch('/api/v1/snapshots/' + span.id);
+            if (snapRes.ok) {
+              snap = await snapRes.json();
+              if (snap && snap.state_data) {
+                cachedSnapshots[span.id] = snap;
+              }
+            }
+          } catch(e) {}
+        }
+
+        if (snap && snap.state_data) {
+          inspectorData.state_snapshot = snap.state_data;
+          inspectorData.state_hash = snap.state_hash;
+          if (inspSnapshot) {
+            inspSnapshot.textContent = JSON.stringify(snap.state_data, null, 2);
+          }
+        } else {
+          if (inspSnapshot) {
+            inspSnapshot.textContent = JSON.stringify({
+              status: "No explicit state snapshot recorded for " + span.id,
+              source_agent: span.source,
+              target_agent: span.target,
+              tokens: span.tokens
+            }, null, 2);
+          }
+        }
+
+        document.getElementById('inspPayload').textContent = JSON.stringify(inspectorData, null, 2);
+        updateTimeMachineUI();
+        await updateStateDiffInspector();
+      }
+
+      function isValRedactedClient(val) {
+        if (typeof val === 'string') {
+          return val.indexOf('[REDACTED') !== -1 || val === '[REDACTED]';
+        }
+        if (val && typeof val === 'object') {
+          if (Array.isArray(val)) {
+            return val.some(isValRedactedClient);
+          }
+          return Object.values(val).some(isValRedactedClient);
+        }
+        return false;
+      }
+
+      function computeStateDiffClient(stateA, stateB, hashA, hashB) {
+        var a = (stateA && typeof stateA === 'object') ? stateA : {};
+        var b = (stateB && typeof stateB === 'object') ? stateB : {};
+        var entries = [];
+        var summary = {
+          added_count: 0,
+          modified_count: 0,
+          removed_count: 0,
+          unchanged_count: 0,
+          redacted_count: 0,
+          total_changes: 0
+        };
+
+        function diffRec(objA, objB, currentPath) {
+          if (
+            objA && typeof objA === 'object' && !Array.isArray(objA) &&
+            objB && typeof objB === 'object' && !Array.isArray(objB)
+          ) {
+            var keysA = Object.keys(objA);
+            var keysB = Object.keys(objB);
+            var allKeys = Array.from(new Set(keysA.concat(keysB))).sort();
+
+            for (var i = 0; i < allKeys.length; i++) {
+              var k = allKeys[i];
+              var keyPath = currentPath ? (currentPath + '.' + k) : k;
+              if (!(k in objA)) {
+                var val = objB[k];
+                var red = isValRedactedClient(val);
+                entries.push({
+                  path: keyPath,
+                  kind: 'added',
+                  old_value: undefined,
+                  new_value: val,
+                  is_redacted: red
+                });
+                summary.added_count++;
+                if (red) summary.redacted_count++;
+              } else if (!(k in objB)) {
+                var val = objA[k];
+                var red = isValRedactedClient(val);
+                entries.push({
+                  path: keyPath,
+                  kind: 'removed',
+                  old_value: val,
+                  new_value: undefined,
+                  is_redacted: red
+                });
+                summary.removed_count++;
+                if (red) summary.redacted_count++;
+              } else {
+                diffRec(objA[k], objB[k], keyPath);
+              }
+            }
+          } else {
+            var eq = JSON.stringify(objA) === JSON.stringify(objB);
+            if (eq) {
+              var red = isValRedactedClient(objA);
+              entries.push({
+                path: currentPath,
+                kind: 'unchanged',
+                old_value: objA,
+                new_value: objB,
+                is_redacted: red
+              });
+              summary.unchanged_count++;
+              if (red) summary.redacted_count++;
+            } else {
+              var red = isValRedactedClient(objA) || isValRedactedClient(objB);
+              entries.push({
+                path: currentPath,
+                kind: 'modified',
+                old_value: objA,
+                new_value: objB,
+                is_redacted: red
+              });
+              summary.modified_count++;
+              if (red) summary.redacted_count++;
+            }
+          }
+        }
+
+        diffRec(a, b, '');
+        summary.total_changes = summary.added_count + summary.modified_count + summary.removed_count;
+
+        return {
+          summary: summary,
+          entries: entries,
+          hash_a: hashA || '-',
+          hash_b: hashB || '-'
+        };
+      }
+
+      async function updateStateDiffInspector() {
+        if (!selectedTurn) return;
+
+        updateDiffTargetOptions();
+
+        var currSpan = selectedTurn;
+        var currIdx = selectedTurnIndex;
+        var currSnap = cachedSnapshots[currSpan.id];
+        var currState = (currSnap && currSnap.state_data) ? currSnap.state_data : {
+          source_agent: currSpan.source,
+          target_agent: currSpan.target,
+          entropy: currSpan.entropy,
+          tokens: currSpan.tokens,
+          payload: (currSpan.payload || '').slice(0, 60)
+        };
+        var currHash = (currSnap && currSnap.state_hash) ? currSnap.state_hash : ('sha256:' + currSpan.id);
+
+        var targetVal = diffTargetSelect ? diffTargetSelect.value : 'prev';
+        var baseSpan = null;
+        var baseLabel = 'Previous Turn';
+
+        if (targetVal === 'root') {
+          baseSpan = spans.length > 0 ? spans[0] : null;
+          baseLabel = 'Initial Turn (1)';
+        } else if (targetVal === 'fork') {
+          baseSpan = spans.find(function(s) { return s.id.indexOf('_fork_') !== -1; }) || (spans.length > 0 ? spans[0] : null);
+          baseLabel = 'Fork Origin';
+        } else if (targetVal === 'prev') {
+          baseSpan = (currIdx > 0 && currIdx < spans.length) ? spans[currIdx - 1] : null;
+          baseLabel = baseSpan ? ('Turn ' + currIdx) : 'Initial Turn';
+        } else {
+          baseSpan = spans.find(function(s) { return s.id === targetVal; });
+          baseLabel = baseSpan ? baseSpan.id : targetVal;
+        }
+
+        var baseState = {};
+        var baseHash = '-';
+        if (baseSpan) {
+          var baseSnap = cachedSnapshots[baseSpan.id];
+          if (!baseSnap) {
+            try {
+              var bRes = await fetch('/api/v1/snapshots/' + baseSpan.id);
+              if (bRes.ok) {
+                baseSnap = await bRes.json();
+                if (baseSnap && baseSnap.state_data) {
+                  cachedSnapshots[baseSpan.id] = baseSnap;
+                }
+              }
+            } catch(e) {}
+          }
+          if (baseSnap && baseSnap.state_data) {
+            baseState = baseSnap.state_data;
+            baseHash = baseSnap.state_hash;
+          } else {
+            baseState = {
+              source_agent: baseSpan.source,
+              target_agent: baseSpan.target,
+              entropy: baseSpan.entropy,
+              tokens: baseSpan.tokens,
+              payload: (baseSpan.payload || '').slice(0, 60)
+            };
+            baseHash = 'sha256:' + baseSpan.id;
+          }
+        }
+
+        var diffData = null;
+        if (baseSpan && currSpan) {
+          try {
+            var diffUrl = '/api/v1/swarms/' + encodeURIComponent(activeSwarmId) +
+              '/snapshots/diff?base_span_id=' + encodeURIComponent(baseSpan.id) +
+              '&target_span_id=' + encodeURIComponent(currSpan.id);
+            var dRes = await fetch(diffUrl);
+            if (dRes.ok) {
+              diffData = await dRes.json();
+            }
+          } catch(e) {}
+        }
+
+        if (!diffData) {
+          diffData = computeStateDiffClient(baseState, currState, baseHash, currHash);
+        }
+
+        currentDiffData = diffData;
+
+        if (diffBadgePill) {
+          diffBadgePill.textContent = diffData.summary.total_changes.toString();
+          diffBadgePill.style.display = 'inline-block';
+          if (diffData.summary.total_changes > 0) {
+            diffBadgePill.className = 'diff-badge-pill has-changes';
+          } else {
+            diffBadgePill.className = 'diff-badge-pill';
+          }
+        }
+
+        var countAll = document.getElementById('diffCountAll');
+        var countChanged = document.getElementById('diffCountChanged');
+        var countAdded = document.getElementById('diffCountAdded');
+        var countModified = document.getElementById('diffCountModified');
+        var countRemoved = document.getElementById('diffCountRemoved');
+        var countRedacted = document.getElementById('diffCountRedacted');
+
+        if (countAll) countAll.textContent = diffData.entries.length.toString();
+        if (countChanged) countChanged.textContent = diffData.summary.total_changes.toString();
+        if (countAdded) countAdded.textContent = diffData.summary.added_count.toString();
+        if (countModified) countModified.textContent = diffData.summary.modified_count.toString();
+        if (countRemoved) countRemoved.textContent = diffData.summary.removed_count.toString();
+        if (countRedacted) countRedacted.textContent = diffData.summary.redacted_count.toString();
+
+        if (diffBaseLabel) {
+          diffBaseLabel.textContent = 'Base: ' + baseLabel + (baseSpan ? (' (' + baseSpan.id + ')') : ' (Genesis)');
+        }
+        if (diffFingerprintDelta) {
+          var hA = (diffData.hash_a || baseHash || '').slice(0, 10);
+          var hB = (diffData.hash_b || currHash || '').slice(0, 10);
+          diffFingerprintDelta.textContent = 'SHA: ' + hA + ' \u2192 ' + hB;
+        }
+
+        renderDiffEntries();
+      }
+
+      function updateDiffTargetOptions() {
+        if (!diffTargetSelect || !selectedTurn) return;
+        var currentVal = diffTargetSelect.value;
+        var html = '<option value="prev">Previous Turn (N-1)</option>' +
+                   '<option value="root">Initial Turn (Root)</option>' +
+                   '<option value="fork">Fork Origin</option>';
+
+        for (var i = 0; i < spans.length; i++) {
+          var s = spans[i];
+          if (s.id !== selectedTurn.id) {
+            html += '<option value="' + s.id + '">Turn ' + (i + 1) + ' (' + s.id + ')</option>';
+          }
+        }
+        diffTargetSelect.innerHTML = html;
+        if (currentVal && diffTargetSelect.querySelector('option[value="' + currentVal + '"]')) {
+          diffTargetSelect.value = currentVal;
+        } else {
+          diffTargetSelect.value = 'prev';
+        }
+      }
+
+      function renderDiffEntries() {
+        if (!diffEntriesList || !currentDiffData) return;
+
+        var entries = currentDiffData.entries || [];
+        var filtered = entries.filter(function(e) {
+          if (currentDiffFilter === 'all') return true;
+          if (currentDiffFilter === 'changed') return e.kind !== 'unchanged';
+          if (currentDiffFilter === 'added') return e.kind === 'added';
+          if (currentDiffFilter === 'modified') return e.kind === 'modified';
+          if (currentDiffFilter === 'removed') return e.kind === 'removed';
+          if (currentDiffFilter === 'redacted') return e.is_redacted;
+          return true;
+        });
+
+        if (filtered.length === 0) {
+          diffEntriesList.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px 0;">No properties match filter [' + currentDiffFilter + '].</div>';
+          return;
+        }
+
+        var html = '';
+        for (var i = 0; i < filtered.length; i++) {
+          var item = filtered[i];
+          var kindClass = item.kind;
+          var tagLabel = item.kind.toUpperCase();
+          if (item.is_redacted) {
+            tagLabel += ' \u2022 REDACTED';
+          }
+
+          if (currentDiffMode === 'split') {
+            var oldStr = item.old_value !== undefined ? JSON.stringify(item.old_value) : '<span style="color: var(--text-muted);">(none)</span>';
+            var newStr = item.new_value !== undefined ? JSON.stringify(item.new_value) : '<span style="color: var(--text-muted);">(none)</span>';
+
+            html += '<div class="diff-row ' + kindClass + '">' +
+                      '<div class="diff-header-line">' +
+                        '<span class="diff-path">' + escapeHtml(item.path) + '</span>' +
+                        '<span class="diff-tag ' + (item.is_redacted ? 'redacted' : kindClass) + '">' + tagLabel + '</span>' +
+                      '</div>' +
+                      '<div class="diff-split-grid">' +
+                        '<div class="diff-split-col"><span class="diff-split-label">Antecedent</span><span class="diff-val-old">' + oldStr + '</span></div>' +
+                        '<div class="diff-split-col"><span class="diff-split-label">Target</span><span class="diff-val-new">' + newStr + '</span></div>' +
+                      '</div>' +
+                    '</div>';
+          } else {
+            var valLine = '';
+            if (item.kind === 'added') {
+              valLine = '<span class="diff-val-new">+ ' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            } else if (item.kind === 'removed') {
+              valLine = '<span class="diff-val-old">- ' + escapeHtml(JSON.stringify(item.old_value)) + '</span>';
+            } else if (item.kind === 'modified') {
+              valLine = '<span class="diff-val-old">' + escapeHtml(JSON.stringify(item.old_value)) + '</span>' +
+                        '<span class="diff-val-arrow">\u2192</span>' +
+                        '<span class="diff-val-new">' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            } else {
+              valLine = '<span style="color: var(--text-muted);">= ' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            }
+
+            html += '<div class="diff-row ' + kindClass + '">' +
+                      '<div class="diff-header-line">' +
+                        '<span class="diff-path">' + escapeHtml(item.path) + '</span>' +
+                        '<span class="diff-tag ' + (item.is_redacted ? 'redacted' : kindClass) + '">' + tagLabel + '</span>' +
+                      '</div>' +
+                      '<div class="diff-val-change">' + valLine + '</div>' +
+                    '</div>';
+          }
+        }
+
+        diffEntriesList.innerHTML = html;
+      }
+
+      function escapeHtml(str) {
+        if (typeof str !== 'string') str = String(str);
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function updateTimeMachineUI() {
+        var total = spans.length;
+        if (total === 0) {
+          if (scrubberSlider) { scrubberSlider.min = '0'; scrubberSlider.max = '0'; scrubberSlider.value = '0'; scrubberSlider.disabled = true; }
+          if (scrubberTurnDisplay) scrubberTurnDisplay.textContent = 'Turn 0 / 0';
+          if (btnStepBack) btnStepBack.disabled = true;
+          if (btnStepForward) btnStepForward.disabled = true;
+          if (btnJumpHead) btnJumpHead.disabled = true;
+          if (btnTimeMachineFork) btnTimeMachineFork.disabled = true;
+          if (btnInspStepBack) btnInspStepBack.disabled = true;
+          if (btnFork) btnFork.disabled = true;
+          if (scrubberTicks) scrubberTicks.innerHTML = '';
+          return;
+        }
+
+        if (scrubberSlider) {
+          scrubberSlider.disabled = false;
+          scrubberSlider.min = '1';
+          scrubberSlider.max = total.toString();
+          scrubberSlider.value = (selectedTurnIndex >= 0 ? selectedTurnIndex + 1 : total).toString();
+        }
+
+        var activeTurnNum = selectedTurnIndex >= 0 ? (selectedTurnIndex + 1) : total;
+        if (scrubberTurnDisplay) scrubberTurnDisplay.textContent = 'Turn ' + activeTurnNum + ' / ' + total;
+
+        if (btnStepBack) btnStepBack.disabled = (selectedTurnIndex <= 0);
+        if (btnStepForward) btnStepForward.disabled = (selectedTurnIndex >= total - 1);
+        if (btnJumpHead) btnJumpHead.disabled = (selectedTurnIndex === total - 1 || selectedTurnIndex === -1);
+        if (btnTimeMachineFork) btnTimeMachineFork.disabled = false;
+        if (btnInspStepBack) btnInspStepBack.disabled = (selectedTurnIndex <= 0);
+        if (btnFork) btnFork.disabled = false;
+
+        // Render Ticks
+        if (scrubberTicks) {
+          scrubberTicks.innerHTML = '';
+          for (var i = 0; i < total; i++) {
+            var tick = document.createElement('div');
+            var isSelected = (i === selectedTurnIndex) || (selectedTurnIndex === -1 && i === total - 1);
+            var isHalt = (i === total - 1 && spans[i].entropy <= 0.35);
+            var hasSnapshot = !!cachedSnapshots[spans[i].id];
+            tick.className = 'tm-tick' + (isSelected ? ' selected' : '') + (isHalt ? ' halt' : '') + (hasSnapshot ? ' snapshot' : '');
+            tick.title = 'Turn ' + (i + 1) + ': ' + spans[i].id + ' (' + spans[i].source + ' -> ' + spans[i].target + ')';
+            (function(idx) {
+              tick.addEventListener('click', function() {
+                selectSpanByIndex(idx);
+              });
+            })(i);
+            scrubberTicks.appendChild(tick);
+          }
+        }
+      }
+
+      function selectSpanByIndex(index) {
+        if (index < 0 || index >= spans.length) return;
+        selectedTurnIndex = index;
+        var span = spans[index];
+        selectSpan(span);
+        var feed = document.getElementById('spansFeed');
+        if (index === 0 && feed) {
+          feed.scrollTop = 0;
+        } else {
+          var card = document.getElementById('card_' + span.id);
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+
+      function stepBack() {
+        if (selectedTurnIndex > 0) {
+          selectSpanByIndex(selectedTurnIndex - 1);
+          showToast('Time-Machine: Stepped back to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        } else if (selectedTurnIndex === -1 && spans.length > 1) {
+          selectSpanByIndex(spans.length - 2);
+          showToast('Time-Machine: Stepped back to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        }
+      }
+
+      function stepForward() {
+        if (selectedTurnIndex >= 0 && selectedTurnIndex < spans.length - 1) {
+          selectSpanByIndex(selectedTurnIndex + 1);
+          showToast('Time-Machine: Stepped forward to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        }
+      }
+
+      function jumpToHead() {
+        if (spans.length > 0) {
+          selectSpanByIndex(spans.length - 1);
+          showToast('Time-Machine: Jumped to Live Head (Turn ' + spans.length + ')', 'purple', 1800);
+        }
+      }
+
+      async function openForkModal() {
+        var span = selectedTurn || (spans.length > 0 ? spans[spans.length - 1] : null);
+        if (!span) {
+          showToast('Select a turn in the execution stream to fork from.', 'warning');
+          return;
+        }
+        var turnNum = spans.findIndex(function(s) { return s.id === span.id; }) + 1;
+        forkOriginTurn.textContent = span.id + ' (Turn ' + (turnNum > 0 ? turnNum : 1) + ')';
+        forkOriginAgents.textContent = span.source + ' -> ' + span.target;
+        
+        var snap = cachedSnapshots[span.id];
+        if (snap && snap.state_hash) {
+          forkOriginHash.textContent = snap.state_hash.substring(0, 18) + '...';
+        } else {
+          forkOriginHash.textContent = 'sha256:' + span.id.replace(/[^a-f0-9]/gi, 'a').padEnd(16, '0').slice(0, 16);
+        }
+
+        var defaultBranchName = 'branch-fork-' + (span.id.replace(/^span_/, 'turn_'));
+        forkBranchName.value = defaultBranchName;
+
+        var statePayload = (snap && snap.state_data) ? snap.state_data : {
+          source_agent: span.source,
+          target_agent: span.target,
+          entropy_level: span.entropy,
+          token_budget_remaining: 100000 - (span.tokens || 1000),
+          active_task: span.payload ? span.payload.slice(0, 80) : "Swarm task execution"
+        };
+        forkStatePreview.textContent = JSON.stringify(statePayload, null, 2);
+
+        forkModal.style.display = 'flex';
+        forkBranchName.focus();
+      }
+
+      function closeForkModal() {
+        if (forkModal) forkModal.style.display = 'none';
+      }
+
+      async function executeFork() {
+        var span = selectedTurn || (spans.length > 0 ? spans[spans.length - 1] : null);
+        if (!span) return;
+
+        var newBranch = forkBranchName.value.trim();
+        if (!newBranch) {
+          showToast('Please specify a valid branch identifier', 'warning');
+          return;
+        }
+
         try {
-          var snapRes = await fetch('/api/v1/snapshots/' + span.id);
-          if (snapRes.ok) {
-            var snap = await snapRes.json();
-            if (snap && snap.state_data) {
-              inspectorData.state_snapshot = snap.state_data;
-              inspectorData.state_hash = snap.state_hash;
+          btnExecuteFork.disabled = true;
+          btnExecuteFork.textContent = 'Forking...';
+          var res = await fetch('/api/v1/branches/fork', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              swarm_id: activeSwarmId,
+              target_span_id: span.id,
+              new_branch_id: newBranch
+            })
+          });
+
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+              command: 'CMD_FORK_BRANCH',
+              target_span_id: span.id,
+              new_branch_id: newBranch
+            }));
+          }
+
+          closeForkModal();
+          showToast('Branch [' + newBranch + '] forked successfully from ' + span.id + '!', 'purple', 4000);
+
+          await loadBranches();
+          await switchBranch(newBranch);
+        } catch(e) {
+          showToast('Failed to fork branch: ' + e.message, 'danger');
+        } finally {
+          btnExecuteFork.disabled = false;
+          btnExecuteFork.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Fork & Switch Branch</span>';
+        }
+      }
+
+      async function loadBranches() {
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(activeSwarmId) + '/branches');
+          if (res.ok) {
+            var branchList = await res.json();
+            if (Array.isArray(branchList) && branchList.length > 0) {
+              if (branchSelector) {
+                branchSelector.innerHTML = '';
+                branchList.forEach(function(b) {
+                  var opt = document.createElement('option');
+                  opt.value = b;
+                  opt.textContent = b;
+                  opt.style.background = 'var(--bg-surface)';
+                  opt.style.color = 'var(--text-primary)';
+                  if (b === currentBranch) opt.selected = true;
+                  branchSelector.appendChild(opt);
+                });
+              }
             }
           }
         } catch(e) {}
-        document.getElementById('inspPayload').textContent = JSON.stringify(inspectorData, null, 2);
+      }
+
+      async function switchBranch(newBranch) {
+        currentBranch = newBranch;
+        var bLabel = document.getElementById('branchLabel');
+        if (bLabel) bLabel.textContent = newBranch;
+        if (branchSelector) branchSelector.value = newBranch;
+
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(activeSwarmId) + '/spans?branch_id=' + encodeURIComponent(newBranch));
+          if (res.ok) {
+            var raw = await res.json();
+            if (Array.isArray(raw) && raw.length > 0) {
+              var feed = document.getElementById('streamFeed');
+              if (feed) feed.innerHTML = '';
+              spans = [];
+              raw.forEach(function(s) {
+                var payloadStr = '';
+                if (s.input_payload && typeof s.input_payload === 'object' && s.input_payload.content) {
+                  payloadStr = s.input_payload.content;
+                } else if (s.input_payload) {
+                  payloadStr = typeof s.input_payload === 'object' ? JSON.stringify(s.input_payload) : s.input_payload;
+                }
+                var formatted = {
+                  id: s.id,
+                  source: s.source_agent,
+                  target: s.target_agent,
+                  duration: s.duration_ms || 400,
+                  tokens: s.token_count || 1200,
+                  entropy: s.entropy_score || 1.85,
+                  timestamp: s.start_time ? new Date(s.start_time).toLocaleTimeString() : new Date().toLocaleTimeString(),
+                  payload: payloadStr
+                };
+                spans.push(formatted);
+                renderSpan(formatted);
+              });
+              document.getElementById('metricSpans').textContent = spans.length.toString();
+              document.getElementById('turnCounter').textContent = spans.length + ' Turns (' + newBranch + ')';
+              selectSpanByIndex(spans.length - 1);
+              showToast('Switched to branch [' + newBranch + ']', 'info', 2000);
+            } else {
+              showToast('Branch [' + newBranch + '] active (awaiting execution spans)', 'info', 2000);
+            }
+          }
+        } catch(e) {}
+        renderTopology();
       }
 
       function renderSpan(span) {
@@ -1644,6 +2873,11 @@
       function resetConsole() {
         spans = [];
         selectedTurn = null;
+        selectedTurnIndex = -1;
+        cachedSnapshots = {};
+        currentBranch = 'main';
+        var bLabel = document.getElementById('branchLabel');
+        if (bLabel) bLabel.textContent = 'main';
         isSimulating = false;
         if (chaosStatus) chaosStatus.textContent = "Ready";
         setChaosButtonsDisabled(false);
@@ -1667,6 +2901,20 @@
           transport: "WebSocket + SSE",
           protocol: "SwarmWatch v0.1.0"
         }, null, 2);
+        if (inspSnapshot) {
+          inspSnapshot.textContent = JSON.stringify({
+            status: "No state snapshot recorded for current turn"
+          }, null, 2);
+        }
+        currentDiffData = null;
+        if (diffBadgePill) {
+          diffBadgePill.style.display = 'none';
+          diffBadgePill.textContent = '0';
+        }
+        if (diffEntriesList) {
+          diffEntriesList.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px 0;">Select a turn to inspect state mutations.</div>';
+        }
+        updateTimeMachineUI();
         renderTopology();
       }
 
@@ -1737,32 +2985,116 @@
 
       document.getElementById('btnSimulate').addEventListener('click', runSimulation);
       document.getElementById('btnReset').addEventListener('click', resetConsole);
-      document.getElementById('btnFork').addEventListener('click', async function() {
-        if (!selectedTurn) {
-          alert('Please click a turn in the Execution Stream first to select the branch point.');
+      if (btnStepBack) btnStepBack.addEventListener('click', stepBack);
+      if (btnStepForward) btnStepForward.addEventListener('click', stepForward);
+      if (btnJumpHead) btnJumpHead.addEventListener('click', jumpToHead);
+      if (btnTimeMachineFork) btnTimeMachineFork.addEventListener('click', openForkModal);
+      if (btnInspStepBack) btnInspStepBack.addEventListener('click', stepBack);
+      if (btnFork) btnFork.addEventListener('click', openForkModal);
+      if (btnCloseForkModal) btnCloseForkModal.addEventListener('click', closeForkModal);
+      if (btnCancelFork) btnCancelFork.addEventListener('click', closeForkModal);
+      if (btnExecuteFork) btnExecuteFork.addEventListener('click', executeFork);
+
+      if (scrubberSlider) {
+        scrubberSlider.addEventListener('input', function() {
+          var val = parseInt(scrubberSlider.value, 10);
+          if (val >= 1 && val <= spans.length) {
+            selectSpanByIndex(val - 1);
+          }
+        });
+      }
+
+      if (branchSelector) {
+        branchSelector.addEventListener('change', function() {
+          switchBranch(this.value);
+        });
+      }
+
+      function switchInspTab(viewId) {
+        document.querySelectorAll('.insp-tab-btn').forEach(function(b) {
+          b.classList.remove('active');
+          if (b.getAttribute('data-view') === viewId) b.classList.add('active');
+        });
+        document.querySelectorAll('.insp-view').forEach(function(v) {
+          v.style.display = 'none';
+        });
+        var targetView = document.getElementById(viewId);
+        if (targetView) targetView.style.display = viewId === 'viewDiff' ? 'flex' : 'block';
+      }
+
+      if (tabInspPayload) {
+        tabInspPayload.addEventListener('click', function() {
+          switchInspTab('viewPayload');
+        });
+      }
+      if (tabInspSnapshot) {
+        tabInspSnapshot.addEventListener('click', function() {
+          switchInspTab('viewSnapshot');
+        });
+      }
+      if (tabInspDiff) {
+        tabInspDiff.addEventListener('click', function() {
+          switchInspTab('viewDiff');
+        });
+      }
+
+      if (btnDiffUnified) {
+        btnDiffUnified.addEventListener('click', function() {
+          currentDiffMode = 'unified';
+          btnDiffUnified.classList.add('active');
+          if (btnDiffSplit) btnDiffSplit.classList.remove('active');
+          renderDiffEntries();
+        });
+      }
+      if (btnDiffSplit) {
+        btnDiffSplit.addEventListener('click', function() {
+          currentDiffMode = 'split';
+          btnDiffSplit.classList.add('active');
+          if (btnDiffUnified) btnDiffUnified.classList.remove('active');
+          renderDiffEntries();
+        });
+      }
+      if (diffTargetSelect) {
+        diffTargetSelect.addEventListener('change', function() {
+          updateStateDiffInspector();
+        });
+      }
+      diffFilterChips = document.querySelectorAll('.diff-filter-chip');
+      diffFilterChips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          diffFilterChips.forEach(function(c) { c.classList.remove('active'); });
+          this.classList.add('active');
+          currentDiffFilter = this.getAttribute('data-filter') || 'all';
+          renderDiffEntries();
+        });
+      });
+
+      // Keyboard shortcuts: [ for Step-Back, ] for Step-Forward, F for Fork Modal, Esc to close
+      window.addEventListener('keydown', function(e) {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+          if (e.key === 'Escape') {
+            closeForkModal();
+            if (apiKeyModal) apiKeyModal.style.display = 'none';
+          }
+          if (e.key === 'Enter' && forkModal && forkModal.style.display === 'flex') {
+            executeFork();
+          }
           return;
         }
-        var newBranch = 'branch_fork_' + selectedTurn.id;
-        document.getElementById('branchLabel').textContent = newBranch;
-        try {
-          await fetch('/api/v1/branches/fork', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              swarm_id: 'swarm-live-01',
-              target_span_id: selectedTurn.id,
-              new_branch_id: newBranch
-            })
-          });
-        } catch(e) {}
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            command: 'CMD_FORK_BRANCH',
-            target_span_id: selectedTurn.id,
-            new_branch_id: newBranch
-          }));
+
+        if (e.key === '[') {
+          e.preventDefault();
+          stepBack();
+        } else if (e.key === ']') {
+          e.preventDefault();
+          stepForward();
+        } else if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          openForkModal();
+        } else if (e.key === 'Escape') {
+          closeForkModal();
+          if (apiKeyModal) apiKeyModal.style.display = 'none';
         }
-        alert('Time Machine: Swarm state successfully branched at ' + selectedTurn.id + ' into branch [' + newBranch + '].');
       });
 
       var sliderEntropy = document.getElementById('sliderEntropy');
@@ -1924,6 +3256,7 @@
       }
 
       loadProjects();
+      loadBranches();
 
       initWebSocket();
 
@@ -1953,8 +3286,8 @@
         SIMULATION_DATA.forEach(function(item) {
           spans.push(item);
           renderSpan(item);
-          selectSpan(item);
         });
+        selectSpanByIndex(0);
         document.getElementById('metricSpans').textContent = spans.length.toString();
         document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
         document.getElementById('metricEntropy').textContent = '0.18';
@@ -1964,6 +3297,14 @@
         apiKeyModal.style.display = 'flex';
         newKeySecret.textContent = 'sw_live_9xK2mP4vL8nQ1wZ7eR3tY6uI';
         newKeyBanner.style.display = 'block';
+      }
+      if (window.location.search.indexOf('modal=fork') !== -1) {
+        SIMULATION_DATA.forEach(function(item) {
+          spans.push(item);
+          renderSpan(item);
+        });
+        selectSpanByIndex(1);
+        openForkModal();
       }
 
       if (fullUrl.indexOf('view=dag') !== -1) {

@@ -11,7 +11,7 @@ import { computeShannonEntropy } from "./entropy.ts";
 import type { CircuitEvent, StateSnapshot, SwarmSpan } from "./schema.ts";
 import { SafeStateSerializer } from "./serializer.ts";
 import { TimeMachine } from "./timemachine.ts";
-import type { ForkBranchResult } from "./timemachine.ts";
+import type { ForkBranchResult, StateDiffReport } from "./timemachine.ts";
 import { InMemoryStorageSink, TelemetryTransport } from "./transport.ts";
 import type { StorageSink, TransportConfig } from "./transport.ts";
 import { ForkRunner } from "./runner.ts";
@@ -210,6 +210,13 @@ export class SwarmClient {
     return await this.timeMachine.getSnapshots(this.swarmId, branchId);
   }
 
+  public async diffSnapshots(
+    spanIdA: string,
+    spanIdB: string
+  ): Promise<StateDiffReport> {
+    return await this.timeMachine.diffSnapshots(this.swarmId, spanIdA, spanIdB);
+  }
+
   public async resumeFromFork<T = any>(
     branchId: string,
     handler: (ctx: ForkResumptionContext) => Promise<T> | T,
@@ -282,6 +289,13 @@ export function listBranches(): Promise<string[]> {
 
 export function listSnapshots(branchId?: string): Promise<StateSnapshot[]> {
   return getClient().listSnapshots(branchId);
+}
+
+export function diffSnapshots(
+  spanIdA: string,
+  spanIdB: string
+): Promise<StateDiffReport> {
+  return getClient().diffSnapshots(spanIdA, spanIdB);
 }
 
 export function resumeFromFork<T = any>(

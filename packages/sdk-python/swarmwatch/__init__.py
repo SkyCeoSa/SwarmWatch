@@ -30,6 +30,10 @@ from swarmwatch.core import (
 from swarmwatch.serializer import (
     SafeStateSerializer,
     TimeMachine,
+    DiffEntry,
+    DiffSummary,
+    StateDiffReport,
+    compute_state_diff,
 )
 from swarmwatch.runner import (
     ForkRunner,
@@ -137,6 +141,10 @@ __all__ = [
     "compute_lexical_similarity",
     "SafeStateSerializer",
     "TimeMachine",
+    "DiffEntry",
+    "DiffSummary",
+    "StateDiffReport",
+    "compute_state_diff",
     "ForkRunner",
     "ForkResumptionContext",
     "ForkResumptionResult",

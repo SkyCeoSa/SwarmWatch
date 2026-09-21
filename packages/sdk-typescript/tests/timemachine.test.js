@@ -14,6 +14,7 @@ import {
   InMemoryStorageSink,
   SafeStateSerializer,
   TimeMachine,
+  computeStateDiff,
 } from "../src/index.ts";
 
 test("TimeMachine State Snapshot & Verification (Seam 14 TS Parity)", async (t) => {
@@ -200,3 +201,92 @@ test("TimeMachine Micro-Benchmark: sub-250 microsecond execution for complex nes
     `TimeMachine snapshot took ${microsPerCall.toFixed(2)}µs, expected < 1500µs`
   );
 });
+
+test("State Snapshot Diff Engine & Parity (Seam 16 TS Parity)", async (t) => {
+  await t.test("computeStateDiff correctly categorizes added, modified, removed, unchanged and redacted keys", () => {
+    const stateA = {
+      model: "gemini-flash",
+      max_tokens: 1000,
+      api_key: "******** [REDACTED]",
+      nested: {
+        retries: 2,
+        obsolete: "old_val",
+      },
+      unchanged_num: 42,
+    };
+
+    const stateB = {
+      model: "gemini-pro",
+      max_tokens: 2000,
+      api_key: "******** [REDACTED]",
+      nested: {
+        retries: 2,
+        fresh: "new_val",
+      },
+      unchanged_num: 42,
+    };
+
+    const diff = computeStateDiff(stateA, stateB, "hash-a", "hash-b", "span-a", "span-b");
+
+    assert.strictEqual(diff.hash_a, "hash-a");
+    assert.strictEqual(diff.hash_b, "hash-b");
+    assert.strictEqual(diff.span_id_a, "span-a");
+    assert.strictEqual(diff.span_id_b, "span-b");
+
+    const entriesByPath = new Map(diff.entries.map((e) => [e.path, e]));
+
+    // Added
+    assert.ok(entriesByPath.has("nested.fresh"));
+    assert.strictEqual(entriesByPath.get("nested.fresh")?.kind, "added");
+    assert.strictEqual(entriesByPath.get("nested.fresh")?.new_value, "new_val");
+
+    // Removed
+    assert.ok(entriesByPath.has("nested.obsolete"));
+    assert.strictEqual(entriesByPath.get("nested.obsolete")?.kind, "removed");
+    assert.strictEqual(entriesByPath.get("nested.obsolete")?.old_value, "old_val");
+
+    // Modified
+    assert.ok(entriesByPath.has("model"));
+    assert.strictEqual(entriesByPath.get("model")?.kind, "modified");
+    assert.strictEqual(entriesByPath.get("model")?.old_value, "gemini-flash");
+    assert.strictEqual(entriesByPath.get("model")?.new_value, "gemini-pro");
+
+    // Unchanged
+    assert.ok(entriesByPath.has("unchanged_num"));
+    assert.strictEqual(entriesByPath.get("unchanged_num")?.kind, "unchanged");
+
+    // Redacted
+    assert.ok(entriesByPath.has("api_key"));
+    assert.strictEqual(entriesByPath.get("api_key")?.is_redacted, true);
+
+    // Summary counts
+    assert.strictEqual(diff.summary.added_count, 1);
+    assert.strictEqual(diff.summary.removed_count, 1);
+    assert.strictEqual(diff.summary.modified_count, 2); // model, max_tokens
+    assert.strictEqual(diff.summary.unchanged_count, 3); // api_key, nested.retries, unchanged_num
+    assert.strictEqual(diff.summary.redacted_count, 1);
+    assert.strictEqual(diff.summary.total_changes, 4);
+  });
+
+  await t.test("TimeMachine and SwarmClient diffSnapshots retrieve and compare stored snapshots", async () => {
+    const sink = new InMemoryStorageSink();
+    const client = init({
+      swarm_id: "swarm-diff-integration",
+      sink,
+    });
+
+    const snap1 = await client.snapshot({ step: 1, confidence: 0.4, api_key: "sk-proj-secret-12345" });
+    const snap2 = await client.snapshot({ step: 2, confidence: 0.85, api_key: "sk-proj-secret-12345", completed: true });
+
+    const diff = await client.diffSnapshots(snap1.span_id, snap2.span_id);
+
+    assert.strictEqual(diff.hash_a, snap1.state_hash);
+    assert.strictEqual(diff.hash_b, snap2.state_hash);
+    assert.strictEqual(diff.span_id_a, snap1.span_id);
+    assert.strictEqual(diff.span_id_b, snap2.span_id);
+    assert.strictEqual(diff.summary.added_count, 1); // completed
+    assert.strictEqual(diff.summary.modified_count, 2); // step, confidence
+    assert.strictEqual(diff.summary.redacted_count, 1); // api_key
+  });
+});
+

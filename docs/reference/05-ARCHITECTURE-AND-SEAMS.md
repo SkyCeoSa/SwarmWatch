@@ -101,3 +101,9 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Python): `ForkRunner` (`runner.py`), `ForkResumptionContext`, `ForkResumptionResult`, `client.resume_from_fork()`, `client.resume_from_fork_sync()`, REST endpoint `POST /api/v1/branches/{branch_id}/resume`, and WebSocket `branch_resumed` broadcast.
     - Primitives (TypeScript): `ForkRunner` (`runner.ts`), `ForkResumptionContext`, `ForkResumptionResult`, `client.resumeFromFork()`, `resumeFromFork()`.
     - Invariant: Scoped context propagation across `contextvars` and `AsyncLocalStorage`; nested `@agent` and `span()` calls automatically inherit the active branch namespace; boundary `fork_resumption` span maintains causal lineage to historical antecedent turns; sub-millisecond execution overhead (<500µs in Python, <400µs in TypeScript); zero remote LLM token usage; 100% dual-SDK parity.
+16. **State Snapshot Diff Inspector Seam (Dual-SDK Parity & Console / ADR 0027)**:
+    - Primitives (Python): `compute_state_diff()` (`serializer.py`), `StateDiffReport`, `DiffEntry`, `DiffSummary`, REST endpoint `GET /api/v1/swarms/{swarm_id}/snapshots/diff`.
+    - Primitives (TypeScript): `computeStateDiff()` (`timemachine.ts`), `StateDiffReport`, `DiffEntry`, `DiffSummary`.
+    - Primitives (Console): Inspector tab bar (`#tabPayload`, `#tabSnapshot`, `#tabDiff`), `#diffViewContainer`, `#diffTargetSelector`, `#diffModeSelector` (Unified vs Split), delta counter badges (`#diffBadgeAdded`, `#diffBadgeModified`, `#diffBadgeRemoved`), filter chips (`#diffFilterAll`, `#diffFilterChanged`, `#diffFilterRedacted`).
+    - Invariant: 100% deterministic recursive object comparison; sub-millisecond execution dispatch; deep secret mask awareness (`is_redacted`); SHA-256 fingerprint tracking; Impeccable Craft Floor design standards (#080B11 canvas, #0E1422 surfaces, #1D2840 borders, monospace tabular numerals, zero emojis, zero neon glows); zero remote LLM token usage.
+

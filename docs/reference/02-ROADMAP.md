@@ -158,8 +158,21 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Scoped asynchronous context propagation using `contextvars` (Python) and `AsyncLocalStorage` (Node.js), ensuring child spans and agent tasks seamlessly inherit the target `branch_id` and link to boundary `fork_resumption` spans.
   - Server-side REST endpoint `POST /api/v1/branches/{branch_id}/resume` with WebSocket `branch_resumed` broadcast.
   - Zero external LLM token expenditure (100% deterministic local computation) and sub-millisecond execution dispatch (<500µs).
+- **State Snapshot Diff Inspector & Dual-SDK Engine (Seam 16 & ADR 0027 Dual-SDK Parity)**:
+  - Deep module recursive diff engines in Python (`compute_state_diff`, `DiffEntry`, `DiffSummary`, `StateDiffReport` in `swarmwatch/serializer.py`) and TypeScript (`computeStateDiff` in `@swarmwatch/sdk/src/timemachine.ts`).
+  - Structured property mutations (`added`, `modified`, `removed`, `unchanged`) with secret redaction detection (`is_redacted`, `[REDACTED]`).
+  - Client and TimeMachine API extensions: `time_machine.diff_snapshots()`, `client.diff_snapshots()` / `client.diffSnapshots()`.
+  - Control plane REST endpoint `GET /api/v1/swarms/{swarm_id}/snapshots/diff` with query parameters `base_span_id` and `target_span_id`.
+  - Interactive Developer Console Inspector (`dashboard.html`):
+    - 3-tab segmented control in Inspector (`Payload`, `State`, `Diff`) with live change pill badge (`+N ~N -N`).
+    - Comparison base selector (`Previous Turn (N-1)`, `Initial Turn (Root)`, `Fork Origin`, or arbitrary turn).
+    - Unified inline delta and Split side-by-side view toggling.
+    - Filter chips (`All`, `Changed`, `Added`, `Modified`, `Removed`, `Redacted`).
+    - SHA-256 fingerprint delta indicator (`hash_a -> hash_b`).
+    - Zero external LLM token expenditure, zero emoji, flat elevation hierarchy strictly compliant with Impeccable Craft Floor.
 - **Complete Test Coverage**:
-  - **228 automated tests passing 100% locally** across Python (125 tests) and TypeScript (103 tests).
+  - **236 automated tests passing 100% locally** across Python (130 tests) and TypeScript (106 tests).
+
 
 
 

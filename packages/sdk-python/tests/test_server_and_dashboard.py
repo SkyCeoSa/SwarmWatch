@@ -286,4 +286,42 @@ def test_dashboard_ui_contains_time_machine_elements(tmp_path):
     assert 'id="forkModal"' in html
     assert 'id="toastContainer"' in html
     assert 'showToast' in html
+    # Diff inspector assertions
+    assert 'id="tabInspDiff"' in html
+    assert 'id="diffTargetSelect"' in html
+    assert 'id="btnDiffUnified"' in html
+    assert 'id="btnDiffSplit"' in html
+    assert 'id="diffEntriesList"' in html
+
+
+def test_server_diff_snapshots_endpoint(tmp_path):
+    db_path = str(tmp_path / "diff_api_test.db")
+    storage = SQLiteStorageAdapter(db_path=db_path)
+    app = create_app(storage=storage)
+    client = TestClient(app)
+
+    # 1. Run simulation to generate 5 turns with snapshots
+    sim_res = client.post("/api/v1/simulate?swarm_id=swarm-diff-test")
+    assert sim_res.status_code == 200
+
+    spans_res = client.get("/api/v1/swarms/swarm-diff-test/spans")
+    assert spans_res.status_code == 200
+    spans = spans_res.json()
+    assert len(spans) >= 2
+    span_a_id = spans[0]["id"]
+    span_b_id = spans[1]["id"]
+
+    # 2. Query diff between turn 1 and turn 2
+    diff_res = client.get(f"/api/v1/swarms/swarm-diff-test/snapshots/diff?base_span_id={span_a_id}&target_span_id={span_b_id}")
+    assert diff_res.status_code == 200
+    diff_data = diff_res.json()
+
+    assert "summary" in diff_data
+    assert "entries" in diff_data
+    assert diff_data["span_id_a"] == span_a_id
+    assert diff_data["span_id_b"] == span_b_id
+    assert isinstance(diff_data["summary"]["added_count"], int)
+    assert isinstance(diff_data["summary"]["modified_count"], int)
+    assert isinstance(diff_data["summary"]["total_changes"], int)
+
 

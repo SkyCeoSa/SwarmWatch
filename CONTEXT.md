@@ -182,6 +182,16 @@ _Avoid_: Hook call, function callback, middleware run
 - **ResumptionSpan**: An immutable atomic boundary span linking the antecedent target span of a forked branch to newly resumed agent execution turns.
   _Avoid_: Resume marker, fork log, restart event
 
+---
+
+### State Snapshot Diff Inspector
+- **StateDiffReport**: The structured, deterministic comparison output between two state snapshots encapsulating added, modified, and removed entries alongside cryptographic fingerprints.
+  _Avoid_: Diff output, state comparison, delta json
+- **DiffEntry**: An atomic property-level delta record specifying property path, mutation kind (`added`, `modified`, `removed`, `unchanged`), antecedent value, subsequent value, and secret redaction status.
+  _Avoid_: Change line, diff item, mutation log
+- **FingerprintDelta**: Cryptographic state transition indicator tracking SHA-256 hash mutations across discrete execution turns.
+  _Avoid_: Hash change, checksum diff
+
 
 
 

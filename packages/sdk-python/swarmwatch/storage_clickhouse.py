@@ -277,14 +277,18 @@ class ClickHouseStorageAdapter(StorageAdapter):
     async def save_snapshot(self, snapshot: StateSnapshot) -> None:
         await asyncio.to_thread(self.save_snapshot_sync, snapshot)
 
-    def get_snapshot_sync(self, span_id: str) -> Optional[StateSnapshot]:
+    def get_snapshot_sync(self, span_id: str, project_id: Optional[str] = None) -> Optional[StateSnapshot]:
         """Retrieves and decompresses state snapshot for span."""
         if self.use_mock:
             return self._mock_snapshots.get(span_id)
 
+        where_clause = f"span_id = '{span_id}'"
+        if project_id:
+            where_clause += f" AND project_id = '{project_id}'"
+
         query = f"""
             SELECT * FROM {self.database}.snapshots
-            WHERE span_id = '{span_id}'
+            WHERE {where_clause}
             LIMIT 1
             FORMAT JSONEachRow
         """
@@ -306,8 +310,8 @@ class ClickHouseStorageAdapter(StorageAdapter):
             created_at=datetime.fromisoformat(r["created_at"].replace(" ", "T")),
         )
 
-    async def get_snapshot(self, span_id: str) -> Optional[StateSnapshot]:
-        return await asyncio.to_thread(self.get_snapshot_sync, span_id)
+    async def get_snapshot(self, span_id: str, project_id: Optional[str] = None) -> Optional[StateSnapshot]:
+        return await asyncio.to_thread(self.get_snapshot_sync, span_id, project_id)
 
     def record_circuit_event_sync(self, event: CircuitEvent) -> None:
         """Records a circuit warning or halt event."""

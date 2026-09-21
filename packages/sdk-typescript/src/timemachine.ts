@@ -106,4 +106,169 @@ export class TimeMachine {
     }
     return ["main"];
   }
+
+  /**
+   * Retrieves two state snapshots by span_id and computes their deterministic differential.
+   */
+  public async diffSnapshots(
+    swarmId: string,
+    spanIdA: string,
+    spanIdB: string
+  ): Promise<StateDiffReport> {
+    const snapA = this.sink.getSnapshot ? await this.sink.getSnapshot(spanIdA) : null;
+    const snapB = this.sink.getSnapshot ? await this.sink.getSnapshot(spanIdB) : null;
+
+    const dataA = snapA ? snapA.state_data : {};
+    const dataB = snapB ? snapB.state_data : {};
+    const hashA = snapA ? snapA.state_hash : undefined;
+    const hashB = snapB ? snapB.state_hash : undefined;
+
+    return computeStateDiff(dataA, dataB, hashA, hashB, spanIdA, spanIdB);
+  }
 }
+
+export interface DiffEntry {
+  path: string;
+  kind: "added" | "modified" | "removed" | "unchanged";
+  old_value?: any;
+  new_value?: any;
+  is_redacted: boolean;
+}
+
+export interface DiffSummary {
+  added_count: number;
+  modified_count: number;
+  removed_count: number;
+  unchanged_count: number;
+  redacted_count: number;
+  total_changes: number;
+}
+
+export interface StateDiffReport {
+  summary: DiffSummary;
+  entries: DiffEntry[];
+  hash_a?: string;
+  hash_b?: string;
+  span_id_a?: string;
+  span_id_b?: string;
+}
+
+function isValueRedacted(val: any): boolean {
+  if (typeof val === "string") {
+    return val.includes("[REDACTED") || val === "[REDACTED]";
+  }
+  if (val && typeof val === "object") {
+    if (Array.isArray(val)) {
+      return val.some(isValueRedacted);
+    }
+    return Object.values(val).some(isValueRedacted);
+  }
+  return false;
+}
+
+export function computeStateDiff(
+  stateA?: Record<string, any> | null,
+  stateB?: Record<string, any> | null,
+  hashA?: string,
+  hashB?: string,
+  spanIdA?: string,
+  spanIdB?: string
+): StateDiffReport {
+  const a = stateA && typeof stateA === "object" ? stateA : {};
+  const b = stateB && typeof stateB === "object" ? stateB : {};
+
+  const entries: DiffEntry[] = [];
+  const summary: DiffSummary = {
+    added_count: 0,
+    modified_count: 0,
+    removed_count: 0,
+    unchanged_count: 0,
+    redacted_count: 0,
+    total_changes: 0,
+  };
+
+  function diffRecursive(objA: any, objB: any, currentPath: string) {
+    if (
+      objA &&
+      typeof objA === "object" &&
+      !Array.isArray(objA) &&
+      objB &&
+      typeof objB === "object" &&
+      !Array.isArray(objB)
+    ) {
+      const allKeys = Array.from(
+        new Set([...Object.keys(objA), ...Object.keys(objB)])
+      ).sort();
+
+      for (const k of allKeys) {
+        const keyPath = currentPath ? `${currentPath}.${k}` : k;
+        if (!(k in objA)) {
+          const val = objB[k];
+          const redacted = isValueRedacted(val);
+          entries.push({
+            path: keyPath,
+            kind: "added",
+            old_value: undefined,
+            new_value: val,
+            is_redacted: redacted,
+          });
+          summary.added_count++;
+          if (redacted) summary.redacted_count++;
+        } else if (!(k in objB)) {
+          const val = objA[k];
+          const redacted = isValueRedacted(val);
+          entries.push({
+            path: keyPath,
+            kind: "removed",
+            old_value: val,
+            new_value: undefined,
+            is_redacted: redacted,
+          });
+          summary.removed_count++;
+          if (redacted) summary.redacted_count++;
+        } else {
+          diffRecursive(objA[k], objB[k], keyPath);
+        }
+      }
+    } else {
+      const isEqual = JSON.stringify(objA) === JSON.stringify(objB);
+      if (isEqual) {
+        const redacted = isValueRedacted(objA);
+        entries.push({
+          path: currentPath,
+          kind: "unchanged",
+          old_value: objA,
+          new_value: objB,
+          is_redacted: redacted,
+        });
+        summary.unchanged_count++;
+        if (redacted) summary.redacted_count++;
+      } else {
+        const redacted = isValueRedacted(objA) || isValueRedacted(objB);
+        entries.push({
+          path: currentPath,
+          kind: "modified",
+          old_value: objA,
+          new_value: objB,
+          is_redacted: redacted,
+        });
+        summary.modified_count++;
+        if (redacted) summary.redacted_count++;
+      }
+    }
+  }
+
+  diffRecursive(a, b, "");
+  summary.total_changes =
+    summary.added_count + summary.modified_count + summary.removed_count;
+
+  return {
+    summary,
+    entries,
+    hash_a: hashA,
+    hash_b: hashB,
+    span_id_a: spanIdA,
+    span_id_b: spanIdB,
+  };
+}
+

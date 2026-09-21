@@ -45,7 +45,7 @@ class StorageAdapter(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def get_snapshot(self, span_id: str) -> Optional[StateSnapshot]:
+    async def get_snapshot(self, span_id: str, project_id: Optional[str] = None) -> Optional[StateSnapshot]:
         """Retrieve state snapshot associated with a span."""
         pass
 
@@ -568,11 +568,16 @@ class SQLiteStorageAdapter(StorageAdapter):
                 snapshot.created_at.isoformat()
             ))
 
-    async def get_snapshot(self, span_id: str) -> Optional[StateSnapshot]:
+    async def get_snapshot(self, span_id: str, project_id: Optional[str] = None) -> Optional[StateSnapshot]:
         conn = self._get_connection()
-        cursor = conn.execute("""
-            SELECT * FROM snapshots WHERE span_id = ?
-        """, (span_id,))
+        if project_id is not None:
+            cursor = conn.execute("""
+                SELECT * FROM snapshots WHERE span_id = ? AND project_id = ?
+            """, (span_id, project_id))
+        else:
+            cursor = conn.execute("""
+                SELECT * FROM snapshots WHERE span_id = ?
+            """, (span_id,))
         row = cursor.fetchone()
         if not row:
             return None

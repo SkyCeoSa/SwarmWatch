@@ -2,7 +2,14 @@
 TDD Tests for Ticket 05: Safe State Serializer & Time-Machine Branching
 """
 import pytest
-from swarmwatch.serializer import SafeStateSerializer, TimeMachine
+from swarmwatch.serializer import (
+    SafeStateSerializer,
+    TimeMachine,
+    compute_state_diff,
+    DiffEntry,
+    DiffSummary,
+    StateDiffReport,
+)
 from swarmwatch.storage import SQLiteStorageAdapter
 from swarmwatch.schema import SwarmSpan, StateSnapshot
 import swarmwatch
@@ -144,3 +151,131 @@ def test_swarmwatch_sync_state_integration(tmp_path):
 
     swarmwatch.flush()
     swarmwatch.shutdown()
+
+
+def test_compute_state_diff_empty_and_identical():
+    # Empty states
+    report = compute_state_diff({}, {})
+    assert isinstance(report, StateDiffReport)
+    assert report.entries == []
+    assert report.summary.total_changes == 0
+    assert report.summary.unchanged == 0
+
+    # Identical non-empty states
+    state = {"role": "agent", "budget": 100, "meta": {"retries": 3}}
+    report2 = compute_state_diff(state, state)
+    assert report2.summary.total_changes == 0
+    assert report2.summary.unchanged == 3
+    assert report2.summary.added == 0
+    assert report2.summary.modified == 0
+    assert report2.summary.removed == 0
+
+
+def test_compute_state_diff_mutations_and_summary():
+    state_a = {
+        "status": "pending",
+        "counter": 1,
+        "config": {"model": "gemini", "max_tokens": 1000},
+        "deprecated_key": "legacy_val",
+        "same": 42,
+    }
+    state_b = {
+        "status": "active",
+        "counter": 2,
+        "config": {"model": "gemini-pro", "max_tokens": 1000},
+        "new_key": "fresh_val",
+        "same": 42,
+    }
+
+    report = compute_state_diff(state_a, state_b, span_id_a="span-01", span_id_b="span-02")
+    assert report.span_id_a == "span-01"
+    assert report.span_id_b == "span-02"
+
+    entries_by_path = {e.path: e for e in report.entries}
+    assert "new_key" in entries_by_path
+    assert entries_by_path["new_key"].kind == "added"
+    assert entries_by_path["new_key"].new_value == "fresh_val"
+
+    assert "deprecated_key" in entries_by_path
+    assert entries_by_path["deprecated_key"].kind == "removed"
+    assert entries_by_path["deprecated_key"].old_value == "legacy_val"
+
+    assert "status" in entries_by_path
+    assert entries_by_path["status"].kind == "modified"
+    assert entries_by_path["status"].old_value == "pending"
+    assert entries_by_path["status"].new_value == "active"
+
+    assert "config.model" in entries_by_path
+    assert entries_by_path["config.model"].kind == "modified"
+
+    assert "config.max_tokens" in entries_by_path
+    assert entries_by_path["config.max_tokens"].kind == "unchanged"
+
+    assert "same" in entries_by_path
+    assert entries_by_path["same"].kind == "unchanged"
+
+    # Verify Summary counts
+    assert report.summary.added == 1
+    assert report.summary.removed == 1
+    assert report.summary.modified == 3  # status, counter, config.model
+    assert report.summary.unchanged == 2  # config.max_tokens, same
+    assert report.summary.total_changes == 5
+
+
+def test_compute_state_diff_secret_redaction_detection():
+    state_a = {
+        "api_key": "[REDACTED]",
+        "db_secret": "[REDACTED]",
+        "version": 1,
+    }
+    state_b = {
+        "api_key": "[REDACTED]",
+        "db_secret": "[REDACTED]",
+        "version": 2,
+    }
+
+    report = compute_state_diff(state_a, state_b)
+    assert report.summary.redacted_properties == 2
+
+    entries_by_path = {e.path: e for e in report.entries}
+    assert entries_by_path["api_key"].is_redacted is True
+    assert entries_by_path["api_key"].kind == "unchanged"
+    assert entries_by_path["db_secret"].is_redacted is True
+    assert entries_by_path["version"].is_redacted is False
+    assert entries_by_path["version"].kind == "modified"
+
+
+@pytest.mark.asyncio
+async def test_time_machine_diff_snapshots_integration(tmp_path):
+    db_file = str(tmp_path / "tm_diff.db")
+    storage = SQLiteStorageAdapter(db_path=db_file)
+    await storage.initialize()
+
+    tm = TimeMachine(storage=storage)
+
+    snap1 = await tm.snapshot(
+        span_id="span-tm-diff-1",
+        state_data={"stage": "analysis", "confidence": 0.5, "secret": "sk-proj-supersecret1234567890"},
+        branch_id="main",
+    )
+    snap2 = await tm.snapshot(
+        span_id="span-tm-diff-2",
+        state_data={"stage": "execution", "confidence": 0.95, "secret": "sk-proj-supersecret1234567890", "added_flag": True},
+        branch_id="main",
+    )
+
+    diff_report = await tm.diff_snapshots(
+        swarm_id="swarm-diff",
+        span_id_a="span-tm-diff-1",
+        span_id_b="span-tm-diff-2",
+    )
+
+    assert diff_report.hash_a == snap1.state_hash
+    assert diff_report.hash_b == snap2.state_hash
+    assert diff_report.summary.added == 1
+    assert diff_report.summary.modified == 2  # stage, confidence
+    assert diff_report.summary.redacted_properties == 1  # secret is sanitized to [REDACTED]
+    assert diff_report.summary.total_changes == 3
+
+    await storage.close()
+

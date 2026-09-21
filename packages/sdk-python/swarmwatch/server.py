@@ -2640,6 +2640,35 @@ def create_app(
             return {"error": "snapshot_not_found"}
         return snapshot
 
+    @app.get("/api/v1/swarms/{swarm_id}/snapshots/diff")
+    async def get_snapshots_diff(
+        swarm_id: str,
+        base_span_id: Optional[str] = Query(default=None),
+        target_span_id: Optional[str] = Query(default=None),
+        from_span_id: Optional[str] = Query(default=None),
+        to_span_id: Optional[str] = Query(default=None),
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        """
+        Computes the deterministic differential between two state snapshots in a swarm.
+        Accepts base_span_id (or from_span_id) and target_span_id (or to_span_id).
+        """
+        b_id = base_span_id or from_span_id
+        t_id = target_span_id or to_span_id
+        if not b_id or not t_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Both base_span_id (or from_span_id) and target_span_id (or to_span_id) are required."
+            )
+
+        diff_report = await time_machine.diff_snapshots(
+            swarm_id=swarm_id,
+            span_id_a=b_id,
+            span_id_b=t_id,
+            project_id=tenant.project_id
+        )
+        return diff_report.to_dict()
+
     @app.post("/api/v1/simulate")
     async def simulate_swarm(
         swarm_id: str = Query(default="swarm-live-01"),

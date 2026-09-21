@@ -5,6 +5,7 @@ Handles non-serializable objects, circular references, regex-based secret redact
 and Git-like DAG execution branching.
 """
 
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -225,3 +226,232 @@ class TimeMachine:
         if hasattr(self.storage, "list_branches"):
             return await self.storage.list_branches(swarm_id=swarm_id, project_id=project_id)
         return ["main"]
+
+    async def diff_snapshots(
+        self,
+        swarm_id: str,
+        span_id_a: str,
+        span_id_b: str,
+        project_id: Optional[str] = None,
+    ) -> "StateDiffReport":
+        """
+        Retrieves two state snapshots by span_id and computes their deterministic differential.
+        """
+        try:
+            snap_a = await self.storage.get_snapshot(span_id_a, project_id=project_id)
+        except TypeError:
+            snap_a = await self.storage.get_snapshot(span_id_a)
+
+        try:
+            snap_b = await self.storage.get_snapshot(span_id_b, project_id=project_id)
+        except TypeError:
+            snap_b = await self.storage.get_snapshot(span_id_b)
+
+        data_a = snap_a.state_data if snap_a else {}
+        data_b = snap_b.state_data if snap_b else {}
+        hash_a = snap_a.state_hash if snap_a else None
+        hash_b = snap_b.state_hash if snap_b else None
+
+        return compute_state_diff(
+            data_a,
+            data_b,
+            hash_a=hash_a,
+            hash_b=hash_b,
+            span_id_a=span_id_a,
+            span_id_b=span_id_b,
+        )
+
+
+@dataclass
+class DiffEntry:
+    """
+    Atomic property-level delta record in a state snapshot comparison.
+    """
+    path: str
+    kind: str  # "added" | "modified" | "removed" | "unchanged"
+    old_value: Any = None
+    new_value: Any = None
+    is_redacted: bool = False
+
+
+@dataclass
+class DiffSummary:
+    """
+    Aggregated mutation counts across state snapshots.
+    """
+    added_count: int = 0
+    modified_count: int = 0
+    removed_count: int = 0
+    unchanged_count: int = 0
+    redacted_count: int = 0
+
+    @property
+    def total_changes(self) -> int:
+        return self.added_count + self.modified_count + self.removed_count
+
+    @property
+    def added(self) -> int:
+        return self.added_count
+
+    @property
+    def modified(self) -> int:
+        return self.modified_count
+
+    @property
+    def removed(self) -> int:
+        return self.removed_count
+
+    @property
+    def unchanged(self) -> int:
+        return self.unchanged_count
+
+    @property
+    def redacted_properties(self) -> int:
+        return self.redacted_count
+
+
+@dataclass
+class StateDiffReport:
+    """
+    Structured, deterministic comparison between two agent state snapshots.
+    """
+    summary: DiffSummary
+    entries: List[DiffEntry] = field(default_factory=list)
+    hash_a: Optional[str] = None
+    hash_b: Optional[str] = None
+    span_id_a: Optional[str] = None
+    span_id_b: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "summary": {
+                "added_count": self.summary.added_count,
+                "modified_count": self.summary.modified_count,
+                "removed_count": self.summary.removed_count,
+                "unchanged_count": self.summary.unchanged_count,
+                "redacted_count": self.summary.redacted_count,
+                "total_changes": self.summary.total_changes,
+            },
+            "entries": [
+                {
+                    "path": e.path,
+                    "kind": e.kind,
+                    "old_value": e.old_value,
+                    "new_value": e.new_value,
+                    "is_redacted": e.is_redacted,
+                }
+                for e in self.entries
+            ],
+            "hash_a": self.hash_a,
+            "hash_b": self.hash_b,
+            "span_id_a": self.span_id_a,
+            "span_id_b": self.span_id_b,
+        }
+
+
+def _is_value_redacted(val: Any) -> bool:
+    """Checks whether a value or any nested element contains redaction markers."""
+    if isinstance(val, str):
+        return "[REDACTED" in val or val == "[REDACTED]"
+    if isinstance(val, dict):
+        return any(_is_value_redacted(v) for v in val.values())
+    if isinstance(val, (list, tuple, set)):
+        return any(_is_value_redacted(item) for item in val)
+    return False
+
+
+def compute_state_diff(
+    state_a: Optional[Dict[str, Any]],
+    state_b: Optional[Dict[str, Any]],
+    hash_a: Optional[str] = None,
+    hash_b: Optional[str] = None,
+    span_id_a: Optional[str] = None,
+    span_id_b: Optional[str] = None,
+) -> StateDiffReport:
+    """
+    Recursively and deterministically computes the differential between two state snapshots.
+    Identifies added, modified, removed, and unchanged fields, and flags redacted sensitive values.
+    """
+    a = state_a if isinstance(state_a, dict) else {}
+    b = state_b if isinstance(state_b, dict) else {}
+
+    entries: List[DiffEntry] = []
+    summary = DiffSummary()
+
+    def _diff_recursive(obj_a: Any, obj_b: Any, current_path: str):
+        if isinstance(obj_a, dict) and isinstance(obj_b, dict):
+            all_keys = sorted(set(obj_a.keys()) | set(obj_b.keys()))
+            for k in all_keys:
+                key_path = f"{current_path}.{k}" if current_path else str(k)
+                if k not in obj_a:
+                    val = obj_b[k]
+                    redacted = _is_value_redacted(val)
+                    entries.append(
+                        DiffEntry(
+                            path=key_path,
+                            kind="added",
+                            old_value=None,
+                            new_value=val,
+                            is_redacted=redacted,
+                        )
+                    )
+                    summary.added_count += 1
+                    if redacted:
+                        summary.redacted_count += 1
+                elif k not in obj_b:
+                    val = obj_a[k]
+                    redacted = _is_value_redacted(val)
+                    entries.append(
+                        DiffEntry(
+                            path=key_path,
+                            kind="removed",
+                            old_value=val,
+                            new_value=None,
+                            is_redacted=redacted,
+                        )
+                    )
+                    summary.removed_count += 1
+                    if redacted:
+                        summary.redacted_count += 1
+                else:
+                    _diff_recursive(obj_a[k], obj_b[k], key_path)
+        elif obj_a == obj_b:
+            redacted = _is_value_redacted(obj_a)
+            entries.append(
+                DiffEntry(
+                    path=current_path,
+                    kind="unchanged",
+                    old_value=obj_a,
+                    new_value=obj_b,
+                    is_redacted=redacted,
+                )
+            )
+            summary.unchanged_count += 1
+            if redacted:
+                summary.redacted_count += 1
+        else:
+            redacted = _is_value_redacted(obj_a) or _is_value_redacted(obj_b)
+            entries.append(
+                DiffEntry(
+                    path=current_path,
+                    kind="modified",
+                    old_value=obj_a,
+                    new_value=obj_b,
+                    is_redacted=redacted,
+                )
+            )
+            summary.modified_count += 1
+            if redacted:
+                summary.redacted_count += 1
+
+    _diff_recursive(a, b, "")
+
+    return StateDiffReport(
+        summary=summary,
+        entries=entries,
+        hash_a=hash_a,
+        hash_b=hash_b,
+        span_id_a=span_id_a,
+        span_id_b=span_id_b,
+    )
+

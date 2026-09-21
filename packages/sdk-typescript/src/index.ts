@@ -65,9 +65,14 @@ export {
   isApiKeyActive,
 } from "./tenant.ts";
 
-// Time-Machine & State Branching Coordinator (Seam 14 / ADR 0025)
-export type { ForkBranchResult } from "./timemachine.ts";
-export { TimeMachine } from "./timemachine.ts";
+// Time-Machine & State Branching Coordinator (Seam 14 / ADR 0025 & Seam 16 / ADR 0027)
+export type {
+  ForkBranchResult,
+  DiffEntry,
+  DiffSummary,
+  StateDiffReport,
+} from "./timemachine.ts";
+export { TimeMachine, computeStateDiff } from "./timemachine.ts";
 
 // Live Fork Resumption Runner (Seam 15 / ADR 0026)
 export type {
@@ -93,6 +98,7 @@ export {
   forkBranch,
   listBranches,
   listSnapshots,
+  diffSnapshots,
   resumeFromFork,
   evaluateOutput,
   flush,
