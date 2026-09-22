@@ -348,3 +348,32 @@ _Avoid_: Screen buffer, console renderer, terminal output string
 The operational workflow enabling developers and SREs to monitor, diagnose, and inspect active swarms and circuit halts inside terminal shells without a web browser.
 _Avoid_: CLI debugging, terminal checking, log tailing
 
+---
+
+### Distributed Redis Circuit Breaker & Fleet State Synchronization
+
+**RedisCircuitCoordinator**:
+The deep module coordinating distributed swarm sessions across multiple worker processes, container pods, and Kubernetes replicas using Redis as the high-throughput synchronization backbone.
+_Avoid_: Distributed lock manager, cache controller, redis cluster boss
+
+**RedisFleetBackend**:
+The storage and messaging abstraction managing Redis key formatting, atomic quota evaluation, and pub/sub transport.
+_Avoid_: Redis adapter, db connector, redis wrapper
+
+**RedisTripBroadcast**:
+The real-time event payload dispatched over Redis Pub/Sub channels when a worker halts a swarm session, achieving sub-millisecond fleet-wide intervention.
+_Avoid_: Halt message, redis pubsub alert, kill ping
+
+**RedisQuotaLedger**:
+The atomic hash data structure in Redis storing cumulative turns, tokens, costs, and trip status per swarm session.
+_Avoid_: Redis budget hash, quota table, cache counter
+
+**RESPRedisClient**:
+The pure Python standard library socket implementation of the Redis Serialization Protocol (RESP2) providing zero-external-dependency communication with Redis.
+_Avoid_: Socket script, redis connector, mini client
+
+**MockRedisClient**:
+The thread-safe in-memory Redis client supporting hash operations, atomic increments, and pub/sub dispatch for offline and local testing.
+_Avoid_: Fake redis, test cache, memory db
+
+

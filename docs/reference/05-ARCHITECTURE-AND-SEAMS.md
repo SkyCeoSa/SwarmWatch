@@ -121,5 +121,10 @@ This document details the architectural topology, defined seams, and runtime dat
 21. **Live Terminal User Interface (TUI) & Headless Cluster Observability Console Seam (ADR 0032)**:
     - Primitives: `TerminalMonitor` (`tui.py`), `AnsiFrameBuffer`, `SwarmSummaryView`, `SpanStreamView`, `CircuitStatusView`, CLI `swarmwatch top`.
     - Invariant: Pure standard library implementation with zero third-party terminal dependencies; dual data sourcing via HTTP REST or local SQLite storage fallback; dual operational modes (interactive alternate screen buffer vs snapshot `--once` mode); sub-second refresh latency; Impeccable monospace console aesthetics (#080B11 canvas, tabular numerals, zero emojis); zero external LLM tokens.
+22. **Distributed Redis Circuit Breaker & Fleet State Synchronization Seam (ADR 0033 Dual-SDK Parity)**:
+    - Primitives (Python): `RedisCircuitCoordinator` (`redis_circuit.py`), `RedisFleetBackend`, `RESPRedisClient`, `MockRedisClient`, REST endpoints `GET /api/v1/fleet/redis/metrics`, `POST /api/v1/fleet/redis/trip`, `POST /api/v1/fleet/redis/reset`, CLI `swarmwatch fleet`.
+    - Primitives (TypeScript): `RedisCircuitCoordinator` (`redis_circuit.ts`), `RedisFleetBackend`, `MockRedisClient`, `RedisClientInterface`.
+    - Invariant: Ultra-low-latency distributed coordination backbone; atomic quota ledgers (`HINCRBY`, `HINCRBYFLOAT`) preventing multi-worker race conditions; sub-millisecond ($<1\text{ms}$) trip broadcast propagation over Redis Pub/Sub; pure standard library RESP2 client eliminating mandatory third-party pip dependencies; full parity across Python and TypeScript SDKs; 100% deterministic zero-token guarantee.
+
 
 

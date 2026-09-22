@@ -2268,6 +2268,7 @@ def create_app(
     storage: Optional[StorageAdapter] = None,
     policy_engine: Optional[PolicyEngine] = None,
     webhook_notifier: Optional[WebhookNotifier] = None,
+    redis_coordinator: Optional[Any] = None,
 ) -> FastAPI:
     """FastAPI application factory for SwarmWatch ingestion server."""
     app = FastAPI(title="SwarmWatch Server", version="0.1.0")
@@ -2278,6 +2279,8 @@ def create_app(
     active_policy_engine = policy_engine or PolicyEngine()
     active_webhook_notifier = webhook_notifier or WebhookNotifier()
     api_key_manager = ApiKeyManager()
+    from swarmwatch.redis_circuit import RedisCircuitCoordinator
+    active_redis_coordinator = redis_coordinator or RedisCircuitCoordinator()
 
     async def get_tenant_context(
         authorization: Optional[str] = Header(default=None),
@@ -2560,6 +2563,52 @@ def create_app(
     ):
         """Lists active swarms with turn counts, last activity, and circuit trip status."""
         return await active_storage.list_swarms(project_id=tenant.project_id, limit=limit)
+
+    @app.get("/api/v1/fleet/redis/metrics")
+    async def get_redis_fleet_metrics_endpoint(
+        swarm_id: str = Query(default="swarm-live-01"),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Returns distributed Redis fleet metrics (tokens, turns, cost, active workers, trip status)."""
+        metrics = active_redis_coordinator.get_metrics(swarm_id)
+        if not metrics:
+            return {
+                "swarm_id": swarm_id,
+                "total_tokens": 0,
+                "total_turns": 0,
+                "total_cost": 0.0,
+                "active_workers": [],
+                "is_tripped": False,
+            }
+        return metrics.model_dump(mode="json")
+
+    @app.post("/api/v1/fleet/redis/trip")
+    async def trip_redis_fleet_endpoint(
+        payload: Dict[str, Any],
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Remotely trips the distributed Redis circuit breaker across all cluster nodes."""
+        swarm_id = payload.get("swarm_id", "swarm-live-01")
+        reason = payload.get("reason", "Operator manual trip via control plane")
+        tripped_by = payload.get("tripped_by", "control-plane")
+        metric_val = float(payload.get("metric_val", 1.0))
+        active_redis_coordinator.trip(swarm_id=swarm_id, reason=reason, tripped_by=tripped_by, metric_val=metric_val)
+        return {
+            "status": "tripped",
+            "swarm_id": swarm_id,
+            "reason": reason,
+            "tripped_by": tripped_by,
+        }
+
+    @app.post("/api/v1/fleet/redis/reset")
+    async def reset_redis_fleet_endpoint(
+        payload: Dict[str, Any],
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Resets distributed Redis fleet metrics for a swarm session."""
+        swarm_id = payload.get("swarm_id", "swarm-live-01")
+        active_redis_coordinator.reset_swarm(swarm_id)
+        return {"status": "reset", "swarm_id": swarm_id}
 
     @app.get("/api/v1/swarms/{swarm_id}/spans")
     async def get_spans(

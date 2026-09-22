@@ -14,7 +14,7 @@ from swarmwatch.server import create_app
 from swarmwatch.storage import SQLiteStorageAdapter
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="swarmwatch",
         description="SwarmWatch: Multi-Agent Observability, Entropy Circuit Breaker & Time-Machine"
@@ -65,7 +65,16 @@ def main():
     top_parser.add_argument("--no-color", action="store_true", help="Disable ANSI color escape sequences")
     top_parser.add_argument("--once", action="store_true", help="Single-frame snapshot mode (print once and exit, ideal for scripts/cron)")
 
-    args = parser.parse_args()
+    # `swarmwatch fleet` subcommand (Seam 22 / ADR 0033)
+    fleet_parser = subparsers.add_parser("fleet", help="Inspect and control distributed Redis fleet circuit breaker state")
+    fleet_parser.add_argument("action", choices=["status", "trip", "reset"], help="Fleet action to execute (status, trip, reset)")
+    fleet_parser.add_argument("--swarm-id", "-s", required=True, help="Target swarm session ID")
+    fleet_parser.add_argument("--redis-url", default=os.getenv("SWARMWATCH_REDIS_URL", "redis://127.0.0.1:6379/0"), help="Redis server URL (default: redis://127.0.0.1:6379/0)")
+    fleet_parser.add_argument("--reason", default="Manual trip via CLI", help="Trip reason when action is 'trip'")
+    fleet_parser.add_argument("--tripped-by", default="cli-operator", help="Identifier of tripping operator or worker")
+    fleet_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
+    args = parser.parse_args(argv)
 
     if args.subcommand == "ui":
         url = f"http://{args.host}:{args.port}"
@@ -190,6 +199,49 @@ def main():
             monitor.run_once()
         else:
             monitor.run()
+        sys.exit(0)
+    elif args.subcommand == "fleet":
+        import json
+        from swarmwatch.redis_circuit import RedisCircuitCoordinator
+
+        coord = RedisCircuitCoordinator(redis_url=args.redis_url)
+        try:
+            if args.action == "status":
+                metrics = coord.get_metrics(args.swarm_id)
+                if not metrics:
+                    res = {"swarm_id": args.swarm_id, "status": "not_found", "total_tokens": 0, "total_turns": 0, "total_cost": 0.0, "is_tripped": False}
+                else:
+                    res = metrics.model_dump(mode="json")
+                if args.format == "json":
+                    print(json.dumps(res, indent=2))
+                else:
+                    status_str = "\033[91mTRIPPED\033[0m" if res.get("is_tripped") else "\033[92mACTIVE\033[0m"
+                    print("\n+--------------------------------------------------------------+")
+                    print(f"| SWARMWATCH DISTRIBUTED FLEET STATUS: {args.swarm_id: <23} |")
+                    print("+--------------------------------------------------------------+")
+                    print(f"| Circuit Status:  {status_str: <43} |")
+                    print(f"| Total Turns:     {res.get('total_turns', 0): <43} |")
+                    print(f"| Total Tokens:    {res.get('total_tokens', 0): <43} |")
+                    print(f"| Total Cost:      ${res.get('total_cost', 0.0): <42.4f} |")
+                    active_w = len(res.get("active_workers", []))
+                    print(f"| Active Workers:  {active_w: <43} |")
+                    if res.get("is_tripped"):
+                        print(f"| Trip Reason:     {str(res.get('trip_reason', 'N/A'))[:43]: <43} |")
+                    print("+--------------------------------------------------------------+\n")
+            elif args.action == "trip":
+                coord.trip(swarm_id=args.swarm_id, reason=args.reason, tripped_by=args.tripped_by)
+                if args.format == "json":
+                    print(json.dumps({"status": "tripped", "swarm_id": args.swarm_id, "reason": args.reason, "tripped_by": args.tripped_by}, indent=2))
+                else:
+                    print(f"\033[91m[SwarmWatch] Circuit tripped across Redis fleet for '{args.swarm_id}': {args.reason}\033[0m")
+            elif args.action == "reset":
+                coord.reset_swarm(args.swarm_id)
+                if args.format == "json":
+                    print(json.dumps({"status": "reset", "swarm_id": args.swarm_id}, indent=2))
+                else:
+                    print(f"\033[92m[SwarmWatch] Fleet state reset in Redis for '{args.swarm_id}'.\033[0m")
+        finally:
+            coord.close()
         sys.exit(0)
     else:
         parser.print_help()

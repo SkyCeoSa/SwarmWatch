@@ -125,10 +125,23 @@ from swarmwatch.profiler import (
     BenchmarkMemoryStats,
 )
 from swarmwatch.tui import TerminalMonitor, AnsiColor
+from swarmwatch.redis_circuit import (
+    RedisCircuitCoordinator,
+    RedisFleetBackend,
+    RESPRedisClient,
+    MockRedisClient,
+    RedisTripBroadcast,
+)
 
 
 __all__ = [
+    "RedisCircuitCoordinator",
+    "RedisFleetBackend",
+    "RESPRedisClient",
+    "MockRedisClient",
+    "RedisTripBroadcast",
     "TerminalMonitor",
+
     "AnsiColor",
     "TelemetryProfiler",
     "IngestionBenchmarkConfig",

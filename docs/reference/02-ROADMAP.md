@@ -210,8 +210,16 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - High-visibility circuit breaker halt indicators, counterfactual ROI savings summaries, and live causal call chain projections.
   - Extended core storage abstraction with `list_swarms` across SQLite and ClickHouse adapters, and exposed control plane REST endpoint `GET /api/v1/swarms`.
   - Comprehensive automated test suite `packages/sdk-python/tests/test_tui_terminal_monitor.py` (11 tests) verifying ANSI buffer formatting, responsiveness, mock server and SQLite fallback modes.
+- **Distributed Redis Circuit Breaker & Fleet State Synchronization (Seam 22 & ADR 0033 Dual-SDK Parity)**:
+  - Deep module `RedisCircuitCoordinator` coordinating distributed swarm sessions across multiple worker processes, container pods, and Kubernetes replicas using Redis as the high-throughput synchronization backbone.
+  - Atomic Redis quota ledgers (`HINCRBY`, `HINCRBYFLOAT`) tracking cumulative tokens, turns, and dollar costs across distributed workers with zero race conditions.
+  - Sub-millisecond ($<1\text{ms}$) trip broadcasting via Redis Pub/Sub channels (`swarmwatch:fleet:{swarm_id}:trips`), ensuring immediate halts across all cluster nodes upon loop detection or budget quota breach.
+  - Pure standard library socket client `RESPRedisClient` implementing the RESP2 protocol without requiring external third-party pip dependencies, with automatic adapter for official `redis-py` if installed, and thread-safe `MockRedisClient` for deterministic offline testing.
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) implementing `RedisCircuitCoordinator`, `RedisFleetBackend`, and `MockRedisClient` for Node.js / Bun agent clusters.
+  - Control plane REST endpoints (`GET /api/v1/fleet/redis/metrics`, `POST /api/v1/fleet/redis/trip`, `POST /api/v1/fleet/redis/reset`) and CLI subcommand (`swarmwatch fleet status|trip|reset`).
 - **Complete Test Coverage**:
-  - **296 automated tests passing 100% locally** across Python (180 tests) and TypeScript (116 tests).
+  - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 

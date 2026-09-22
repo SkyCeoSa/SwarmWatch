@@ -167,4 +167,18 @@ export {
   TelemetryProfiler,
 } from "./profiler.ts";
 
+// Distributed Redis Circuit Breaker & Fleet State Synchronization (Seam 22 / ADR 0033)
+export type {
+  RedisTripBroadcast,
+  FleetMetrics,
+  FleetEvent,
+  RedisClientInterface,
+} from "./redis_circuit.ts";
+export {
+  MockRedisClient,
+  RedisFleetBackend,
+  RedisCircuitCoordinator,
+} from "./redis_circuit.ts";
+
+
 
