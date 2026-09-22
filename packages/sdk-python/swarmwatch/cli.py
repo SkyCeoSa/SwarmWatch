@@ -42,6 +42,17 @@ def main():
     alerts_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
     alerts_parser.add_argument("--output", "-o", default=None, help="Optional output file path")
 
+    # `swarmwatch benchmark` subcommand (Seam 19 / ADR 0030)
+    bench_parser = subparsers.add_parser("benchmark", help="Execute high-frequency telemetry ingestion micro-benchmark & flamegraph profile")
+    bench_parser.add_argument("--spans", type=int, default=10000, help="Number of telemetry spans to generate and ingest (default: 10000)")
+    bench_parser.add_argument("--concurrency", type=int, default=4, help="Number of concurrent worker threads (default: 4)")
+    bench_parser.add_argument("--batch-size", type=int, default=100, help="Internal transport batch size (default: 100)")
+    bench_parser.add_argument("--payload", choices=["light", "medium", "heavy"], default="medium", help="Payload complexity (default: medium)")
+    bench_parser.add_argument("--flamegraph", action="store_true", help="Generate collapsed stack flamegraph trace")
+    bench_parser.add_argument("--flamegraph-out", default=None, help="Output path for flamegraph .txt file")
+    bench_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+    bench_parser.add_argument("--output", "-o", default=None, help="Optional output file path for benchmark report")
+
     args = parser.parse_args()
 
     if args.subcommand == "ui":
@@ -101,6 +112,40 @@ def main():
             print(output_text)
 
         sys.exit(0 if report.all_passed else 1)
+    elif args.subcommand == "benchmark":
+        import json
+        from swarmwatch.profiler import TelemetryProfiler, IngestionBenchmarkConfig
+
+        config = IngestionBenchmarkConfig(
+            total_spans=args.spans,
+            concurrency=args.concurrency,
+            batch_size=args.batch_size,
+            payload_complexity=args.payload,
+            generate_flamegraph=args.flamegraph or bool(args.flamegraph_out),
+            track_memory=True,
+        )
+
+        profiler = TelemetryProfiler()
+        report = profiler.run(config)
+
+        if args.flamegraph_out and report.collapsed_stack:
+            with open(args.flamegraph_out, "w", encoding="utf-8") as f:
+                f.write(report.collapsed_stack)
+            print(f"[SwarmWatch] Flamegraph collapsed stack written to {args.flamegraph_out}")
+
+        if args.format == "json":
+            output_text = json.dumps(report.to_dict(), indent=2)
+        else:
+            output_text = report.to_terminal_table()
+
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(output_text)
+            print(f"[SwarmWatch] Ingestion benchmark report written to {args.output}")
+        else:
+            print(output_text)
+
+        sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

@@ -117,11 +117,21 @@ from swarmwatch.synthetic_alert import (
     RouteSimulationResult,
     ReceivedAlertEvent,
 )
-
-
+from swarmwatch.profiler import (
+    TelemetryProfiler,
+    IngestionBenchmarkConfig,
+    IngestionBenchmarkReport,
+    LatencyPercentiles,
+    BenchmarkMemoryStats,
+)
 
 
 __all__ = [
+    "TelemetryProfiler",
+    "IngestionBenchmarkConfig",
+    "IngestionBenchmarkReport",
+    "LatencyPercentiles",
+    "BenchmarkMemoryStats",
     "SwarmSpan",
     "StateSnapshot",
     "CircuitEvent",

@@ -227,9 +227,15 @@ class TelemetryTransport:
         """
         Gracefully flushes remaining telemetry and shuts down worker thread.
         """
+        if self._atexit_registered:
+            try:
+                atexit.unregister(self.shutdown)
+            except Exception:
+                pass
+            self._atexit_registered = False
+
         with self._lock:
             if not self._is_started:
-                self.flush()
                 return
             self._is_started = False
 

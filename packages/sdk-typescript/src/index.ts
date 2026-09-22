@@ -156,4 +156,15 @@ export {
   defaultHttpSender,
 } from "./webhooks.ts";
 
+// High-Frequency Ingestion Micro-Benchmark & Flamegraph Profile Suite (Seam 19 / ADR 0030)
+export type {
+  LatencyPercentiles,
+  BenchmarkMemoryStats,
+  IngestionBenchmarkConfig,
+} from "./profiler.ts";
+export {
+  IngestionBenchmarkReport,
+  TelemetryProfiler,
+} from "./profiler.ts";
+
 

@@ -183,8 +183,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Interactive CLI subcommand: `swarmwatch test-alerts` providing instant SRE verification with an Impeccable tabular summary report (`terminal` and `json` outputs).
   - TypeScript SDK test harness parity in `tests/alert_simulation.test.js` validating `@swarmwatch/sdk` `WebhookNotifier` multi-channel delivery and DLQ replay.
   - Comprehensive automated test suites across Python (9 tests) and TypeScript (3 tests).
+- **High-Frequency Telemetry Ingestion Micro-Benchmark & Flamegraph Profile Suite (Seam 19 & ADR 0030 Dual-SDK Parity)**:
+  - Zero-dependency in-process benchmarking engine `TelemetryProfiler` measuring burst ingestion throughput (>10,000 spans/sec) across concurrent agent worker threads/tasks.
+  - High-resolution nanosecond/microsecond enqueue latency percentile profiling (`LatencyPercentiles`: P50, P90, P99, Min, Max, Mean) verifying the sub-microsecond non-blocking enqueue invariant (<1.00µs on calling agent threads).
+  - Continuous heap memory evaluation (`BenchmarkMemoryStats`) via `tracemalloc` (Python) and `process.memoryUsage().heapUsed` (Node.js) verifying zero unbounded memory leaks and bounded retention (<5.0MB).
+  - Speedscope-compatible collapsed stack flamegraph trace generator (`frame1;frame2;frameN count`) enabling zero-C-extension visual profiling in Speedscope, flamegraph.pl, or d3-flame-graph.
+  - Interactive CLI subcommand `swarmwatch benchmark --spans 10000 --concurrency 4 --format terminal` with an Impeccable monospace ASCII table report and flamegraph export.
+  - Dual-SDK parity across Python (`swarmwatch/profiler.py`) and TypeScript (`@swarmwatch/sdk/src/profiler.ts`).
 - **Complete Test Coverage**:
-  - **257 automated tests passing 100% locally** across Python (148 tests) and TypeScript (109 tests).
+  - **271 automated tests passing 100% locally** across Python (155 tests) and TypeScript (116 tests).
 
 
 

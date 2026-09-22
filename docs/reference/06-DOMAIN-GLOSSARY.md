@@ -293,5 +293,22 @@ _Avoid_: Chaos network test, simulated downtime
 **RouteSimulationReport**:
 A structured summary of delivery latencies, schema validity, retry counts, and dead-letter replay status across all tested alert routes.
 _Avoid_: Webhook result, test output
+---
 
+### High-Frequency Telemetry Ingestion Micro-Benchmark & Flamegraph Profile Suite
 
+**TelemetryProfiler**:
+An in-process, zero-dependency benchmarking and memory profiling engine measuring span ingestion throughput, microsecond enqueue latency distributions, and heap retention under concurrency.
+_Avoid_: Benchmark script, load tester, speed test
+
+**IngestionBenchmarkReport**:
+The diagnostic evaluation output containing throughput (spans/sec), latency percentiles (P50, P90, P99), RSS memory deltas, and zero memory leak verification.
+_Avoid_: Benchmark log, test metrics, profile dump
+
+**LatencyPercentiles**:
+The granular distribution breakdown (P50, P90, P99, Min, Max, Mean) of non-blocking span submission durations measured in microseconds ($\mu s$).
+_Avoid_: Timers, speed stats, delay metrics
+
+**CollapsedStackFlamegraph**:
+A text-based trace representation formatting internal method call stacks and execution counts into `frame1;frame2 count` syntax compatible with standard flamegraph viewers.
+_Avoid_: Profile graph, flame chart, stack trace dump
