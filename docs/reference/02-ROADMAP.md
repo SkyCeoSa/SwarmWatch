@@ -217,8 +217,17 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Pure standard library socket client `RESPRedisClient` implementing the RESP2 protocol without requiring external third-party pip dependencies, with automatic adapter for official `redis-py` if installed, and thread-safe `MockRedisClient` for deterministic offline testing.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) implementing `RedisCircuitCoordinator`, `RedisFleetBackend`, and `MockRedisClient` for Node.js / Bun agent clusters.
   - Control plane REST endpoints (`GET /api/v1/fleet/redis/metrics`, `POST /api/v1/fleet/redis/trip`, `POST /api/v1/fleet/redis/reset`) and CLI subcommand (`swarmwatch fleet status|trip|reset`).
+- **Distributed Redis Fleet & Cluster Monitor Widget in Web Dashboard (Seam 23 & ADR 0034)**:
+  - Deep UI module `RedisFleetWidget` in `dashboard.html` visualizing distributed cluster state, active worker rosters, and atomic quota progress directly inside the developer console.
+  - Dedicated live HUD bar (`#fleetBar`) with Redis backend connection indicator (`RESP2 Socket`, `Native Redis-py`, or `Mock In-Memory`), host/port, and ping latency.
+  - Interactive active workers roster displaying live worker pod pills (`worker-prod-01`, etc.) with turn counts and pulse indicators.
+  - Real-time atomic quota meters (`FleetQuotaMeter`) for turns, tokens, and dollar costs with smooth threshold warning transitions.
+  - Instant cluster-wide trip alert banner (`FleetTripBanner`) displaying tripping worker, timestamp, and breach reason upon receiving Pub/Sub broadcasts.
+  - Interactive control plane actions: Emergency Fleet Trip (`#btnFleetTrip`) and Atomic Fleet Reset (`#btnFleetReset`).
+  - Real-time WebSocket synchronization (`ws_manager`) broadcasting `fleet_metric_update`, `fleet_trip_broadcast`, and `fleet_state_reset` events with 4s resilient polling fallback.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 

@@ -125,6 +125,7 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Python): `RedisCircuitCoordinator` (`redis_circuit.py`), `RedisFleetBackend`, `RESPRedisClient`, `MockRedisClient`, REST endpoints `GET /api/v1/fleet/redis/metrics`, `POST /api/v1/fleet/redis/trip`, `POST /api/v1/fleet/redis/reset`, CLI `swarmwatch fleet`.
     - Primitives (TypeScript): `RedisCircuitCoordinator` (`redis_circuit.ts`), `RedisFleetBackend`, `MockRedisClient`, `RedisClientInterface`.
     - Invariant: Ultra-low-latency distributed coordination backbone; atomic quota ledgers (`HINCRBY`, `HINCRBYFLOAT`) preventing multi-worker race conditions; sub-millisecond ($<1\text{ms}$) trip broadcast propagation over Redis Pub/Sub; pure standard library RESP2 client eliminating mandatory third-party pip dependencies; full parity across Python and TypeScript SDKs; 100% deterministic zero-token guarantee.
-
-
-
+23. **Distributed Redis Fleet & Cluster Monitor Widget Seam (ADR 0034)**:
+    - Primitives (Console): `RedisFleetWidget` (`dashboard.html`), `#fleetBar`, `#btnFleetToggle`, `#fleetWorkersList`, `#fleetTurnsMeter`, `#fleetTokensMeter`, `#fleetCostMeter`, `#fleetTripAlert`, `#btnFleetTrip`, `#btnFleetReset`.
+    - Primitives (Server): WebSocket broadcast integration (`ws_manager`) emitting `fleet_metric_update`, `fleet_trip_broadcast`, and `fleet_state_reset` events from `RedisCircuitCoordinator`.
+    - Invariant: Live visualization of cluster backend connection, active worker roster, and cumulative atomic quota meters; immediate full-console trip alert banner on broadcast receipt; remote emergency trip and state reset control plane actions; strict adherence to Impeccable Craft Floor (#080B11 palette, tabular-nums, zero emojis, zero neon glows); zero-token cost guarantee.

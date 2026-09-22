@@ -426,6 +426,195 @@
       border-color: var(--border-strong);
     }
 
+    /* Distributed Redis Fleet Cluster Bar & Alert (ADR 0034) */
+    .fleet-bar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 7px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-shrink: 0;
+      font-size: 12px;
+      transition: opacity 0.2s ease;
+    }
+    .fleet-left-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+    .fleet-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+    .fleet-badge.tripped {
+      background: var(--danger-subtle);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: var(--danger);
+    }
+    .fleet-backend-tag {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-canvas);
+      padding: 2px 7px;
+      border-radius: 3px;
+      border: 1px solid var(--border-subtle);
+    }
+    .fleet-workers-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 320px;
+      overflow-x: auto;
+    }
+    .fleet-worker-pill {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      padding: 2px 7px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .fleet-worker-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .fleet-meters-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+      justify-content: center;
+    }
+    .fleet-meter-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .fleet-meter-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    .fleet-meter-val {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .fleet-progress-bg {
+      width: 48px;
+      height: 4px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .fleet-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: background-color 0.2s ease;
+    }
+    .fleet-progress-fill.warning {
+      background: var(--warning);
+    }
+    .fleet-progress-fill.danger {
+      background: var(--danger);
+    }
+    .fleet-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-fleet-trip {
+      background: var(--danger-subtle);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: var(--danger);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-fleet-trip:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: var(--danger);
+    }
+    .btn-fleet-reset {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn-fleet-reset:hover:not(:disabled) {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .fleet-trip-alert-banner {
+      width: 100%;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 4px;
+      padding: 8px 14px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      animation: toastSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .fleet-trip-alert-text {
+      font-size: 12px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+    }
+    .fleet-trip-alert-text strong {
+      color: var(--danger);
+      margin-right: 6px;
+    }
+
     /* Toast Notification System */
     .toast-item {
       background: var(--bg-surface);
@@ -1175,6 +1364,10 @@
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn-action btn-secondary" id="btnFleetToggle" title="Toggle Distributed Redis Fleet Bar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+        <span>Redis Fleet</span>
+      </button>
       <button class="btn-action btn-secondary" id="btnApiKeys">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         <span>API Keys</span>
@@ -1344,6 +1537,50 @@
           </button>
         </div>
       </div>
+
+      <!-- Distributed Redis Fleet Cluster Bar (ADR 0034) -->
+      <div class="fleet-bar" id="fleetBar">
+        <div class="fleet-left-group">
+          <div class="fleet-badge" id="fleetClusterBadge">
+            <span class="status-indicator" id="fleetDot"></span>
+            <span id="fleetStatusText">REDIS: CONNECTED</span>
+          </div>
+          <span class="fleet-backend-tag" id="fleetBackendTag">RESP2 (127.0.0.1:6379)</span>
+          <div class="fleet-workers-container" id="fleetWorkersList" title="Active Cluster Worker Pods">
+            <span class="fleet-worker-pill"><span class="fleet-worker-dot"></span>worker-01</span>
+          </div>
+        </div>
+
+        <div class="fleet-meters-container" id="fleetMetersGroup">
+          <div class="fleet-meter-item" title="Cumulative Fleet Turns Quota">
+            <span class="fleet-meter-label">Turns</span>
+            <span class="fleet-meter-val" id="fleetTurnsVal">0 / --</span>
+            <div class="fleet-progress-bg"><div class="fleet-progress-fill" id="fleetTurnsFill"></div></div>
+          </div>
+          <div class="fleet-meter-item" title="Cumulative Fleet Token Budget">
+            <span class="fleet-meter-label">Tokens</span>
+            <span class="fleet-meter-val" id="fleetTokensVal">0 / --</span>
+            <div class="fleet-progress-bg"><div class="fleet-progress-fill" id="fleetTokensFill"></div></div>
+          </div>
+          <div class="fleet-meter-item" title="Cumulative Fleet Dollar Cost">
+            <span class="fleet-meter-label">Cost</span>
+            <span class="fleet-meter-val" id="fleetCostVal">$0.00 / --</span>
+            <div class="fleet-progress-bg"><div class="fleet-progress-fill" id="fleetCostFill"></div></div>
+          </div>
+        </div>
+
+        <div class="fleet-actions-group">
+          <button class="btn-fleet-trip" id="btnFleetTrip" title="Broadcast immediate emergency trip to all cluster workers">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            <span>Emergency Trip</span>
+          </button>
+          <button class="btn-fleet-reset" id="btnFleetReset" title="Flush Redis fleet state and re-arm circuit breaker">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            <span>Reset Fleet</span>
+          </button>
+        </div>
+      </div>
+
       <div class="dag-panel" id="dagPanel" style="display: none;">
         <div class="dag-stats">
           <div class="dag-stat-item"><span class="dag-stat-label">Agents:</span> <span class="dag-stat-val" id="dagNodeCount">0</span></div>
@@ -1366,6 +1603,17 @@
           </svg>
         </div>
       </div>
+
+      <!-- Distributed Redis Fleet Trip Alert Banner (ADR 0034) -->
+      <div class="fleet-trip-alert-banner" id="fleetTripAlert">
+        <div class="fleet-trip-alert-text">
+          <strong>FLEET CIRCUIT TRIPPED:</strong>
+          <span id="fleetTripReason">Distributed budget exceeded</span>
+          <span style="color: var(--text-muted); margin-left: 8px;" id="fleetTrippedBy">by worker-01</span>
+        </div>
+        <button class="btn-fleet-reset" id="btnFleetAlertReset">Re-arm Fleet Circuit</button>
+      </div>
+
       <div class="stream-feed" id="streamFeed">
         <div class="turn-card" style="text-align: center; color: var(--text-muted); padding: 32px;">
           Ready. Click [Run Swarm Simulation] above or emit spans from SDK to observe causal stream.
@@ -2961,6 +3209,13 @@
                 isSimulating = false;
                 var btn = document.getElementById('btnSimulate');
                 if (btn) btn.disabled = false;
+              } else if (msg.type === 'fleet_metric_update' && msg.metrics) {
+                updateFleetUI(msg.metrics);
+              } else if (msg.type === 'fleet_trip_broadcast') {
+                renderFleetTripAlert(msg.payload || msg);
+              } else if (msg.type === 'fleet_state_reset') {
+                clearFleetTripAlert();
+                fetchFleetMetrics();
               }
             } catch(e) {}
           };
@@ -3254,6 +3509,175 @@
           } catch(e) {}
         });
       }
+
+      // =========================================================================
+      // Distributed Redis Fleet Cluster Widget Logic (Seam 23 / ADR 0034)
+      // =========================================================================
+      var fleetBar = document.getElementById('fleetBar');
+      var btnFleetToggle = document.getElementById('btnFleetToggle');
+      var fleetClusterBadge = document.getElementById('fleetClusterBadge');
+      var fleetStatusText = document.getElementById('fleetStatusText');
+      var fleetBackendTag = document.getElementById('fleetBackendTag');
+      var fleetWorkersList = document.getElementById('fleetWorkersList');
+      var fleetTurnsVal = document.getElementById('fleetTurnsVal');
+      var fleetTurnsFill = document.getElementById('fleetTurnsFill');
+      var fleetTokensVal = document.getElementById('fleetTokensVal');
+      var fleetTokensFill = document.getElementById('fleetTokensFill');
+      var fleetCostVal = document.getElementById('fleetCostVal');
+      var fleetCostFill = document.getElementById('fleetCostFill');
+      var btnFleetTrip = document.getElementById('btnFleetTrip');
+      var btnFleetReset = document.getElementById('btnFleetReset');
+      var fleetTripAlert = document.getElementById('fleetTripAlert');
+      var fleetTripReason = document.getElementById('fleetTripReason');
+      var fleetTrippedBy = document.getElementById('fleetTrippedBy');
+      var btnFleetAlertReset = document.getElementById('btnFleetAlertReset');
+
+      if (btnFleetToggle && fleetBar) {
+        btnFleetToggle.addEventListener('click', function() {
+          var isHidden = fleetBar.style.display === 'none';
+          fleetBar.style.display = isHidden ? 'flex' : 'none';
+          if (isHidden) fetchFleetMetrics();
+        });
+      }
+
+      if (btnFleetTrip) btnFleetTrip.addEventListener('click', triggerEmergencyFleetTrip);
+      if (btnFleetReset) btnFleetReset.addEventListener('click', triggerFleetReset);
+      if (btnFleetAlertReset) btnFleetAlertReset.addEventListener('click', triggerFleetReset);
+
+      function updateFleetUI(metrics) {
+        if (!metrics) return;
+        if (metrics.backend_type && fleetBackendTag) {
+          var bType = metrics.backend_type === 'MockRedisClient' ? 'MOCK IN-MEMORY' : (metrics.backend_type === 'RESPRedisClient' ? 'RESP2 (127.0.0.1:6379)' : metrics.backend_type);
+          fleetBackendTag.textContent = bType;
+        }
+        if (fleetWorkersList) {
+          fleetWorkersList.innerHTML = '';
+          var workers = metrics.active_workers || [];
+          if (workers.length === 0) {
+            fleetWorkersList.innerHTML = '<span class="fleet-worker-pill"><span class="fleet-worker-dot"></span>standby</span>';
+          } else {
+            workers.forEach(function(w) {
+              var pill = document.createElement('span');
+              pill.className = 'fleet-worker-pill';
+              pill.innerHTML = '<span class="fleet-worker-dot"></span>' + escapeHtml(w);
+              fleetWorkersList.appendChild(pill);
+            });
+          }
+        }
+        var pol = metrics.policy || {};
+        var maxTurns = pol.max_turns || null;
+        var tokBudget = pol.token_budget || null;
+        var costBudget = pol.cost_budget || null;
+
+        var turns = metrics.total_turns || 0;
+        var tokens = metrics.total_tokens || 0;
+        var cost = metrics.total_cost || 0.0;
+
+        if (fleetTurnsVal) fleetTurnsVal.textContent = turns + ' / ' + (maxTurns ? maxTurns : '--');
+        if (fleetTurnsFill) {
+          var pct = maxTurns ? Math.min(100, (turns / maxTurns) * 100) : 0;
+          fleetTurnsFill.style.width = pct + '%';
+          fleetTurnsFill.className = 'fleet-progress-fill' + (pct >= 100 ? ' danger' : (pct >= 80 ? ' warning' : ''));
+        }
+
+        if (fleetTokensVal) fleetTokensVal.textContent = tokens.toLocaleString() + ' / ' + (tokBudget ? tokBudget.toLocaleString() : '--');
+        if (fleetTokensFill) {
+          var pctT = tokBudget ? Math.min(100, (tokens / tokBudget) * 100) : 0;
+          fleetTokensFill.style.width = pctT + '%';
+          fleetTokensFill.className = 'fleet-progress-fill' + (pctT >= 100 ? ' danger' : (pctT >= 80 ? ' warning' : ''));
+        }
+
+        if (fleetCostVal) fleetCostVal.textContent = '$' + cost.toFixed(4) + ' / ' + (costBudget ? '$' + costBudget.toFixed(2) : '--');
+        if (fleetCostFill) {
+          var pctC = costBudget ? Math.min(100, (cost / costBudget) * 100) : 0;
+          fleetCostFill.style.width = pctC + '%';
+          fleetCostFill.className = 'fleet-progress-fill' + (pctC >= 100 ? ' danger' : (pctC >= 80 ? ' warning' : ''));
+        }
+
+        if (metrics.is_tripped) {
+          renderFleetTripAlert({
+            reason: metrics.trip_reason || 'Fleet quota ceiling reached',
+            tripped_by: metrics.tripped_by || 'cluster-worker',
+          });
+        } else {
+          clearFleetTripAlert();
+        }
+      }
+
+      function renderFleetTripAlert(data) {
+        if (fleetClusterBadge) {
+          fleetClusterBadge.className = 'fleet-badge tripped';
+          if (fleetStatusText) fleetStatusText.textContent = 'REDIS: TRIPPED';
+        }
+        if (fleetTripAlert) {
+          fleetTripAlert.style.display = 'flex';
+          if (fleetTripReason) fleetTripReason.textContent = data.reason || 'Distributed quota breach';
+          if (fleetTrippedBy) fleetTrippedBy.textContent = 'by ' + (data.tripped_by || 'peer-worker');
+        }
+      }
+
+      function clearFleetTripAlert() {
+        if (fleetClusterBadge) {
+          fleetClusterBadge.className = 'fleet-badge';
+          if (fleetStatusText) fleetStatusText.textContent = 'REDIS: CONNECTED';
+        }
+        if (fleetTripAlert) {
+          fleetTripAlert.style.display = 'none';
+        }
+      }
+
+      async function fetchFleetMetrics() {
+        try {
+          var res = await fetch('/api/v1/fleet/redis/metrics?swarm_id=swarm-live-01');
+          if (res.ok) {
+            var data = await res.json();
+            updateFleetUI(data);
+          }
+        } catch(e) {}
+      }
+
+      async function triggerEmergencyFleetTrip() {
+        var reason = prompt("Enter Emergency Trip Reason for Redis Fleet:", "Operator emergency halt via console");
+        if (!reason) return;
+        try {
+          var res = await fetch('/api/v1/fleet/redis/trip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              swarm_id: 'swarm-live-01',
+              reason: reason,
+              tripped_by: 'console-operator',
+              metric_val: 1.0
+            })
+          });
+          if (res.ok) {
+            showToast('Distributed emergency trip broadcast to Redis fleet', 'danger');
+            fetchFleetMetrics();
+          }
+        } catch(e) {
+          showToast('Failed to trip fleet: ' + e.message, 'danger');
+        }
+      }
+
+      async function triggerFleetReset() {
+        try {
+          var res = await fetch('/api/v1/fleet/redis/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ swarm_id: 'swarm-live-01' })
+          });
+          if (res.ok) {
+            showToast('Redis fleet state reset and circuit re-armed', 'success');
+            clearFleetTripAlert();
+            fetchFleetMetrics();
+          }
+        } catch(e) {
+          showToast('Failed to reset fleet: ' + e.message, 'danger');
+        }
+      }
+
+      fetchFleetMetrics();
+      setInterval(fetchFleetMetrics, 4000);
 
       loadProjects();
       loadBranches();

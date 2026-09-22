@@ -376,4 +376,29 @@ _Avoid_: Socket script, redis connector, mini client
 The thread-safe in-memory Redis client supporting hash operations, atomic increments, and pub/sub dispatch for offline and local testing.
 _Avoid_: Fake redis, test cache, memory db
 
+---
+
+### Distributed Redis Fleet & Cluster Monitor Widget
+
+**RedisFleetWidget**:
+The developer console interface component visualizing distributed cluster synchronization state, active worker rosters, and real-time atomic quota meters.
+_Avoid_: Redis graph, cluster viewer, fleet window
+
+**FleetClusterStatus**:
+The visual indicator representing whether the Redis backend is synchronized (`CONNECTED`), degraded, or running in local in-memory mock mode.
+_Avoid_: Redis state tag, cluster LED, connection pill
+
+**FleetTripBanner**:
+The urgent, non-decorative alert surface rendering when a distributed trip broadcast is received from any cluster worker pod.
+_Avoid_: Error box, red toast, halt popup
+
+**FleetQuotaMeter**:
+The tabular numeral progress indicator displaying current consumption against session ceiling limits (turns, tokens, dollar cost).
+_Avoid_: Speedometer, gauge bar, progress slider
+
+**EmergencyHaltModal**:
+The confirmation modal allowing operators to dispatch an immediate manual circuit trip across all nodes in the distributed cluster.
+_Avoid_: Kill popup, abort dialog, halt window
+
+
 

@@ -2571,6 +2571,12 @@ def create_app(
     ):
         """Returns distributed Redis fleet metrics (tokens, turns, cost, active workers, trip status)."""
         metrics = active_redis_coordinator.get_metrics(swarm_id)
+        backend_name = type(active_redis_coordinator._client).__name__
+        policy_data = {
+            "max_turns": active_redis_coordinator.policy.max_turns,
+            "token_budget": active_redis_coordinator.policy.token_budget,
+            "cost_budget": active_redis_coordinator.policy.cost_budget,
+        }
         if not metrics:
             return {
                 "swarm_id": swarm_id,
@@ -2579,8 +2585,16 @@ def create_app(
                 "total_cost": 0.0,
                 "active_workers": [],
                 "is_tripped": False,
+                "trip_reason": None,
+                "tripped_by": None,
+                "tripped_at": None,
+                "backend_type": backend_name,
+                "policy": policy_data,
             }
-        return metrics.model_dump(mode="json")
+        data = metrics.model_dump(mode="json")
+        data["backend_type"] = backend_name
+        data["policy"] = policy_data
+        return data
 
     @app.post("/api/v1/fleet/redis/trip")
     async def trip_redis_fleet_endpoint(
@@ -2593,6 +2607,16 @@ def create_app(
         tripped_by = payload.get("tripped_by", "control-plane")
         metric_val = float(payload.get("metric_val", 1.0))
         active_redis_coordinator.trip(swarm_id=swarm_id, reason=reason, tripped_by=tripped_by, metric_val=metric_val)
+        
+        broadcast_msg = {
+            "type": "fleet_trip_broadcast",
+            "swarm_id": swarm_id,
+            "reason": reason,
+            "tripped_by": tripped_by,
+            "metric_val": metric_val,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        await ws_manager.broadcast(swarm_id, broadcast_msg)
         return {
             "status": "tripped",
             "swarm_id": swarm_id,
@@ -2608,6 +2632,13 @@ def create_app(
         """Resets distributed Redis fleet metrics for a swarm session."""
         swarm_id = payload.get("swarm_id", "swarm-live-01")
         active_redis_coordinator.reset_swarm(swarm_id)
+        
+        broadcast_msg = {
+            "type": "fleet_state_reset",
+            "swarm_id": swarm_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        await ws_manager.broadcast(swarm_id, broadcast_msg)
         return {"status": "reset", "swarm_id": swarm_id}
 
     @app.get("/api/v1/swarms/{swarm_id}/spans")
