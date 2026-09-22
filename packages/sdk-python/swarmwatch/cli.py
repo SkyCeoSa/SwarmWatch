@@ -34,6 +34,14 @@ def main():
     report_parser.add_argument("--output", "-o", default=None, help="Optional output file path to write report")
     report_parser.add_argument("--db", default="swarmwatch.db", help="Path to SQLite database file")
 
+    # `swarmwatch test-alerts` subcommand (Seam 18 / ADR 0029)
+    alerts_parser = subparsers.add_parser("test-alerts", help="Execute synthetic alert simulation across Slack, Discord, and PagerDuty routes")
+    alerts_parser.add_argument("--routes", default="all", help="Comma-separated routes to test (e.g. 'all', 'slack', 'discord', 'pagerduty')")
+    alerts_parser.add_argument("--faults", action="store_true", help="Include upstream fault injection & DLQ recovery simulation")
+    alerts_parser.add_argument("--circuit-trip", action="store_true", help="Include live swarm circuit breaker trip simulation")
+    alerts_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+    alerts_parser.add_argument("--output", "-o", default=None, help="Optional output file path")
+
     args = parser.parse_args()
 
     if args.subcommand == "ui":
@@ -67,6 +75,32 @@ def main():
             print(f"[SwarmWatch] Report for '{args.swarm_id}' written to {args.output}")
         else:
             print(output_text)
+    elif args.subcommand == "test-alerts":
+        import json
+        from swarmwatch.synthetic_alert import AlertSimulationPipeline
+
+        target_routes = ["slack", "discord", "pagerduty"] if args.routes == "all" else [r.strip() for r in args.routes.split(",") if r.strip()]
+
+        pipeline = AlertSimulationPipeline()
+        report = pipeline.run(
+            routes=target_routes,
+            include_faults=args.faults,
+            include_circuit_trip=args.circuit_trip,
+        )
+
+        if args.format == "json":
+            output_text = json.dumps(report.to_dict(), indent=2)
+        else:
+            output_text = report.to_terminal_table()
+
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(output_text)
+            print(f"[SwarmWatch] Alert simulation report written to {args.output}")
+        else:
+            print(output_text)
+
+        sys.exit(0 if report.all_passed else 1)
     else:
         parser.print_help()
         sys.exit(1)

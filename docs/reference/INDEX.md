@@ -53,6 +53,7 @@ Whenever beginning a new session or designing new features, consult this index t
       - [ADR 0026: Live Fork Resumption Runner & Context Propagation](../adr/0026-live-fork-resumption-runner-and-context-propagation.md)
       - [ADR 0027: State Snapshot Diff Inspector in Developer Console & Dual-SDK Diff Engine](../adr/0027-state-snapshot-diff-inspector.md)
       - [ADR 0028: Industrial Production Monitoring Stack & Grafana Dashboard Topology](../adr/0028-grafana-monitoring-stack-and-docker-topology.md)
+      - [ADR 0029: Automated Alert Route Webhook Testing & Synthetic Simulation Pipeline](../adr/0029-synthetic-alert-simulation-pipeline.md)
 
 ---
 

@@ -110,6 +110,13 @@ from swarmwatch.policy import (
     SafePolicyParser,
     PolicyEvaluationResult,
 )
+from swarmwatch.synthetic_alert import (
+    SyntheticAlertReceiver,
+    AlertSimulationPipeline,
+    AlertSimulationReport,
+    RouteSimulationResult,
+    ReceivedAlertEvent,
+)
 
 
 
@@ -206,6 +213,11 @@ __all__ = [
     "PolicyEngine",
     "SafePolicyParser",
     "PolicyEvaluationResult",
+    "SyntheticAlertReceiver",
+    "AlertSimulationPipeline",
+    "AlertSimulationReport",
+    "RouteSimulationResult",
+    "ReceivedAlertEvent",
 ]
 
 

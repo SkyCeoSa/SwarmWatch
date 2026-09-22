@@ -274,12 +274,24 @@ _Avoid_: Grafana template, board json, chart layout
 
 **DatasourceProvisioning**:
 The automated filesystem-based registration of the local Prometheus service within Grafana without manual UI interaction.
-_Avoid_: DB setup, connection config, manual datasource
+---
 
+### Automated Alert Route Webhook Testing & Synthetic Simulation Pipeline
 
+**SyntheticAlertReceiver**:
+An ephemeral local mock HTTP server that receives and schema-validates outgoing webhook notifications for Slack, Discord, and PagerDuty without third-party cloud dependencies.
+_Avoid_: Fake webhook server, dummy endpoint, mock server
 
+**AlertSimulationPipeline**:
+An automated test harness executing multi-channel notification verification, fault injection, Dead-Letter Queue (DLQ) buffering, and live circuit breaker trip linkage.
+_Avoid_: Alert test script, webhook test suite
 
+**FaultInjectionScenario**:
+A programmed simulation of upstream HTTP network errors (503 Service Unavailable, connection timeout) used to verify caller non-blocking behavior and DLQ preservation.
+_Avoid_: Chaos network test, simulated downtime
 
-
+**RouteSimulationReport**:
+A structured summary of delivery latencies, schema validity, retry counts, and dead-letter replay status across all tested alert routes.
+_Avoid_: Webhook result, test output
 
 

@@ -109,5 +109,6 @@ This document details the architectural topology, defined seams, and runtime dat
 17. **Industrial Production Monitoring Stack & Grafana Preset Seam (ADR 0028)**:
     - Primitives: `docker-compose.monitoring.yml`, `deploy/prometheus/prometheus.yml`, `deploy/grafana/provisioning/datasources/datasources.yml`, `deploy/grafana/provisioning/dashboards/dashboards.yml`, `deploy/grafana/dashboards/swarmwatch-overview.json`.
     - Invariant: Zero-configuration single-command orchestration (`docker compose -f docker-compose.monitoring.yml up -d`); automatic Prometheus datasource registration and dashboard provisioning; dark-mode Grafana panels styled strictly to SwarmWatch design tokens (#080B11 canvas, tabular numerals, instrument cyan, emerald green, amber, crimson); zero external cloud dependencies.
-
-
+18. **Automated Alert Route Webhook Testing & Synthetic Simulation Pipeline Seam (ADR 0029)**:
+    - Primitives: `SyntheticAlertReceiver` (`synthetic_alert.py`), `AlertSimulationPipeline`, `AlertSimulationReport`, `RouteSimulationResult`, CLI `swarmwatch test-alerts`.
+    - Invariant: Zero-dependency local mock HTTP server on ephemeral port; deterministic schema validation for Slack Block Kit, Discord Embeds, and PagerDuty Events v2; programmable fault injection (503, timeouts) and zero-loss Dead-Letter Queue (DLQ) recovery; live swarm circuit trip linkage with counterfactual ROI verification; zero remote cloud tokens or external network calls.
