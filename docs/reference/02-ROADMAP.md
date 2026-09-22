@@ -225,12 +225,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Instant cluster-wide trip alert banner (`FleetTripBanner`) displaying tripping worker, timestamp, and breach reason upon receiving Pub/Sub broadcasts.
   - Interactive control plane actions: Emergency Fleet Trip (`#btnFleetTrip`) and Atomic Fleet Reset (`#btnFleetReset`).
   - Real-time WebSocket synchronization (`ws_manager`) broadcasting `fleet_metric_update`, `fleet_trip_broadcast`, and `fleet_state_reset` events with 4s resilient polling fallback.
+- **Distributed Redis Lock & Leader Election for Multi-Server SwarmWatch Instances (Seam 24 & ADR 0035)**:
+  - Atomic mutual exclusion primitive `RedisDistributedLock` with cryptographic tokens, context manager semantics (`with lock:`), and atomic Lua scripts for release and extension.
+  - Lease-based coordination manager `RedisLeaderElector` orchestrating leader election, periodic heartbeat renewals, and zero-downtime standby failover across multi-instance SwarmWatch deployments.
+  - Active cluster roster tracking in `swarmwatch:cluster:nodes` with heartbeat epoch timestamps and metadata.
+  - Control plane REST endpoints (`GET /api/v1/cluster/leader`, `POST /api/v1/cluster/leader/step-down`), WebSocket leader change broadcasts, and CLI subcommand (`swarmwatch cluster status|step-down`).
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) implementing `RedisDistributedLock` and `RedisLeaderElector`.
+  - Console leader status indicator in `#fleetBar` adhering to the Impeccable Craft Floor.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
-
-
-
-
 
 
 

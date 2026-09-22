@@ -37,6 +37,10 @@ export interface FleetEvent {
 
 export interface RedisClientInterface {
   ping(): Promise<boolean>;
+  set(name: string, value: string, options?: { px?: number; ex?: number; nx?: boolean }): Promise<boolean>;
+  get(name: string): Promise<string | null>;
+  pexpire(name: string, ms: number): Promise<boolean>;
+  evalScript(script: string, keys: string[], args: any[]): Promise<any>;
   hset(name: string, key: string, value: string): Promise<number>;
   hget(name: string, key: string): Promise<string | null>;
   hgetall(name: string): Promise<Record<string, string>>;
@@ -52,6 +56,8 @@ export interface RedisClientInterface {
 }
 
 export class MockRedisClient implements RedisClientInterface {
+  private strings = new Map<string, string>();
+  private expires = new Map<string, number>();
   private hashes = new Map<string, Map<string, string>>();
   private sets = new Map<string, Set<string>>();
   private subscribers = new Map<string, Array<(channel: string, message: string) => void>>();
@@ -59,6 +65,69 @@ export class MockRedisClient implements RedisClientInterface {
 
   async ping(): Promise<boolean> {
     return !this.isClosed;
+  }
+
+  async set(name: string, value: string, options?: { px?: number; ex?: number; nx?: boolean }): Promise<boolean> {
+    const now = Date.now();
+    const exp = this.expires.get(name);
+    if (exp && exp <= now) {
+      this.strings.delete(name);
+      this.expires.delete(name);
+    }
+    if (options?.nx && this.strings.has(name)) {
+      return false;
+    }
+    this.strings.set(name, String(value));
+    if (options?.px) {
+      this.expires.set(name, now + options.px);
+    } else if (options?.ex) {
+      this.expires.set(name, now + options.ex * 1000);
+    } else {
+      this.expires.delete(name);
+    }
+    return true;
+  }
+
+  async get(name: string): Promise<string | null> {
+    const now = Date.now();
+    const exp = this.expires.get(name);
+    if (exp && exp <= now) {
+      this.strings.delete(name);
+      this.expires.delete(name);
+      return null;
+    }
+    return this.strings.get(name) ?? null;
+  }
+
+  async pexpire(name: string, ms: number): Promise<boolean> {
+    const val = await this.get(name);
+    if (val === null) return false;
+    this.expires.set(name, Date.now() + ms);
+    return true;
+  }
+
+  async evalScript(script: string, keys: string[], args: any[]): Promise<any> {
+    if (script.toLowerCase().includes("del")) {
+      const key = keys[0] || "";
+      const expectedToken = String(args[0] || "");
+      const current = await this.get(key);
+      if (current === expectedToken) {
+        await this.delKey(key);
+        return 1;
+      }
+      return 0;
+    } else if (script.toLowerCase().includes("pexpire")) {
+      const key = keys[0] || "";
+      const expectedToken = String(args[0] || "");
+      const ttlMs = parseInt(String(args[1]), 10) || 0;
+      const current = await this.get(key);
+      if (current === expectedToken) {
+        await this.pexpire(key, ttlMs);
+        return 1;
+      }
+      return 0;
+    }
+    return 0;
   }
 
   async hset(name: string, key: string, value: string): Promise<number> {
@@ -150,6 +219,10 @@ export class MockRedisClient implements RedisClientInterface {
   async delKey(...names: string[]): Promise<number> {
     let count = 0;
     for (const n of names) {
+      if (this.strings.delete(n)) {
+        this.expires.delete(n);
+        count++;
+      }
       if (this.hashes.delete(n)) count++;
       if (this.sets.delete(n)) count++;
     }

@@ -465,6 +465,11 @@
       border-color: rgba(239, 68, 68, 0.4);
       color: var(--danger);
     }
+    .fleet-badge.standby {
+      background: rgba(148, 163, 184, 0.12);
+      border-color: rgba(148, 163, 184, 0.3);
+      color: var(--text-secondary);
+    }
     .fleet-backend-tag {
       font-family: var(--font-mono);
       font-size: 12px;
@@ -1546,6 +1551,11 @@
             <span id="fleetStatusText">REDIS: CONNECTED</span>
           </div>
           <span class="fleet-backend-tag" id="fleetBackendTag">RESP2 (127.0.0.1:6379)</span>
+          <div class="fleet-badge leader-badge" id="fleetLeaderBadge" title="Distributed Cluster Leader (ADR 0035)">
+            <span class="status-indicator" id="fleetLeaderDot"></span>
+            <span id="fleetLeaderText">LEADER [srv-node-local]</span>
+          </div>
+          <span class="fleet-backend-tag" id="fleetNodesCountTag" title="Registered Active Cluster Server Nodes">1 Node</span>
           <div class="fleet-workers-container" id="fleetWorkersList" title="Active Cluster Worker Pods">
             <span class="fleet-worker-pill"><span class="fleet-worker-dot"></span>worker-01</span>
           </div>
@@ -1570,6 +1580,10 @@
         </div>
 
         <div class="fleet-actions-group">
+          <button class="btn-fleet-reset" id="btnLeaderStepDown" style="display: none;" title="Voluntarily relinquish cluster leadership to standby node">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span>Step Down</span>
+          </button>
           <button class="btn-fleet-trip" id="btnFleetTrip" title="Broadcast immediate emergency trip to all cluster workers">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             <span>Emergency Trip</span>
@@ -3216,6 +3230,8 @@
               } else if (msg.type === 'fleet_state_reset') {
                 clearFleetTripAlert();
                 fetchFleetMetrics();
+              } else if (msg.type === 'cluster_leader_changed') {
+                fetchFleetMetrics();
               }
             } catch(e) {}
           };
@@ -3511,13 +3527,17 @@
       }
 
       // =========================================================================
-      // Distributed Redis Fleet Cluster Widget Logic (Seam 23 / ADR 0034)
+      // Distributed Redis Fleet Cluster Widget Logic (Seam 23 & 24 / ADR 0034 & 0035)
       // =========================================================================
       var fleetBar = document.getElementById('fleetBar');
       var btnFleetToggle = document.getElementById('btnFleetToggle');
       var fleetClusterBadge = document.getElementById('fleetClusterBadge');
       var fleetStatusText = document.getElementById('fleetStatusText');
       var fleetBackendTag = document.getElementById('fleetBackendTag');
+      var fleetLeaderBadge = document.getElementById('fleetLeaderBadge');
+      var fleetLeaderText = document.getElementById('fleetLeaderText');
+      var fleetNodesCountTag = document.getElementById('fleetNodesCountTag');
+      var btnLeaderStepDown = document.getElementById('btnLeaderStepDown');
       var fleetWorkersList = document.getElementById('fleetWorkersList');
       var fleetTurnsVal = document.getElementById('fleetTurnsVal');
       var fleetTurnsFill = document.getElementById('fleetTurnsFill');
@@ -3543,12 +3563,32 @@
       if (btnFleetTrip) btnFleetTrip.addEventListener('click', triggerEmergencyFleetTrip);
       if (btnFleetReset) btnFleetReset.addEventListener('click', triggerFleetReset);
       if (btnFleetAlertReset) btnFleetAlertReset.addEventListener('click', triggerFleetReset);
+      if (btnLeaderStepDown) btnLeaderStepDown.addEventListener('click', triggerLeaderStepDown);
 
       function updateFleetUI(metrics) {
         if (!metrics) return;
         if (metrics.backend_type && fleetBackendTag) {
           var bType = metrics.backend_type === 'MockRedisClient' ? 'MOCK IN-MEMORY' : (metrics.backend_type === 'RESPRedisClient' ? 'RESP2 (127.0.0.1:6379)' : metrics.backend_type);
           fleetBackendTag.textContent = bType;
+        }
+        if (metrics.cluster_leader) {
+          var cl = metrics.cluster_leader;
+          if (fleetLeaderBadge && fleetLeaderText) {
+            if (cl.is_leader) {
+              fleetLeaderBadge.className = 'fleet-badge leader-badge';
+              fleetLeaderText.textContent = 'LEADER [' + escapeHtml(cl.local_node_id || 'local') + ']';
+              if (btnLeaderStepDown) btnLeaderStepDown.style.display = 'inline-flex';
+            } else {
+              fleetLeaderBadge.className = 'fleet-badge standby';
+              var leadId = cl.leader_node_id ? cl.leader_node_id : 'STANDBY';
+              fleetLeaderText.textContent = 'STANDBY [Leader: ' + escapeHtml(leadId) + ']';
+              if (btnLeaderStepDown) btnLeaderStepDown.style.display = 'none';
+            }
+          }
+          if (fleetNodesCountTag) {
+            var ncount = cl.nodes_count || (cl.roster ? cl.roster.length : 1);
+            fleetNodesCountTag.textContent = ncount + (ncount === 1 ? ' Node' : ' Nodes');
+          }
         }
         if (fleetWorkersList) {
           fleetWorkersList.innerHTML = '';
@@ -3673,6 +3713,19 @@
           }
         } catch(e) {
           showToast('Failed to reset fleet: ' + e.message, 'danger');
+        }
+      }
+
+      async function triggerLeaderStepDown() {
+        if (!confirm("Step down as active cluster leader? Another standby node will assume leadership.")) return;
+        try {
+          var res = await fetch('/api/v1/cluster/leader/step-down', { method: 'POST' });
+          if (res.ok) {
+            showToast('Voluntarily relinquished cluster leadership', 'warning');
+            fetchFleetMetrics();
+          }
+        } catch(e) {
+          showToast('Failed to step down: ' + e.message, 'danger');
         }
       }
 

@@ -78,6 +78,11 @@ class WebSocketManager:
             for dead in dead_sockets:
                 self._active_connections[swarm_id].discard(dead)
 
+    async def broadcast_all(self, message: dict) -> None:
+        """Broadcasts a control plane message to all connected WebSocket clients across all swarms."""
+        for swarm_id in list(self._active_connections.keys()):
+            await self.broadcast(swarm_id, message)
+
 
 class ForkRequest(BaseModel):
     swarm_id: str = Field(default="swarm-live-01")
@@ -2269,6 +2274,7 @@ def create_app(
     policy_engine: Optional[PolicyEngine] = None,
     webhook_notifier: Optional[WebhookNotifier] = None,
     redis_coordinator: Optional[Any] = None,
+    leader_elector: Optional[Any] = None,
 ) -> FastAPI:
     """FastAPI application factory for SwarmWatch ingestion server."""
     app = FastAPI(title="SwarmWatch Server", version="0.1.0")
@@ -2281,6 +2287,9 @@ def create_app(
     api_key_manager = ApiKeyManager()
     from swarmwatch.redis_circuit import RedisCircuitCoordinator
     active_redis_coordinator = redis_coordinator or RedisCircuitCoordinator()
+    from swarmwatch.redis_lock import RedisLeaderElector
+    active_leader_elector = leader_elector or RedisLeaderElector(client=active_redis_coordinator._client)
+    active_leader_elector.start()
 
     async def get_tenant_context(
         authorization: Optional[str] = Header(default=None),
@@ -2577,6 +2586,8 @@ def create_app(
             "token_budget": active_redis_coordinator.policy.token_budget,
             "cost_budget": active_redis_coordinator.policy.cost_budget,
         }
+        leader_status = active_leader_elector.get_leader_status()
+        leader_data = leader_status.model_dump(mode="json")
         if not metrics:
             return {
                 "swarm_id": swarm_id,
@@ -2590,10 +2601,12 @@ def create_app(
                 "tripped_at": None,
                 "backend_type": backend_name,
                 "policy": policy_data,
+                "cluster_leader": leader_data,
             }
         data = metrics.model_dump(mode="json")
         data["backend_type"] = backend_name
         data["policy"] = policy_data
+        data["cluster_leader"] = leader_data
         return data
 
     @app.post("/api/v1/fleet/redis/trip")
@@ -2640,6 +2653,35 @@ def create_app(
         }
         await ws_manager.broadcast(swarm_id, broadcast_msg)
         return {"status": "reset", "swarm_id": swarm_id}
+
+    @app.get("/api/v1/cluster/leader")
+    async def get_cluster_leader_endpoint(
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Returns the current distributed cluster leader status and active node roster (ADR 0035)."""
+        status_info = active_leader_elector.get_leader_status()
+        return status_info.model_dump(mode="json")
+
+    @app.post("/api/v1/cluster/leader/step-down")
+    async def step_down_cluster_leader_endpoint(
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Voluntarily relinquishes leadership, triggering election of another cluster node (ADR 0035)."""
+        was_leader = active_leader_elector.is_leader
+        stepped_down = active_leader_elector.step_down()
+        
+        broadcast_msg = {
+            "type": "cluster_leader_changed",
+            "previous_leader": active_leader_elector.node_id if was_leader else None,
+            "stepped_down": stepped_down,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        await ws_manager.broadcast_all(broadcast_msg)
+        return {
+            "status": "stepped_down" if stepped_down else "noop",
+            "node_id": active_leader_elector.node_id,
+            "role": active_leader_elector.role.value,
+        }
 
     @app.get("/api/v1/swarms/{swarm_id}/spans")
     async def get_spans(

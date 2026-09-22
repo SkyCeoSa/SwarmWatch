@@ -74,6 +74,12 @@ def main(argv=None):
     fleet_parser.add_argument("--tripped-by", default="cli-operator", help="Identifier of tripping operator or worker")
     fleet_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch cluster` subcommand (Seam 24 / ADR 0035)
+    cluster_parser = subparsers.add_parser("cluster", help="Inspect and manage distributed multi-server leader election and roster")
+    cluster_parser.add_argument("action", choices=["status", "step-down"], help="Cluster action (status, step-down)")
+    cluster_parser.add_argument("--redis-url", default=os.getenv("SWARMWATCH_REDIS_URL", "redis://127.0.0.1:6379/0"), help="Redis server URL (default: redis://127.0.0.1:6379/0)")
+    cluster_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
     if args.subcommand == "ui":
@@ -242,6 +248,43 @@ def main(argv=None):
                     print(f"\033[92m[SwarmWatch] Fleet state reset in Redis for '{args.swarm_id}'.\033[0m")
         finally:
             coord.close()
+        sys.exit(0)
+    elif args.subcommand == "cluster":
+        from swarmwatch.redis_circuit import get_redis_client
+        from swarmwatch.redis_lock import RedisLeaderElector
+        client = get_redis_client(args.redis_url)
+        elector = RedisLeaderElector(client=client)
+        try:
+            if args.action == "status":
+                status = elector.get_leader_status()
+                if args.format == "json":
+                    print(json.dumps(status.model_dump(mode="json"), indent=2))
+                else:
+                    leader_str = status.leader_node_id or "\033[93m[VACANT / ELECTION IN PROGRESS]\033[0m"
+                    print("\n+--------------------------------------------------------------+")
+                    print(f"| SWARMWATCH DISTRIBUTED CLUSTER LEADER STATUS (ADR 0035)      |")
+                    print("+--------------------------------------------------------------+")
+                    print(f"| Active Leader:   {leader_str: <43} |")
+                    print(f"| Lease TTL (ms):  {str(status.lease_expires_in_ms): <43} |")
+                    print(f"| Total Nodes:     {str(status.nodes_count): <43} |")
+                    print("+--------------------------------------------------------------+")
+                    print("| REGISTERED CLUSTER ROSTER:                                   |")
+                    print("+--------------------------------------------------------------+")
+                    for node in status.roster:
+                        role_tag = f"\033[96m{node.role.value}\033[0m" if node.role.value == "LEADER" else node.role.value
+                        print(f"| * {node.node_id: <18} | {role_tag: <18} | {node.hostname: <16} |")
+                    print("+--------------------------------------------------------------+\n")
+            elif args.action == "step-down":
+                released = elector.step_down()
+                if args.format == "json":
+                    print(json.dumps({"status": "stepped_down" if released else "noop"}, indent=2))
+                else:
+                    if released:
+                        print(f"\033[93m[SwarmWatch] Active leader stepped down. Reelection triggered.\033[0m")
+                    else:
+                        print(f"[SwarmWatch] Step down returned noop (node not active leader).")
+        finally:
+            client.close()
         sys.exit(0)
     else:
         parser.print_help()

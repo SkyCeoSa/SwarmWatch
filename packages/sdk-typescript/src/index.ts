@@ -180,5 +180,13 @@ export {
   RedisCircuitCoordinator,
 } from "./redis_circuit.ts";
 
-
-
+// Distributed Redis Lock & Leader Election (Seam 24 / ADR 0035)
+export type {
+  ServerNodeRole,
+  ClusterNodeInfo,
+  ClusterLeaderStatus,
+} from "./redis_lock.ts";
+export {
+  RedisDistributedLock,
+  RedisLeaderElector,
+} from "./redis_lock.ts";

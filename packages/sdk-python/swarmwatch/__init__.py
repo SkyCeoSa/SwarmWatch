@@ -244,8 +244,17 @@ __all__ = [
     "AlertSimulationReport",
     "RouteSimulationResult",
     "ReceivedAlertEvent",
+    "RedisDistributedLock",
+    "RedisLeaderElector",
+    "ServerNodeRole",
+    "ClusterNodeInfo",
+    "ClusterLeaderStatus",
 ]
 
-
-
-
+from swarmwatch.redis_lock import (
+    RedisDistributedLock,
+    RedisLeaderElector,
+    ServerNodeRole,
+    ClusterNodeInfo,
+    ClusterLeaderStatus,
+)

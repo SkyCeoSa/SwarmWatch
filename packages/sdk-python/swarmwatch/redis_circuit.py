@@ -91,18 +91,36 @@ class RedisClientInterface(ABC):
         pass
 
     @abstractmethod
+    def set(self, name: str, value: str, px: Optional[int] = None, ex: Optional[int] = None, nx: bool = False) -> bool:
+        pass
+
+    @abstractmethod
+    def get(self, name: str) -> Optional[str]:
+        pass
+
+    @abstractmethod
+    def pexpire(self, name: str, ms: int) -> bool:
+        pass
+
+    @abstractmethod
+    def eval_script(self, script: str, keys: List[str], args: List[Any]) -> Any:
+        pass
+
+    @abstractmethod
     def close(self) -> None:
         pass
 
 
 class MockRedisClient(RedisClientInterface):
     """
-    Thread-safe in-memory Redis client supporting hashes, sets, atomic increments,
+    Thread-safe in-memory Redis client supporting hashes, sets, strings, TTLs, atomic increments,
     and instantaneous pub/sub dispatch for deterministic offline testing and local execution.
     """
 
     def __init__(self):
         self._lock = threading.RLock()
+        self._strings: Dict[str, str] = {}
+        self._expires: Dict[str, float] = {}
         self._hashes: Dict[str, Dict[str, str]] = defaultdict(dict)
         self._sets: Dict[str, Set[str]] = defaultdict(set)
         self._subscribers: Dict[str, List[Callable[[str, str], None]]] = defaultdict(list)
@@ -111,6 +129,68 @@ class MockRedisClient(RedisClientInterface):
     def ping(self) -> bool:
         with self._lock:
             return not self._closed
+
+    def set(self, name: str, value: str, px: Optional[int] = None, ex: Optional[int] = None, nx: bool = False) -> bool:
+        with self._lock:
+            now = time.time()
+            if name in self._expires and self._expires[name] <= now:
+                self._strings.pop(name, None)
+                self._expires.pop(name, None)
+
+            if nx and name in self._strings:
+                return False
+
+            self._strings[name] = str(value)
+            if px is not None:
+                self._expires[name] = now + (px / 1000.0)
+            elif ex is not None:
+                self._expires[name] = now + float(ex)
+            elif name in self._expires:
+                del self._expires[name]
+            return True
+
+    def get(self, name: str) -> Optional[str]:
+        with self._lock:
+            now = time.time()
+            if name in self._expires:
+                if self._expires[name] <= now:
+                    self._strings.pop(name, None)
+                    del self._expires[name]
+                    return None
+            return self._strings.get(name)
+
+    def pexpire(self, name: str, ms: int) -> bool:
+        with self._lock:
+            val = self.get(name)
+            if val is None:
+                return False
+            self._expires[name] = time.time() + (ms / 1000.0)
+            return True
+
+    def eval_script(self, script: str, keys: List[str], args: List[Any]) -> Any:
+        with self._lock:
+            # Emulate standard CAS release script:
+            # if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end
+            if "del" in script.lower():
+                key = keys[0] if keys else ""
+                expected_token = str(args[0]) if args else ""
+                current_val = self.get(key)
+                if current_val == expected_token:
+                    self.del_key(key)
+                    return 1
+                return 0
+            # Emulate standard CAS extend script:
+            # if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("pexpire", KEYS[1], ARGV[2]) else return 0 end
+            elif "pexpire" in script.lower():
+                key = keys[0] if keys else ""
+                expected_token = str(args[0]) if args else ""
+                ttl_ms = int(args[1]) if len(args) > 1 else 0
+                current_val = self.get(key)
+                if current_val == expected_token:
+                    self.pexpire(key, ttl_ms)
+                    return 1
+                return 0
+            return 0
 
     def hset(self, name: str, key: str, value: str) -> int:
         with self._lock:
@@ -176,6 +256,10 @@ class MockRedisClient(RedisClientInterface):
         with self._lock:
             deleted = 0
             for name in names:
+                if name in self._strings:
+                    del self._strings[name]
+                    self._expires.pop(name, None)
+                    deleted += 1
                 if name in self._hashes:
                     del self._hashes[name]
                     deleted += 1
@@ -328,6 +412,31 @@ class RESPRedisClient(RedisClientInterface):
     def ping(self) -> bool:
         res = self._execute_command("PING")
         return res == "PONG" or res is True
+
+    def set(self, name: str, value: str, px: Optional[int] = None, ex: Optional[int] = None, nx: bool = False) -> bool:
+        cmd = ["SET", name, str(value)]
+        if px is not None:
+            cmd.extend(["PX", str(px)])
+        elif ex is not None:
+            cmd.extend(["EX", str(ex)])
+        if nx:
+            cmd.append("NX")
+        res = self._execute_command(*cmd)
+        return res == "OK" or res is True
+
+    def get(self, name: str) -> Optional[str]:
+        res = self._execute_command("GET", name)
+        return str(res) if res is not None else None
+
+    def pexpire(self, name: str, ms: int) -> bool:
+        res = self._execute_command("PEXPIRE", name, str(ms))
+        return bool(res)
+
+    def eval_script(self, script: str, keys: List[str], args: List[Any]) -> Any:
+        cmd = ["EVAL", script, str(len(keys))]
+        cmd.extend(keys)
+        cmd.extend([str(a) for a in args])
+        return self._execute_command(*cmd)
 
     def hset(self, name: str, key: str, value: str) -> int:
         return int(self._execute_command("HSET", name, str(key), str(value)))
@@ -805,6 +914,19 @@ class NativeRedisAdapter(RedisClientInterface):
 
     def ping(self) -> bool:
         return bool(self.client.ping())
+
+    def set(self, name: str, value: str, px: Optional[int] = None, ex: Optional[int] = None, nx: bool = False) -> bool:
+        return bool(self.client.set(name, value, px=px, ex=ex, nx=nx))
+
+    def get(self, name: str) -> Optional[str]:
+        res = self.client.get(name)
+        return str(res) if res is not None else None
+
+    def pexpire(self, name: str, ms: int) -> bool:
+        return bool(self.client.pexpire(name, ms))
+
+    def eval_script(self, script: str, keys: List[str], args: List[Any]) -> Any:
+        return self.client.eval(script, len(keys), *keys, *args)
 
     def hset(self, name: str, key: str, value: str) -> int:
         return int(self.client.hset(name, key, value))

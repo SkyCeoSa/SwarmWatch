@@ -271,7 +271,16 @@ _Avoid_: Hook call, function callback, middleware run
   _Avoid_: Speedometer, gauge bar, progress slider
 - **EmergencyHaltModal**: The confirmation modal allowing operators to dispatch an immediate manual circuit trip across all nodes in the distributed cluster.
   _Avoid_: Kill popup, abort dialog, halt window
+---
 
-
-
-
+### Distributed Redis Lock & Leader Election (Seam 24 / ADR 0035)
+- **RedisDistributedLock**: The atomic mutual exclusion primitive implementing safe distributed locking via Redis `SET NX PX` and CAS release/extend Lua scripts.
+  _Avoid_: Process lock, mutex file, redlock clone
+- **RedisLeaderElector**: The coordination manager running heartbeat leases, automatic standby failover, and voluntary step-down routines across multi-server SwarmWatch instances.
+  _Avoid_: Master slave script, election loop, vote daemon
+- **ServerNodeRole**: The explicit state of a SwarmWatch server node within the cluster (`LEADER`, `STANDBY`, or `STEPPED_DOWN`).
+  _Avoid_: Master node, slave worker, backup server
+- **LeaderHeartbeat**: The periodic lease renewal dispatched by the active Leader every renewal interval to prevent lease expiration.
+  _Avoid_: Keepalive ping, leader tick, lease refresher
+- **ClusterNodeRoster**: The cluster-wide registry of active SwarmWatch server instances, roles, and epoch timestamps stored in Redis.
+  _Avoid_: Server list, node catalog, host directory

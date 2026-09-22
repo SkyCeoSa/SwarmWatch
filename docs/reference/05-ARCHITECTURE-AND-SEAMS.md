@@ -129,3 +129,7 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `RedisFleetWidget` (`dashboard.html`), `#fleetBar`, `#btnFleetToggle`, `#fleetWorkersList`, `#fleetTurnsMeter`, `#fleetTokensMeter`, `#fleetCostMeter`, `#fleetTripAlert`, `#btnFleetTrip`, `#btnFleetReset`.
     - Primitives (Server): WebSocket broadcast integration (`ws_manager`) emitting `fleet_metric_update`, `fleet_trip_broadcast`, and `fleet_state_reset` events from `RedisCircuitCoordinator`.
     - Invariant: Live visualization of cluster backend connection, active worker roster, and cumulative atomic quota meters; immediate full-console trip alert banner on broadcast receipt; remote emergency trip and state reset control plane actions; strict adherence to Impeccable Craft Floor (#080B11 palette, tabular-nums, zero emojis, zero neon glows); zero-token cost guarantee.
+24. **Distributed Redis Lock & Leader Election Seam (ADR 0035 Dual-SDK Parity)**:
+    - Primitives (Python): `RedisDistributedLock` (`redis_lock.py`), `RedisLeaderElector`, `ServerNodeRole`, REST endpoints `GET /api/v1/cluster/leader`, `POST /api/v1/cluster/leader/step-down`, CLI `swarmwatch cluster`.
+    - Primitives (TypeScript): `RedisDistributedLock` (`redis_lock.ts`), `RedisLeaderElector`, `ServerNodeRole`.
+    - Invariant: Atomic mutual exclusion and lease renewals; split-brain prevention for multi-server background jobs; sub-second automatic standby failover; active cluster node roster tracking in Redis; dual-SDK parity; 100% deterministic local execution.
