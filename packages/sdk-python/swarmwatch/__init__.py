@@ -124,9 +124,12 @@ from swarmwatch.profiler import (
     LatencyPercentiles,
     BenchmarkMemoryStats,
 )
+from swarmwatch.tui import TerminalMonitor, AnsiColor
 
 
 __all__ = [
+    "TerminalMonitor",
+    "AnsiColor",
     "TelemetryProfiler",
     "IngestionBenchmarkConfig",
     "IngestionBenchmarkReport",

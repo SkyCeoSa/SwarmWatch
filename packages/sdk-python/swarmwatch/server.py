@@ -2553,6 +2553,14 @@ def create_app(
         return {"received": len(spans), "status": "persisted", "project_id": tenant.project_id}
 
 
+    @app.get("/api/v1/swarms")
+    async def list_swarms_endpoint(
+        limit: int = Query(default=50, ge=1, le=500),
+        tenant: TenantContext = Depends(get_tenant_context)
+    ):
+        """Lists active swarms with turn counts, last activity, and circuit trip status."""
+        return await active_storage.list_swarms(project_id=tenant.project_id, limit=limit)
+
     @app.get("/api/v1/swarms/{swarm_id}/spans")
     async def get_spans(
         swarm_id: str,

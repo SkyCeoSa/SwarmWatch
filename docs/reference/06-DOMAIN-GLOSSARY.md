@@ -331,3 +331,20 @@ _Avoid_: Reverse proxy route, url rewrite, ingress path
 **ServiceMonitorBinding**:
 The Prometheus Operator custom resource definition enabling automated Prometheus discovery and scraping of `/metrics` at high frequency.
 _Avoid_: Prometheus config, scrape rule, monitor CRD
+
+---
+
+### Terminal User Interface (TUI) & Headless Cluster Observability
+
+**TerminalMonitor**:
+The in-process terminal controller orchestrating periodic data polling, ANSI viewport formatting, and keyboard interaction loop for SwarmWatch sessions.
+_Avoid_: Terminal watcher, CLI poller, console daemon
+
+**AnsiFrameBuffer**:
+The pure-function terminal layout engine rendering structured, responsive ASCII tables, health banners, and causal span streams using ANSI color escapes.
+_Avoid_: Screen buffer, console renderer, terminal output string
+
+**HeadlessTriage**:
+The operational workflow enabling developers and SREs to monitor, diagnose, and inspect active swarms and circuit halts inside terminal shells without a web browser.
+_Avoid_: CLI debugging, terminal checking, log tailing
+

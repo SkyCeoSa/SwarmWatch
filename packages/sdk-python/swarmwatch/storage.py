@@ -108,6 +108,10 @@ class StorageAdapter(abc.ABC):
         """Revoke an API key by setting its revoked_at timestamp."""
         return False
 
+    async def list_swarms(self, project_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """List active swarms with turn metrics, branch info, and circuit status."""
+        return []
+
     @abc.abstractmethod
     async def close(self) -> None:
         """Close storage resources."""
@@ -726,6 +730,56 @@ class SQLiteStorageAdapter(StorageAdapter):
             except Exception:
                 continue
         return snaps
+
+    def list_swarms_sync(self, project_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        conn = self._get_connection()
+        if project_id:
+            cursor = conn.execute("""
+                SELECT swarm_id, project_id, branch_id,
+                       COUNT(id) as turn_count,
+                       MAX(start_time) as last_activity,
+                       AVG(entropy_score) as avg_entropy,
+                       MIN(entropy_score) as min_entropy
+                FROM spans
+                WHERE project_id = ?
+                GROUP BY swarm_id, project_id, branch_id
+                ORDER BY last_activity DESC
+                LIMIT ?
+            """, (project_id, limit))
+        else:
+            cursor = conn.execute("""
+                SELECT swarm_id, project_id, branch_id,
+                       COUNT(id) as turn_count,
+                       MAX(start_time) as last_activity,
+                       AVG(entropy_score) as avg_entropy,
+                       MIN(entropy_score) as min_entropy
+                FROM spans
+                GROUP BY swarm_id, project_id, branch_id
+                ORDER BY last_activity DESC
+                LIMIT ?
+            """, (limit,))
+        rows = cursor.fetchall()
+        swarms = []
+        for r in rows:
+            cur_trip = conn.execute(
+                "SELECT reason, metric_val FROM circuit_events WHERE swarm_id = ? AND event_type = 'trip' ORDER BY created_at DESC LIMIT 1",
+                (r["swarm_id"],)
+            ).fetchone()
+            swarms.append({
+                "swarm_id": r["swarm_id"],
+                "project_id": r["project_id"] if "project_id" in r.keys() else "default-project",
+                "branch_id": r["branch_id"],
+                "turn_count": r["turn_count"],
+                "last_activity": str(r["last_activity"]) if r["last_activity"] else "",
+                "avg_entropy": round(float(r["avg_entropy"]), 2) if r["avg_entropy"] is not None else 1.0,
+                "min_entropy": round(float(r["min_entropy"]), 2) if r["min_entropy"] is not None else 1.0,
+                "status": "HALTED" if cur_trip else "RUNNING",
+                "halt_reason": cur_trip["reason"] if cur_trip else None,
+            })
+        return swarms
+
+    async def list_swarms(self, project_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        return self.list_swarms_sync(project_id=project_id, limit=limit)
 
     def close_sync(self) -> None:
         if hasattr(self._local, "conn") and self._local.conn:

@@ -200,8 +200,19 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Hardened security context compliant with Kubernetes Restricted Pod Security Standards: non-root execution (`runAsNonRoot: true`, UID/GID `10001`), `allowPrivilegeEscalation: false`, drop all capabilities (`ALL`).
   - Liveness and readiness probes targeting zero-overhead `/api/v1/health` endpoint.
   - Comprehensive automated test suite `packages/sdk-python/tests/test_helm_kubernetes_topology.py` (14 tests) validating YAML syntax, Helm template contracts, and deployment invariants without requiring a live cloud cluster.
+- **Live Terminal User Interface (TUI) & Headless Cluster Observability Console (Seam 21 & ADR 0032)**:
+  - Zero-dependency ANSI terminal monitor `TerminalMonitor` in `swarmwatch/tui.py` enabling interactive, zero-browser triage inside Kubernetes pods, SSH bastions, and headless server environments.
+  - Interactive CLI subcommand: `swarmwatch top` (with options `--url`, `--db`, `--interval`, `--swarm`, `--max-spans`, `--no-color`, `--once`).
+  - Dual data sourcing: queries active SwarmWatch HTTP endpoints (`/api/v1/health`, `/api/v1/swarms`, `/api/v1/swarms/{id}/spans`, `/api/v1/budget`) or falls back directly to local SQLite database queries with zero configuration.
+  - Dual operational modes:
+    - *Interactive TUI Mode* (Default): alternate screen buffer (`\033[?1049h`), periodic live auto-refresh, keyboard triage navigation (`[q]` Quit, `[r]` Refresh, `[p]` Pause, `[s]` Filter, `[h]` Help), and terminal resize adaptation.
+    - *Snapshot Mode* (`--once`): non-interactive single-frame stdout export with fallback to standard ASCII box rendering for legacy or non-UTF-8 console environments.
+  - High-visibility circuit breaker halt indicators, counterfactual ROI savings summaries, and live causal call chain projections.
+  - Extended core storage abstraction with `list_swarms` across SQLite and ClickHouse adapters, and exposed control plane REST endpoint `GET /api/v1/swarms`.
+  - Comprehensive automated test suite `packages/sdk-python/tests/test_tui_terminal_monitor.py` (11 tests) verifying ANSI buffer formatting, responsiveness, mock server and SQLite fallback modes.
 - **Complete Test Coverage**:
-  - **285 automated tests passing 100% locally** across Python (169 tests) and TypeScript (116 tests).
+  - **296 automated tests passing 100% locally** across Python (180 tests) and TypeScript (116 tests).
+
 
 
 

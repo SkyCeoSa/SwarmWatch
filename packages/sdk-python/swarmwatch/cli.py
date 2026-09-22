@@ -55,6 +55,16 @@ def main():
     bench_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
     bench_parser.add_argument("--output", "-o", default=None, help="Optional output file path for benchmark report")
 
+    # `swarmwatch top` subcommand (Seam 21 / ADR 0032)
+    top_parser = subparsers.add_parser("top", help="Launch the live Terminal User Interface (TUI) console for cluster & pod triage")
+    top_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL (default: http://127.0.0.1:8765 or SWARMWATCH_SERVER_URL)")
+    top_parser.add_argument("--db", default=os.getenv("SWARMWATCH_DB", "swarmwatch.db"), help="Path to local SQLite database for standalone triage")
+    top_parser.add_argument("--interval", type=float, default=1.0, help="Refresh interval in seconds (default: 1.0)")
+    top_parser.add_argument("--swarm", default=None, help="Optional swarm ID to focus/filter")
+    top_parser.add_argument("--max-spans", type=int, default=10, help="Max recent spans to display in causal stream (default: 10)")
+    top_parser.add_argument("--no-color", action="store_true", help="Disable ANSI color escape sequences")
+    top_parser.add_argument("--once", action="store_true", help="Single-frame snapshot mode (print once and exit, ideal for scripts/cron)")
+
     args = parser.parse_args()
 
     if args.subcommand == "ui":
@@ -164,6 +174,22 @@ def main():
         else:
             print(output_text)
 
+        sys.exit(0)
+    elif args.subcommand == "top":
+        from swarmwatch.tui import TerminalMonitor
+
+        monitor = TerminalMonitor(
+            server_url=args.url,
+            db_path=args.db,
+            refresh_interval=args.interval,
+            swarm_filter=args.swarm,
+            max_spans=args.max_spans,
+            ansi_color=not args.no_color,
+        )
+        if args.once:
+            monitor.run_once()
+        else:
+            monitor.run()
         sys.exit(0)
     else:
         parser.print_help()

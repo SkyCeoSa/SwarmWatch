@@ -418,6 +418,48 @@ class ClickHouseStorageAdapter(StorageAdapter):
                 return True
         return False
 
+    async def list_swarms(self, project_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """List active swarms with turn metrics, branch info, and circuit status."""
+        if self.use_mock:
+            swarms_map = {}
+            for s in self._mock_spans.values():
+                if project_id and getattr(s, "project_id", "default-project") != project_id:
+                    continue
+                key = (s.swarm_id, s.branch_id)
+                if key not in swarms_map:
+                    swarms_map[key] = {
+                        "swarm_id": s.swarm_id,
+                        "project_id": getattr(s, "project_id", "default-project"),
+                        "branch_id": s.branch_id,
+                        "turn_count": 0,
+                        "last_activity": str(s.start_time),
+                        "entropies": [],
+                        "status": "RUNNING",
+                        "halt_reason": None,
+                    }
+                swarms_map[key]["turn_count"] += 1
+                if s.entropy_score is not None:
+                    swarms_map[key]["entropies"].append(s.entropy_score)
+                if str(s.start_time) > swarms_map[key]["last_activity"]:
+                    swarms_map[key]["last_activity"] = str(s.start_time)
+
+            for evt in self._mock_events:
+                if evt.event_type == "trip":
+                    for item in swarms_map.values():
+                        if item["swarm_id"] == evt.swarm_id:
+                            item["status"] = "HALTED"
+                            item["halt_reason"] = evt.reason
+
+            results = []
+            for item in swarms_map.values():
+                ents = item.pop("entropies")
+                item["avg_entropy"] = round(sum(ents) / len(ents), 2) if ents else 1.0
+                item["min_entropy"] = round(min(ents), 2) if ents else 1.0
+                results.append(item)
+            results.sort(key=lambda x: x["last_activity"], reverse=True)
+            return results[:limit]
+        return []
+
     def close_sync(self) -> None:
         if self.use_mock:
             self._mock_spans.clear()
@@ -427,3 +469,4 @@ class ClickHouseStorageAdapter(StorageAdapter):
 
     async def close(self) -> None:
         await asyncio.to_thread(self.close_sync)
+

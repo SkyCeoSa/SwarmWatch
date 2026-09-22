@@ -118,4 +118,8 @@ This document details the architectural topology, defined seams, and runtime dat
 20. **Cloud-Native Kubernetes & Helm Topology Seam (ADR 0031)**:
     - Primitives: Helm 3 package bundle `deploy/helm/swarmwatch/` (`Chart.yaml`, `values.yaml`, `deployment.yaml`, `service.yaml`, `ingress.yaml`, `pvc.yaml`, `hpa.yaml`, `configmap.yaml`, `secret.yaml`, `servicemonitor.yaml`).
     - Invariant: Zero-cloud deterministic template rendering; dual-storage topology (Standalone SQLite WAL vs Distributed ClickHouse); non-root security context (UID 10001) with capability drops; automated HPA autoscaling and Prometheus ServiceMonitor metrics scraping at 5s intervals.
+21. **Live Terminal User Interface (TUI) & Headless Cluster Observability Console Seam (ADR 0032)**:
+    - Primitives: `TerminalMonitor` (`tui.py`), `AnsiFrameBuffer`, `SwarmSummaryView`, `SpanStreamView`, `CircuitStatusView`, CLI `swarmwatch top`.
+    - Invariant: Pure standard library implementation with zero third-party terminal dependencies; dual data sourcing via HTTP REST or local SQLite storage fallback; dual operational modes (interactive alternate screen buffer vs snapshot `--once` mode); sub-second refresh latency; Impeccable monospace console aesthetics (#080B11 canvas, tabular numerals, zero emojis); zero external LLM tokens.
+
 
