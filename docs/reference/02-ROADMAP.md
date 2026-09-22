@@ -190,8 +190,18 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Speedscope-compatible collapsed stack flamegraph trace generator (`frame1;frame2;frameN count`) enabling zero-C-extension visual profiling in Speedscope, flamegraph.pl, or d3-flame-graph.
   - Interactive CLI subcommand `swarmwatch benchmark --spans 10000 --concurrency 4 --format terminal` with an Impeccable monospace ASCII table report and flamegraph export.
   - Dual-SDK parity across Python (`swarmwatch/profiler.py`) and TypeScript (`@swarmwatch/sdk/src/profiler.ts`).
+- **Kubernetes Production Helm Chart & Cloud-Native Topology (Seam 20 & ADR 0031)**:
+  - Zero-cloud, enterprise-grade Helm 3 chart in `deploy/helm/swarmwatch/` (`Chart.yaml`, `values.yaml`, templates) enabling effortless deployment across self-hosted and cloud Kubernetes clusters (EKS, GKE, AKS, K3s, OpenShift).
+  - **Dual Storage Topology**:
+    - *Standalone Mode (Default)*: Single replica with persistent volume claim (`PVC`, 10Gi) and SQLite WAL single-writer isolation using `strategy.type: Recreate` to eliminate database locking collisions during rolling upgrades.
+    - *Distributed Cloud Mode*: Horizontally scalable stateless replicas (`replicaCount: 2+`) with ClickHouse connection injection, Kubernetes Secret handling, and HorizontalPodAutoscaler (HPA v2) CPU/memory elasticity.
+  - Ingress configuration (`networking.k8s.io/v1`) with tuned WebSocket persistent streaming timeouts (`proxy-read-timeout: 3600`, `proxy-send-timeout: 3600`) preventing disconnections on long-lived swarm observability sessions.
+  - Prometheus Operator `ServiceMonitor` (`monitoring.coreos.com/v1`) scraping `/metrics` every 5s with configurable scrape timeouts and metric relabelings.
+  - Hardened security context compliant with Kubernetes Restricted Pod Security Standards: non-root execution (`runAsNonRoot: true`, UID/GID `10001`), `allowPrivilegeEscalation: false`, drop all capabilities (`ALL`).
+  - Liveness and readiness probes targeting zero-overhead `/api/v1/health` endpoint.
+  - Comprehensive automated test suite `packages/sdk-python/tests/test_helm_kubernetes_topology.py` (14 tests) validating YAML syntax, Helm template contracts, and deployment invariants without requiring a live cloud cluster.
 - **Complete Test Coverage**:
-  - **271 automated tests passing 100% locally** across Python (155 tests) and TypeScript (116 tests).
+  - **285 automated tests passing 100% locally** across Python (169 tests) and TypeScript (116 tests).
 
 
 

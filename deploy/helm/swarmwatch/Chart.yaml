@@ -1,0 +1,20 @@
+apiVersion: v2
+name: swarmwatch
+description: Helm 3 Chart for SwarmWatch - Multi-Agent Observability, Shannon Entropy Circuit Breaker & Time-Machine Platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - swarmwatch
+  - observability
+  - multi-agent
+  - circuit-breaker
+  - shannon-entropy
+  - time-machine
+  - llm-agents
+home: https://github.com/SkyCeoSa/SwarmWatch
+sources:
+  - https://github.com/SkyCeoSa/SwarmWatch
+maintainers:
+  - name: SwarmWatch Authors
+    email: maintainers@swarmwatch.dev

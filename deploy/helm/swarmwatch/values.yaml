@@ -1,0 +1,143 @@
+# Default values for SwarmWatch Cloud-Native Kubernetes Deployment (ADR 0031).
+# This is a YAML-formatted file.
+
+replicaCount: 1
+
+image:
+  repository: swarmwatch
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "0.1.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8765
+  targetPort: 8765
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "swarmwatch"
+  hosts:
+    - host: swarmwatch.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: swarmwatch-tls
+  #    hosts:
+  #      - swarmwatch.local
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Liveness and Readiness Probes using zero-overhead /api/v1/health endpoint
+livenessProbe:
+  httpGet:
+    path: /api/v1/health
+    port: 8765
+  initialDelaySeconds: 5
+  periodSeconds: 15
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /api/v1/health
+    port: 8765
+  initialDelaySeconds: 2
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+# Storage Topology Configuration: "sqlite" vs "clickhouse"
+storage:
+  backend: sqlite # "sqlite" | "clickhouse"
+  sqlite:
+    dbPath: "/data/swarmwatch.db"
+  clickhouse:
+    host: "clickhouse.default.svc.cluster.local"
+    port: 8123
+    database: "swarmwatch"
+    user: "default"
+    # Existing secret reference for password:
+    existingSecret: ""
+    passwordKey: "clickhouse-password"
+    # Plaintext password (only used if existingSecret is empty):
+    password: ""
+
+# Persistent Storage for Standalone SQLite Mode
+persistence:
+  enabled: true
+  storageClassName: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  mountPath: /data
+  annotations: {}
+
+# Prometheus Operator ServiceMonitor
+serviceMonitor:
+  enabled: true
+  interval: 5s
+  scrapeTimeout: 3s
+  path: /metrics
+  labels:
+    release: prometheus
+  metricRelabelings: []
+
+# Extra environment variables
+env:
+  SWARMWATCH_HOST: "0.0.0.0"
+  SWARMWATCH_PORT: "8765"
+  PYTHONUNBUFFERED: "1"
+
+# Node scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}

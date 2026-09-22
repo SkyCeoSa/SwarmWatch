@@ -115,4 +115,7 @@ This document details the architectural topology, defined seams, and runtime dat
 19. **High-Frequency Telemetry Ingestion Micro-Benchmark & Flamegraph Profile Suite Seam (ADR 0030)**:
     - Primitives: `TelemetryProfiler` (`profiler.py`), `IngestionBenchmarkConfig`, `LatencyPercentiles`, `BenchmarkMemoryStats`, `IngestionBenchmarkReport`, CLI `swarmwatch benchmark`.
     - Invariant: Empirical proof of $>10,000$ spans/sec throughput and sub-microsecond enqueue latency ($<1.0\mu s$ median); zero memory leaks verified via bounded RSS heap analysis; zero-dependency standard collapsed stack flamegraph export; 100% parity across Python and TypeScript runtimes.
+20. **Cloud-Native Kubernetes & Helm Topology Seam (ADR 0031)**:
+    - Primitives: Helm 3 package bundle `deploy/helm/swarmwatch/` (`Chart.yaml`, `values.yaml`, `deployment.yaml`, `service.yaml`, `ingress.yaml`, `pvc.yaml`, `hpa.yaml`, `configmap.yaml`, `secret.yaml`, `servicemonitor.yaml`).
+    - Invariant: Zero-cloud deterministic template rendering; dual-storage topology (Standalone SQLite WAL vs Distributed ClickHouse); non-root security context (UID 10001) with capability drops; automated HPA autoscaling and Prometheus ServiceMonitor metrics scraping at 5s intervals.
 

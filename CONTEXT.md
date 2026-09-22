@@ -223,4 +223,15 @@ _Avoid_: Hook call, function callback, middleware run
   _Avoid_: Timers, speed stats, delay metrics
 - **CollapsedStackFlamegraph**: A text-based trace representation formatting internal method call stacks and execution counts into `frame1;frame2 count` syntax compatible with standard flamegraph viewers.
   _Avoid_: Profile graph, flame chart, stack trace dump
+---
+
+### Cloud-Native Kubernetes & Helm Topology
+- **CloudNativeTopology**: The container orchestration architecture and Kubernetes resource definitions governing high-availability, horizontally-scalable SwarmWatch deployments.
+  _Avoid_: K8s cluster setup, pod layout, server deployment
+- **HelmChartPackage**: The versioned, reproducible package bundle (`Chart.yaml`, `values.yaml`, templates) automating deployment, ingress routing, volume persistence, and autoscaling across cloud Kubernetes clusters.
+  _Avoid_: Helm bundle, chart archive, deploy script
+- **IngressRouting**: The HTTP and WebSocket reverse-proxy ingress definition with TLS termination and long-lived streaming timeouts for SwarmWatch APIs and console.
+  _Avoid_: Reverse proxy route, url rewrite, ingress path
+- **ServiceMonitorBinding**: The Prometheus Operator custom resource definition enabling automated Prometheus discovery and scraping of `/metrics` at high frequency.
+  _Avoid_: Prometheus config, scrape rule, monitor CRD
 

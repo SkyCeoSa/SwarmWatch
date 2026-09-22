@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "swarmwatch.fullname" . }}-config
+  labels:
+    {{- include "swarmwatch.labels" . | nindent 4 }}
+data:
+  SWARMWATCH_HOST: {{ .Values.env.SWARMWATCH_HOST | default "0.0.0.0" | quote }}
+  SWARMWATCH_PORT: {{ .Values.env.SWARMWATCH_PORT | default "8765" | quote }}
+  PYTHONUNBUFFERED: {{ .Values.env.PYTHONUNBUFFERED | default "1" | quote }}
+  SWARMWATCH_STORAGE_BACKEND: {{ .Values.storage.backend | quote }}
+  {{- if eq .Values.storage.backend "sqlite" }}
+  SWARMWATCH_DB: {{ .Values.storage.sqlite.dbPath | quote }}
+  {{- else if eq .Values.storage.backend "clickhouse" }}
+  CLICKHOUSE_HOST: {{ .Values.storage.clickhouse.host | quote }}
+  CLICKHOUSE_PORT: {{ .Values.storage.clickhouse.port | quote }}
+  CLICKHOUSE_DB: {{ .Values.storage.clickhouse.database | quote }}
+  CLICKHOUSE_USER: {{ .Values.storage.clickhouse.user | quote }}
+  {{- end }}

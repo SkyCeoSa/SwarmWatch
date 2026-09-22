@@ -5,6 +5,7 @@ Allows starting the live dashboard and ingestion server via `swarmwatch ui`.
 """
 
 import argparse
+import os
 import sys
 import webbrowser
 import uvicorn
@@ -22,9 +23,10 @@ def main():
 
     # `swarmwatch ui` subcommand
     ui_parser = subparsers.add_parser("ui", help="Launch the SwarmWatch real-time web dashboard")
-    ui_parser.add_argument("--host", default="127.0.0.1", help="Host address to bind (default: 127.0.0.1)")
-    ui_parser.add_argument("--port", type=int, default=8765, help="Port to listen on (default: 8765)")
-    ui_parser.add_argument("--db", default="swarmwatch.db", help="Path to SQLite database file")
+    ui_parser.add_argument("--host", default=os.getenv("SWARMWATCH_HOST", "127.0.0.1"), help="Host address to bind (default: 127.0.0.1 or SWARMWATCH_HOST)")
+    ui_parser.add_argument("--port", type=int, default=int(os.getenv("SWARMWATCH_PORT", "8765")), help="Port to listen on (default: 8765 or SWARMWATCH_PORT)")
+    ui_parser.add_argument("--db", default=os.getenv("SWARMWATCH_DB", "swarmwatch.db"), help="Path to SQLite database file")
+    ui_parser.add_argument("--backend", default=os.getenv("SWARMWATCH_STORAGE_BACKEND", "sqlite"), choices=["sqlite", "clickhouse"], help="Storage backend ('sqlite' or 'clickhouse')")
     ui_parser.add_argument("--no-browser", action="store_true", help="Do not auto-open dashboard in default browser")
 
     # `swarmwatch report` subcommand
@@ -60,8 +62,26 @@ def main():
         print(f"\n\033[96m=====================================================\033[0m")
         print(f"\033[92m[SwarmWatch] Starting Observability Dashboard\033[0m")
         print(f"\033[94m   URL: {url}\033[0m")
-        print(f"\033[94m   Database: {args.db}\033[0m")
-        print(f"\033[96m=====================================================\033[0m\n")
+        if args.backend == "clickhouse":
+            from swarmwatch.storage_clickhouse import ClickHouseStorageAdapter
+            ch_host = os.getenv("CLICKHOUSE_HOST", "localhost")
+            ch_port = int(os.getenv("CLICKHOUSE_PORT", "8123"))
+            ch_db = os.getenv("CLICKHOUSE_DB", "swarmwatch")
+            ch_user = os.getenv("CLICKHOUSE_USER", "default")
+            ch_pass = os.getenv("CLICKHOUSE_PASSWORD", "")
+            print(f"\033[94m   Storage: ClickHouse ({ch_host}:{ch_port}/{ch_db})\033[0m")
+            print(f"\033[96m=====================================================\033[0m\n")
+            storage = ClickHouseStorageAdapter(
+                host=ch_host,
+                port=ch_port,
+                database=ch_db,
+                user=ch_user,
+                password=ch_pass,
+            )
+        else:
+            print(f"\033[94m   Database: {args.db}\033[0m")
+            print(f"\033[96m=====================================================\033[0m\n")
+            storage = SQLiteStorageAdapter(db_path=args.db)
 
         if not args.no_browser:
             try:
@@ -69,7 +89,6 @@ def main():
             except Exception:
                 pass
 
-        storage = SQLiteStorageAdapter(db_path=args.db)
         app = create_app(storage=storage)
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     elif args.subcommand == "report":
