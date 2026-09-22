@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  scrape_timeout: 4s
+
+scrape_configs:
+  - job_name: "swarmwatch"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["swarmwatch:8765"]
+        labels:
+          environment: "production-local"
+          cluster: "swarmwatch-cluster"

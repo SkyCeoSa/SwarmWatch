@@ -17,7 +17,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node --experimental-strip-types --test tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js tests/multilingual_stress.test.js tests/tenant_multitenancy.test.js tests/security_sanitizer.test.js tests/incident_report.test.js tests/policy_engine.test.js tests/webhooks.test.js tests/timemachine.test.js tests/fork_resumption_runner.test.js"
+    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js tests/multilingual_stress.test.js tests/tenant_multitenancy.test.js tests/security_sanitizer.test.js tests/incident_report.test.js tests/policy_engine.test.js tests/webhooks.test.js tests/timemachine.test.js tests/fork_resumption_runner.test.js"
   },
   "keywords": [
     "swarmwatch",

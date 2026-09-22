@@ -170,8 +170,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
     - Filter chips (`All`, `Changed`, `Added`, `Modified`, `Removed`, `Redacted`).
     - SHA-256 fingerprint delta indicator (`hash_a -> hash_b`).
     - Zero external LLM token expenditure, zero emoji, flat elevation hierarchy strictly compliant with Impeccable Craft Floor.
+- **Industrial Production Monitoring Stack & Grafana Dashboard Topology (Seam 17 & ADR 0028)**:
+  - Multi-service Docker Compose topology (`docker-compose.monitoring.yml`) orchestrating `swarmwatch`, `prometheus` (v2.54.1), and `grafana` (v11.2.0) with zero manual configuration.
+  - Automated Prometheus scrape configuration (`deploy/prometheus/prometheus.yml`) scraping `swarmwatch:8765/metrics` every 5s with static environment labels.
+  - Automated Grafana provisioning (`deploy/grafana/provisioning/datasources/datasources.yml` and `deploy/grafana/provisioning/dashboards/dashboards.yml`) registering Prometheus proxy and filesystem dashboard providers.
+  - Production-grade Grafana dashboard preset (`deploy/grafana/dashboards/swarmwatch-overview.json`) structured across 5 operational tiers (Executive ROI & Financial Protection, Ingestion Throughput & Buffer Capacity, Circuit Breaker Interventions & Safety Anomalies, Performance Latency & Shannon Entropy Histograms, Time-Machine DAG & State Branching) styled with SwarmWatch Impeccable dark theme tokens (`#080B11`, `#10B981`, `#38BDF8`, `#EF4444`, `#F59E0B`, `#A78BFA`).
+  - Strict PromQL metric mapping parity against `MetricsRegistry`.
+  - Comprehensive automated test suite `test_grafana_and_docker_topology.py` verifying YAML configs, schema integrity, and live `/metrics` parity.
 - **Complete Test Coverage**:
-  - **236 automated tests passing 100% locally** across Python (130 tests) and TypeScript (106 tests).
+  - **245 automated tests passing 100% locally** across Python (139 tests) and TypeScript (106 tests).
 
 
 

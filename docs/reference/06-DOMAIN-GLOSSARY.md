@@ -260,6 +260,23 @@ _Avoid_: Change line, diff item, mutation log
 Cryptographic state transition indicator tracking SHA-256 hash mutations across discrete execution turns.
 _Avoid_: Hash change, checksum diff
 
+---
+
+### Industrial Monitoring Stack & Grafana Topology
+
+**MonitoringTopology**:
+The multi-service Docker Compose architecture orchestrating SwarmWatch, Prometheus, and Grafana in an isolated network with zero external cloud dependencies.
+_Avoid_: Docker cluster, server group, compose bundle
+
+**DashboardPreset**:
+The pre-built, production-grade Grafana dashboard JSON specification mapping SwarmWatch OpenMetrics to executive ROI, throughput, and safety panels.
+_Avoid_: Grafana template, board json, chart layout
+
+**DatasourceProvisioning**:
+The automated filesystem-based registration of the local Prometheus service within Grafana without manual UI interaction.
+_Avoid_: DB setup, connection config, manual datasource
+
+
 
 
 
