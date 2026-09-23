@@ -236,5 +236,28 @@ export {
   OtlpTraceExporter,
 } from "./otlp.ts";
 
+// Enterprise WebPush & Server-Sent Events (SSE) Real-Time Alerts (Seam 28 / ADR 0039)
+export type {
+  SseEvent,
+  SseClientOptions,
+  SseEventHandler,
+} from "./sse.ts";
+export {
+  SseStreamParser,
+  SwarmEventSource,
+} from "./sse.ts";
+
+export type {
+  VapidKeys,
+  PushSubscriptionKeys,
+  PushSubscription,
+  PushMessage,
+} from "./webpush.ts";
+export {
+  VapidSigner,
+} from "./webpush.ts";
+export { listenEvents } from "./client.ts";
+
+
 
 

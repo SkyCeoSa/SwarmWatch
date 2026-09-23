@@ -1581,6 +1581,14 @@
             <span class="status-indicator" id="otlpDot" style="background: var(--accent);"></span>
             <span id="otlpText">OTLP: /v1/traces</span>
           </div>
+          <div class="fleet-badge" id="sseStatusBadge" title="Server-Sent Events (SSE) Stream (ADR 0039)">
+            <span class="status-indicator" id="sseDot" style="background: var(--text-muted);"></span>
+            <span id="sseText">SSE: STANDBY</span>
+          </div>
+          <div class="fleet-badge" id="pushNotificationBadge" title="Enterprise WebPush Alerts (ADR 0039)" style="cursor: pointer;">
+            <span class="status-indicator" id="pushDot" style="background: var(--text-muted);"></span>
+            <span id="pushText">PUSH: OFF</span>
+          </div>
         </div>
 
 
@@ -3703,6 +3711,80 @@
         } catch(e) {}
       }
       refreshOtlpStats();
+
+      // -------------------------------------------------------------------
+      // Server-Sent Events (SSE) & WebPush Integration (Seam 28 / ADR 0039)
+      // -------------------------------------------------------------------
+      function initSseStream() {
+        var sseDot = document.getElementById('sseDot');
+        var sseText = document.getElementById('sseText');
+        if (!window.EventSource) return;
+
+        try {
+          var evtSource = new EventSource('/api/v1/events/stream');
+          evtSource.onopen = function() {
+            if (sseDot) sseDot.style.background = 'var(--success)';
+            if (sseText) sseText.textContent = 'SSE: STREAMING';
+          };
+          evtSource.onerror = function() {
+            if (sseDot) sseDot.style.background = 'var(--warning)';
+            if (sseText) sseText.textContent = 'SSE: RECONNECTING';
+          };
+          evtSource.addEventListener('circuit_trip', function(e) {
+            handleRealtimeTripAlert(e.data);
+          });
+          evtSource.addEventListener('fleet_trip', function(e) {
+            handleRealtimeTripAlert(e.data);
+          });
+        } catch (e) {}
+      }
+
+      function handleRealtimeTripAlert(rawData) {
+        try {
+          var data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+          if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification('SwarmWatch Circuit Trip: ' + (data.swarm_id || 'Alert'), {
+              body: data.reason || 'Circuit breaker tripped on runaway loop',
+              tag: 'swarmwatch-trip'
+            });
+          }
+        } catch (e) {}
+      }
+
+      var pushNotificationBadge = document.getElementById('pushNotificationBadge');
+      var pushDot = document.getElementById('pushDot');
+      var pushText = document.getElementById('pushText');
+
+      if (pushNotificationBadge && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          if (pushDot) pushDot.style.background = 'var(--success)';
+          if (pushText) pushText.textContent = 'PUSH: ACTIVE';
+        }
+        pushNotificationBadge.addEventListener('click', async function() {
+          if (Notification.permission !== 'granted') {
+            var perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+              if (pushDot) pushDot.style.background = 'var(--success)';
+              if (pushText) pushText.textContent = 'PUSH: ACTIVE';
+              try {
+                var vapidRes = await fetch('/api/v1/push/vapid-public-key');
+                if (vapidRes.ok) {
+                  var vapidData = await vapidRes.json();
+                  await fetch('/api/v1/push/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      endpoint: 'https://browser.push.local/' + Math.random().toString(36).substring(2),
+                      keys: { p256dh: vapidData.public_key, auth: 'local-auth-secret' }
+                    })
+                  });
+                }
+              } catch(e) {}
+            }
+          }
+        });
+      }
+      initSseStream();
 
       if (btnMfaModal) {
 

@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+import uuid
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -118,7 +118,7 @@ class CircuitEvent(BaseModel):
     """
     Audit event emitted when the Entropy Circuit Breaker trips or issues a warning.
     """
-    id: str
+    id: str = Field(default_factory=lambda: f"evt-{uuid.uuid4().hex[:12]}")
     swarm_id: str
     project_id: str = "default-project"
     span_id: Optional[str] = None

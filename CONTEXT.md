@@ -331,5 +331,22 @@ _Avoid_: Hook call, function callback, middleware run
 - **OtlpTraceExportResponse**: The official response envelope returned to upstream OTel SDKs and collectors (`partialSuccess`, `rejectedSpans`, `errorMessage`) conforming to OTel 1.0 specifications.
   _Avoid_: Trace ack, ingest result, upload response
 
+---
+
+### Enterprise WebPush & Server-Sent Events (SSE) Real-Time Alerts (Seam 28 / ADR 0039)
+- **SseEventManager**: Asynchronous broadcast manager orchestrating persistent HTTP `text/event-stream` client subscriptions, automatic 15-second keep-alive heartbeats, and `Last-Event-ID` ring-buffer replay.
+  _Avoid_: SSE broadcaster, event pusher, stream loop
+- **SseEvent**: Structured Server-Sent Event conforming to W3C specifications containing event identifier, typed event category, retry interval, and JSON payload.
+  _Avoid_: Stream frame, event packet, line message
+- **WebPushEngine**: Asynchronous notification engine managing VAPID keys, JWT token minting, and RFC 8292 standard push notification dispatch with exponential backoff and dead-letter queue buffering.
+  _Avoid_: Push sender, browser notifier, webpush service
+- **VapidKeyManager**: Cryptographic key manager generating and validating NIST P-256 (secp256r1) keypairs and ES256 signatures via pure Python standard library arithmetic without external C-extensions.
+  _Avoid_: Key handler, vapid cert tool, crypto helper
+- **PushSubscription**: Persistent browser or mobile client push subscription registration containing endpoint URI, client ephemeral public key (`p256dh`), and authentication secret (`auth`).
+  _Avoid_: Push token, browser hook, notification registration
+- **PushMessage**: Notification payload delivered to client Service Workers containing title, body description, icon URI, and contextual metadata.
+  _Avoid_: Push body, alert text, notification dict
+
+
 
 

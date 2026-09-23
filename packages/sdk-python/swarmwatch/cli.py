@@ -5,6 +5,7 @@ Allows starting the live dashboard and ingestion server via `swarmwatch ui`.
 """
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 import sys
@@ -114,6 +115,22 @@ def main(argv=None):
     otlp_parser.add_argument("--api-key", default=os.getenv("SWARMWATCH_API_KEY", None), help="Optional SwarmWatch API key")
     otlp_parser.add_argument("--project-id", default=None, help="Target tenant project ID")
     otlp_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
+    # `swarmwatch events` subcommand (Seam 28 / ADR 0039)
+    events_parser = subparsers.add_parser("events", help="Listen to real-time Server-Sent Events (SSE) stream")
+    events_parser.add_argument("action", choices=["listen"], default="listen", nargs="?", help="Action to execute ('listen')")
+    events_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL (default: http://127.0.0.1:8765)")
+    events_parser.add_argument("--swarm", "-s", default=None, help="Filter events by swarm ID")
+    events_parser.add_argument("--min-level", choices=["warning", "trip"], default="warning", help="Minimum alert severity level")
+    events_parser.add_argument("--project-id", default=None, help="Filter by tenant project ID")
+
+    # `swarmwatch push` subcommand (Seam 28 / ADR 0039)
+    push_parser = subparsers.add_parser("push", help="Manage enterprise WebPush VAPID keys and alert subscriptions")
+    push_parser.add_argument("action", choices=["keys", "test", "subscriptions"], help="WebPush action (keys, test, subscriptions)")
+    push_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    push_parser.add_argument("--generate", action="store_true", help="Generate fresh VAPID keys instead of reading server key")
+    push_parser.add_argument("--endpoint", default=None, help="Target push subscription endpoint for test alerts")
+    push_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
     args = parser.parse_args(argv)
 
@@ -578,6 +595,133 @@ def main(argv=None):
                 sys.exit(0)
             except Exception as e:
                 print(f"Error fetching OTLP stats: {e}", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "events" or args.subcommand == "events":
+            pass
+    elif args.subcommand == "events":
+        import urllib.request
+        target_path = f"/api/v1/swarms/{args.swarm}/events/stream" if args.swarm else "/api/v1/events/stream"
+        query_parts = []
+        if args.min_level:
+            query_parts.append(f"min_level={args.min_level}")
+        if args.project_id:
+            query_parts.append(f"project_id={args.project_id}")
+        query_str = ("?" + "&".join(query_parts)) if query_parts else ""
+        stream_url = args.url.rstrip("/") + target_path + query_str
+
+        print(f"\033[96m=====================================================\033[0m")
+        print(f"\033[92m[SwarmWatch SSE Listener] Connecting to {stream_url}\033[0m")
+        print(f"\033[90mListening for real-time circuit trips, warnings & pings... (Ctrl+C to quit)\033[0m")
+        print(f"\033[96m=====================================================\033[0m\n")
+
+        try:
+            req = urllib.request.Request(stream_url, headers={"Accept": "text/event-stream"})
+            with urllib.request.urlopen(req, timeout=3600) as resp:
+                current_event = {}
+                for line_b in resp:
+                    line = line_b.decode("utf-8").strip()
+                    if not line:
+                        if "event" in current_event or "data" in current_event:
+                            evt_name = current_event.get("event", "message")
+                            evt_data = current_event.get("data", "")
+                            evt_id = current_event.get("id", "")
+                            if evt_name == "ping":
+                                print(f"\033[90m[HEARTBEAT] ping ({evt_data})\033[0m")
+                            elif "trip" in evt_name.lower():
+                                print(f"\033[91m[CIRCUIT TRIP] ID: {evt_id} | Type: {evt_name}\033[0m")
+                                print(f"  Payload: {evt_data}")
+                            elif "warn" in evt_name.lower():
+                                print(f"\033[93m[CIRCUIT WARN] ID: {evt_id} | Type: {evt_name}\033[0m")
+                                print(f"  Payload: {evt_data}")
+                            else:
+                                print(f"\033[94m[{evt_name.upper()}] ID: {evt_id}\033[0m")
+                                print(f"  Payload: {evt_data}")
+                            current_event = {}
+                        continue
+
+                    if line.startswith("id:"):
+                        current_event["id"] = line[3:].strip()
+                    elif line.startswith("event:"):
+                        current_event["event"] = line[6:].strip()
+                    elif line.startswith("data:"):
+                        current_event["data"] = line[5:].strip()
+        except KeyboardInterrupt:
+            print("\n\033[90m[SwarmWatch SSE] Disconnected.\033[0m")
+            sys.exit(0)
+        except Exception as e:
+            print(f"\033[91mError connecting to SSE stream: {e}\033[0m", file=sys.stderr)
+            sys.exit(1)
+    elif args.subcommand == "push":
+        import urllib.request
+        from swarmwatch.webpush import VapidKeyManager
+        if args.action == "keys":
+            if args.generate:
+                mgr = VapidKeyManager.generate()
+                keys_data = {
+                    "public_key": mgr.public_key_b64,
+                    "private_key": mgr.private_key_b64,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            else:
+                target_url = args.url.rstrip("/") + "/api/v1/push/vapid-public-key"
+                try:
+                    with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                        keys_data = json.loads(resp.read().decode("utf-8"))
+                except Exception as e:
+                    # Fallback to local generation if server is offline
+                    mgr = VapidKeyManager.generate()
+                    keys_data = {
+                        "public_key": mgr.public_key_b64,
+                        "private_key": mgr.private_key_b64,
+                        "note": f"Generated locally (server unreachable: {e})",
+                    }
+            if args.format == "json":
+                print(json.dumps(keys_data, indent=2))
+            else:
+                print("\n[SwarmWatch VAPID Cryptographic Keys]")
+                print(f"  Public Key:  {keys_data.get('public_key')}")
+                if "private_key" in keys_data:
+                    print(f"  Private Key: {keys_data.get('private_key')}")
+                print()
+            sys.exit(0)
+        elif args.action == "test":
+            target_url = args.url.rstrip("/") + "/api/v1/push/test"
+            payload = {}
+            if args.endpoint:
+                payload["endpoint"] = args.endpoint
+            data_bytes = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(target_url, data=data_bytes, headers={"Content-Type": "application/json"}, method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
+                    res = json.loads(resp.read().decode("utf-8"))
+                if args.format == "json":
+                    print(json.dumps(res, indent=2))
+                else:
+                    print(f"\033[92m[SwarmWatch WebPush] Dispatched synthetic test alert: {res}\033[0m")
+                sys.exit(0)
+            except Exception as e:
+                print(f"\033[91mError dispatching test push notification: {e}\033[0m", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "subscriptions":
+            target_url = args.url.rstrip("/") + "/api/v1/push/subscriptions"
+            try:
+                with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                    res = json.loads(resp.read().decode("utf-8"))
+                subs = res.get("subscriptions", [])
+                if args.format == "json":
+                    print(json.dumps(res, indent=2))
+                else:
+                    print(f"\n[SwarmWatch WebPush Subscriptions ({len(subs)} Active)]")
+                    print(f"  {'ID':<16} {'Project':<16} {'Endpoint':<40} {'Created'}")
+                    print(f"  {'-'*16} {'-'*16} {'-'*40} {'-'*20}")
+                    for s in subs:
+                        ep = s.get("endpoint", "")
+                        if len(ep) > 37: ep = ep[:37] + "..."
+                        print(f"  {s.get('id', ''):<16} {s.get('project_id', ''):<16} {ep:<40} {s.get('created_at', '')[:19]}")
+                    print()
+                sys.exit(0)
+            except Exception as e:
+                print(f"\033[91mError fetching subscriptions: {e}\033[0m", file=sys.stderr)
                 sys.exit(1)
     else:
         parser.print_help()

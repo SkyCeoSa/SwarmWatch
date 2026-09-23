@@ -258,6 +258,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/otlp.ts`) supporting `toOtelGenAiSpan`, `formatOtlpTracesPayload`, `parseOtlpTracesPayload`, and `OtlpTraceExporter`.
   - CLI subcommands: `swarmwatch otlp ingest` and `swarmwatch otlp validate`.
   - Web Console integration: `#otlpGatewayBadge` and `#otlpSpansCount` adhering strictly to Impeccable Craft Floor.
+- **Enterprise WebPush & Server-Sent Events (SSE) Real-Time Alerts (Seam 28 & ADR 0039 Dual-SDK Parity)**:
+  - Standards-compliant W3C Server-Sent Events endpoint (GET /api/v1/events/stream & GET /api/v1/swarms/{id}/events/stream) with automatic 15s keep-alive pings and Last-Event-ID ring-buffer replay.
+  - Zero-dependency RFC 8292 VAPID cryptographic engine (VapidKeyManager) implementing NIST P-256 (secp256r1) integer arithmetic and ES256 JWT signing in pure Python standard library.
+  - Outbound asynchronous WebPush notification dispatcher (WebPushEngine) with Dead-Letter Queue (DLQ) and automatic unregistration of expired subscriptions (410 Gone).
+  - Persistent SQLite WAL storage for push subscriptions (push_subscriptions table).
+  - Dual-SDK parity in TypeScript (@swarmwatch/sdk) providing SwarmEventSource, VapidSigner (using 
+ode:crypto), and client.listenEvents().
+  - CLI subcommands: swarmwatch events listen and swarmwatch push keys|test|subscriptions.
+  - Web Console integration: #sseStatusBadge in #fleetBar and #btnPushNotify header toggle strictly adhering to Impeccable Craft Floor.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

@@ -8,6 +8,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+import uuid
 
 from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent, CounterfactualSavings
 from swarmwatch.tenant import Organization, Project, ApiKey
@@ -143,6 +144,22 @@ class StorageAdapter(abc.ABC):
 
     async def list_audit_events(self, limit: int = 100) -> List[Dict[str, Any]]:
         """List security audit trail events."""
+        return []
+
+    async def save_push_subscription(self, subscription: Any) -> None:
+        """Register or update a WebPush browser/device subscription."""
+        pass
+
+    async def delete_push_subscription(self, endpoint: str) -> bool:
+        """Unregister a WebPush subscription by its endpoint URI."""
+        return False
+
+    async def get_push_subscription(self, endpoint: str) -> Optional[Any]:
+        """Fetch a WebPush subscription by its endpoint URI."""
+        return None
+
+    async def list_push_subscriptions(self, project_id: Optional[str] = None) -> List[Any]:
+        """List active WebPush subscriptions for a tenant project."""
         return []
 
     @abc.abstractmethod
@@ -283,6 +300,17 @@ class SQLiteStorageAdapter(StorageAdapter):
                     resource TEXT NOT NULL,
                     status TEXT NOT NULL,
                     details_json TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS push_subscriptions (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL DEFAULT 'default-project',
+                    endpoint TEXT UNIQUE NOT NULL,
+                    p256dh TEXT NOT NULL,
+                    auth TEXT NOT NULL,
+                    user_id TEXT,
+                    topics_json TEXT DEFAULT '["circuit_trip","circuit_warning","fleet_trip"]',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
 
@@ -965,6 +993,92 @@ class SQLiteStorageAdapter(StorageAdapter):
 
     async def list_audit_events(self, limit: int = 100) -> List[Dict[str, Any]]:
         return self.list_audit_events_sync(limit=limit)
+
+    def save_push_subscription_sync(self, sub: Any) -> None:
+        conn = self._get_connection()
+        topics = getattr(sub, 'topics', ['circuit_trip', 'circuit_warning', 'fleet_trip'])
+        topics_json = json.dumps(topics)
+        keys = getattr(sub, 'keys', None)
+        p256dh = getattr(keys, 'p256dh', '') if keys else ''
+        auth = getattr(keys, 'auth', '') if keys else ''
+        sub_id = getattr(sub, 'id', f"sub-{uuid.uuid4().hex[:12]}")
+        project_id = getattr(sub, 'project_id', 'default-project')
+        endpoint = getattr(sub, 'endpoint', '')
+        user_id = getattr(sub, 'user_id', None)
+        with conn:
+            conn.execute("""
+                INSERT INTO push_subscriptions (id, project_id, endpoint, p256dh, auth, user_id, topics_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(endpoint) DO UPDATE SET
+                    p256dh = excluded.p256dh,
+                    auth = excluded.auth,
+                    user_id = excluded.user_id,
+                    topics_json = excluded.topics_json,
+                    project_id = excluded.project_id
+            """, (
+                sub_id,
+                project_id,
+                endpoint,
+                p256dh,
+                auth,
+                user_id,
+                topics_json,
+                datetime.now(timezone.utc).isoformat()
+            ))
+
+    async def save_push_subscription(self, sub: Any) -> None:
+        self.save_push_subscription_sync(sub)
+
+    def delete_push_subscription_sync(self, endpoint: str) -> bool:
+        conn = self._get_connection()
+        with conn:
+            cursor = conn.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+            return cursor.rowcount > 0
+
+    async def delete_push_subscription(self, endpoint: str) -> bool:
+        return self.delete_push_subscription_sync(endpoint)
+
+    def get_push_subscription_sync(self, endpoint: str) -> Optional[Dict[str, Any]]:
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT * FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+        r = cursor.fetchone()
+        if not r:
+            return None
+        return {
+            "id": r["id"],
+            "project_id": r["project_id"],
+            "endpoint": r["endpoint"],
+            "keys": {"p256dh": r["p256dh"], "auth": r["auth"]},
+            "user_id": r["user_id"],
+            "topics": json.loads(r["topics_json"]) if r["topics_json"] else [],
+            "created_at": str(r["created_at"]),
+        }
+
+    async def get_push_subscription(self, endpoint: str) -> Optional[Dict[str, Any]]:
+        return self.get_push_subscription_sync(endpoint)
+
+    def list_push_subscriptions_sync(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        conn = self._get_connection()
+        if project_id and project_id != 'default-project':
+            cursor = conn.execute("SELECT * FROM push_subscriptions WHERE project_id = ? ORDER BY created_at DESC", (project_id,))
+        else:
+            cursor = conn.execute("SELECT * FROM push_subscriptions ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        subs = []
+        for r in rows:
+            subs.append({
+                "id": r["id"],
+                "project_id": r["project_id"],
+                "endpoint": r["endpoint"],
+                "keys": {"p256dh": r["p256dh"], "auth": r["auth"]},
+                "user_id": r["user_id"],
+                "topics": json.loads(r["topics_json"]) if r["topics_json"] else [],
+                "created_at": str(r["created_at"]),
+            })
+        return subs
+
+    async def list_push_subscriptions(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        return self.list_push_subscriptions_sync(project_id=project_id)
 
     def close_sync(self) -> None:
         if hasattr(self._local, "conn") and self._local.conn:

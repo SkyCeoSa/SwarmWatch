@@ -262,6 +262,17 @@ __all__ = [
     "has_permission",
     "UserAccount",
     "TotpEngine",
+    "SseEvent",
+    "SseSubscriber",
+    "SseEventManager",
+    "global_sse_manager",
+    "VapidKeyManager",
+    "PushKeys",
+    "PushSubscription",
+    "PushMessage",
+    "format_circuit_push_message",
+    "WebPushDispatcher",
+    "global_webpush_dispatcher",
 ]
 
 from swarmwatch.redis_lock import (
@@ -296,6 +307,22 @@ from swarmwatch.otlp import (
     OtlpIngestionStats,
     global_otlp_stats,
 )
+from swarmwatch.sse import (
+    SseEvent,
+    SseSubscriber,
+    SseEventManager,
+    global_sse_manager,
+)
+from swarmwatch.webpush import (
+    VapidKeyManager,
+    PushKeys,
+    PushSubscription,
+    PushMessage,
+    format_circuit_push_message,
+    WebPushDispatcher,
+    global_webpush_dispatcher,
+)
+
 
 
 

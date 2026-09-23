@@ -442,3 +442,36 @@ def set_telemetry_queue_depth(depth: int) -> None:
     """Set the current telemetry queue depth."""
     reg = PrometheusMetricsRegistry.get_default()
     reg.gauge("swarmwatch_telemetry_queue_depth_gauge", "Current number of spans buffered in queue").set(depth)
+
+
+def record_sse_event_dispatched(event_type: str = "circuit_trip") -> None:
+    """Record an SSE event dispatched to client streams."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.counter(
+        "swarmwatch_sse_events_sent_total",
+        "Total count of Server-Sent Events dispatched to subscribers",
+        ("event_type",),
+    ).inc(labels={"event_type": event_type})
+
+
+def set_active_sse_clients(count: int) -> None:
+    """Set the gauge of currently active SSE subscriber connections."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.gauge("swarmwatch_active_sse_clients", "Current number of active Server-Sent Events subscriber connections").set(count)
+
+
+def record_webpush_dispatched(status: str = "success") -> None:
+    """Record a WebPush notification dispatch attempt."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.counter(
+        "swarmwatch_push_notifications_sent_total",
+        "Total count of WebPush alert notifications dispatched",
+        ("status",),
+    ).inc(labels={"status": status})
+
+
+def set_active_push_subscriptions(count: int) -> None:
+    """Set the gauge of registered WebPush subscriptions."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.gauge("swarmwatch_push_subscriptions_active", "Current count of active registered WebPush subscriptions").set(count)
+

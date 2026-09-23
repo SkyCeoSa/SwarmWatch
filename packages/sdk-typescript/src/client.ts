@@ -16,6 +16,8 @@ import { InMemoryStorageSink, TelemetryTransport } from "./transport.ts";
 import type { StorageSink, TransportConfig } from "./transport.ts";
 import { ForkRunner } from "./runner.ts";
 import type { ForkResumptionContext, ForkResumptionResult } from "./runner.ts";
+import { SwarmEventSource } from "./sse.ts";
+import type { SseEvent, SseClientOptions } from "./sse.ts";
 
 export const currentSpanStorage = new AsyncLocalStorage<SwarmSpan>();
 
@@ -225,6 +227,20 @@ export class SwarmClient {
     return await this.runner.resume(branchId, handler, stateOverrides);
   }
 
+  public listenEvents(
+    callback: (event: SseEvent) => void,
+    options?: Partial<SseClientOptions>
+  ): () => void {
+    const sse = new SwarmEventSource({
+      swarmId: this.swarmId,
+      projectId: this.projectId,
+      ...options,
+    });
+    sse.on("message", callback);
+    sse.connect();
+    return () => sse.close();
+  }
+
   public async flush(): Promise<void> {
     await this.transport.flush();
   }
@@ -326,3 +342,11 @@ export function shutdown(): Promise<void> {
   }
   return Promise.resolve();
 }
+
+export function listenEvents(
+  callback: (event: SseEvent) => void,
+  options?: Partial<SseClientOptions>
+): () => void {
+  return getClient().listenEvents(callback, options);
+}
+

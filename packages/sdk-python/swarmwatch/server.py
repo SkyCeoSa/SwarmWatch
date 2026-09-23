@@ -24,6 +24,9 @@ from swarmwatch.webhooks import WebhookConfig, WebhookNotifier, format_webhook_p
 from swarmwatch.tenant import Organization, Project, ApiKey, TenantContext, ApiKeyManager
 from swarmwatch.rbac import Role, Permission, ROLE_PERMISSIONS, has_permission, UserAccount, TotpEngine
 from swarmwatch.otlp import OtelTraceParser, global_otlp_stats
+from starlette.responses import StreamingResponse
+from swarmwatch.sse import SseEvent, SseSubscriber, SseEventManager, global_sse_manager
+from swarmwatch.webpush import VapidKeyManager, PushKeys, PushSubscription, PushMessage, WebPushDispatcher, global_webpush_dispatcher, format_circuit_push_message
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
     CircuitPolicy,
@@ -2894,6 +2897,14 @@ def create_app(
                         "entropy_score": s.entropy_score,
                         "tripped_span_id": s.id,
                     })
+                    await broadcast_alert_event(
+                        event_type="trip",
+                        swarm_id=s.swarm_id,
+                        reason=trip_reason,
+                        metric_val=s.entropy_score,
+                        span_id=s.id,
+                        project_id=tenant.project_id,
+                    )
 
         resp_body: Dict[str, Any] = {"partialSuccess": {}}
         if rejected > 0:
@@ -2921,6 +2932,198 @@ def create_app(
     ):
         """Returns telemetry metrics for OTLP trace ingestion."""
         return global_otlp_stats.to_dict()
+
+    async def broadcast_alert_event(
+        event_type: str,
+        swarm_id: str,
+        reason: str,
+        metric_val: float = 0.0,
+        span_id: Optional[str] = None,
+        project_id: str = "default-project",
+        counterfactual_savings: Optional[Any] = None,
+    ) -> None:
+        """Broadcasts circuit trips and warnings across WebSocket, SSE, and WebPush channels (ADR 0039)."""
+        ce = CircuitEvent(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            span_id=span_id,
+            event_type=event_type,
+            reason=reason,
+            metric_val=metric_val,
+            counterfactual_savings=counterfactual_savings,
+        )
+        # 1. SSE Broadcast
+        await global_sse_manager.broadcast(ce)
+
+        # 2. WebPush Outbound Dispatch
+        try:
+            subs = await active_storage.list_push_subscriptions(project_id=project_id)
+            if subs:
+                msg = format_circuit_push_message(ce)
+                for s in subs:
+                    k = s.get("keys", {})
+                    topics = s.get("topics", ["circuit_trip", "circuit_warning", "fleet_trip"])
+                    if ce.event_type.lower() == "trip" and "circuit_trip" not in topics and "fleet_trip" not in topics:
+                        continue
+                    if ce.event_type.lower() == "warning" and "circuit_warning" not in topics:
+                        continue
+                    sub_model = PushSubscription(
+                        id=s["id"],
+                        project_id=s.get("project_id", project_id),
+                        endpoint=s["endpoint"],
+                        keys=PushKeys(p256dh=k.get("p256dh", ""), auth=k.get("auth", "")),
+                        topics=topics,
+                    )
+                    global_webpush_dispatcher.notify(sub_model, msg)
+        except Exception as e:
+            logger.warning("WebPush broadcast error: %s", e)
+
+        # 3. Webhook Outbound Dispatch
+        if active_webhook_notifier:
+            active_webhook_notifier.notify(ce)
+
+    # -----------------------------------------------------------------------
+    # Server-Sent Events (SSE) Streaming Endpoints (Seam 28 / ADR 0039)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/events/stream")
+    @app.get("/api/v1/swarms/{swarm_id}/events/stream")
+    async def sse_events_stream_endpoint(
+        request: Request,
+        swarm_id: Optional[str] = None,
+        min_level: str = Query(default="warning"),
+        project_id: Optional[str] = Query(default=None),
+        limit: Optional[int] = Query(default=None, description="Optional limit of events to emit before closing stream"),
+        last_event_id: Optional[str] = Header(default=None, alias="Last-Event-ID"),
+        last_event_id_q: Optional[str] = Query(default=None, alias="last_event_id"),
+    ):
+        """
+        W3C Standards-compliant Server-Sent Events (SSE) streaming endpoint.
+        Delivers real-time circuit trips, warnings, and fleet halts over HTTP text/event-stream.
+        """
+        effective_last_id = last_event_id or last_event_id_q
+        sub = SseSubscriber(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            min_level=min_level,
+        )
+        await global_sse_manager.register(sub)
+
+        async def event_generator():
+            emitted_count = 0
+            try:
+                # 1. Replay missed events from ring buffer if client sent Last-Event-ID
+                if effective_last_id:
+                    replay_events = global_sse_manager.get_replay_events(effective_last_id, sub)
+                    for evt in replay_events:
+                        yield evt.format_sse().encode("utf-8")
+                        emitted_count += 1
+                        if limit is not None and emitted_count >= limit:
+                            return
+
+                # 2. Main event streaming loop with 15s keep-alive heartbeats
+                while True:
+                    if limit is not None and emitted_count >= limit:
+                        break
+                    if await request.is_disconnected():
+                        break
+                    try:
+                        event = await asyncio.wait_for(sub.queue.get(), timeout=15.0)
+                        yield event.format_sse().encode("utf-8")
+                        emitted_count += 1
+                        if limit is not None and emitted_count >= limit:
+                            break
+                    except asyncio.TimeoutError:
+                        ping_evt = global_sse_manager.create_ping_event()
+                        yield ping_evt.format_sse().encode("utf-8")
+            except asyncio.CancelledError:
+                pass
+            finally:
+                await global_sse_manager.unregister(sub)
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
+    # -----------------------------------------------------------------------
+    # WebPush & VAPID Control Plane Endpoints (Seam 28 / ADR 0039)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/push/vapid-public-key")
+    async def get_vapid_public_key_endpoint():
+        """Returns the server VAPID public key for WebPush client subscription (RFC 8292)."""
+        return {
+            "public_key": global_webpush_dispatcher.vapid_manager.public_key_b64,
+            "status": "ready",
+        }
+
+    @app.post("/api/v1/push/subscribe")
+    async def subscribe_push_endpoint(
+        subscription: PushSubscription,
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Registers or updates a WebPush client subscription."""
+        subscription.project_id = tenant.project_id
+        await active_storage.save_push_subscription(subscription)
+        return {"status": "subscribed", "id": subscription.id}
+
+    @app.post("/api/v1/push/unsubscribe")
+    async def unsubscribe_push_endpoint(
+        payload: Dict[str, str] = Body(...),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Unregisters an active WebPush client subscription."""
+        endpoint = payload.get("endpoint")
+        if not endpoint:
+            raise HTTPException(status_code=400, detail="Missing 'endpoint' in request body")
+        removed = await active_storage.delete_push_subscription(endpoint)
+        return {"status": "unsubscribed" if removed else "not_found"}
+
+    @app.post("/api/v1/push/test")
+    async def test_push_endpoint(
+        payload: Optional[Dict[str, Any]] = Body(default=None),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Dispatches a synthetic test push notification to verify delivery."""
+        target_endpoint = payload.get("endpoint") if payload else None
+        subs = await active_storage.list_push_subscriptions(project_id=tenant.project_id)
+        if target_endpoint:
+            subs = [s for s in subs if s.get("endpoint") == target_endpoint]
+
+        msg = PushMessage(
+            title="SwarmWatch Test Alert",
+            body="Synthetic push notification verified successfully.",
+            tag="swarmwatch-test",
+            urgency="high",
+            data={"type": "test_alert", "timestamp": datetime.now(timezone.utc).isoformat()},
+        )
+
+        sent_count = 0
+        for s in subs:
+            keys = s.get("keys", {})
+            sub_obj = PushSubscription(
+                id=s["id"],
+                project_id=s.get("project_id", "default-project"),
+                endpoint=s["endpoint"],
+                keys=PushKeys(p256dh=keys.get("p256dh", ""), auth=keys.get("auth", "")),
+                topics=s.get("topics", []),
+            )
+            if global_webpush_dispatcher.notify(sub_obj, msg):
+                sent_count += 1
+
+        return {"status": "dispatched", "recipients": sent_count}
+
+    @app.get("/api/v1/push/subscriptions")
+    async def list_push_subscriptions_endpoint(
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Lists active WebPush subscriptions for current tenant project."""
+        subs = await active_storage.list_push_subscriptions(project_id=tenant.project_id)
+        return {"subscriptions": subs, "count": len(subs)}
 
 
     @app.get("/api/v1/swarms")
@@ -2988,6 +3191,13 @@ def create_app(
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         await ws_manager.broadcast(swarm_id, broadcast_msg)
+        await broadcast_alert_event(
+            event_type="fleet_trip",
+            swarm_id=swarm_id,
+            reason=reason,
+            metric_val=metric_val,
+            project_id=tenant.project_id,
+        )
         return {
             "status": "tripped",
             "swarm_id": swarm_id,

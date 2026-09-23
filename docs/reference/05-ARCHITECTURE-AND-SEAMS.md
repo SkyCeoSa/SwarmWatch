@@ -147,5 +147,8 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `toOtelGenAiSpan`, `formatOtlpTracesPayload`, `parseOtlpTracesPayload`, `OtlpTraceExporter` (`otlp.ts`), exported via `index.ts`.
     - Primitives (Console): `#otlpGatewayBadge` and `#otlpSpansCount` in `#fleetBar` (`dashboard.html`).
     - Invariant: Official OpenTelemetry 1.0+ HTTP trace specification conformance (`POST /v1/traces`); zero-dependency pure standard library protobuf wire format decoding; transparent translation of OpenTelemetry GenAI Semantic Conventions (`gen_ai.*`); real-time interception via `EntropyCircuitBreaker` and `RedisCircuitCoordinator`; Prometheus metrics emission (`record_span_ingested`); WebSocket broadcast; zero remote LLM token usage; 100% dual-SDK parity.
-
-
+28. **Enterprise WebPush & Server-Sent Events (SSE) Real-Time Alerts Seam (ADR 0039 Dual-SDK Parity)**:
+    - Primitives (Python): SseEventManager, SseEvent (sse.py), WebPushEngine, VapidKeyManager, PushSubscription, PushMessage, WebPushDispatcher (webpush.py), SQLite storage table push_subscriptions (storage.py), server endpoints GET /api/v1/events/stream, GET /api/v1/swarms/{id}/events/stream, GET /api/v1/push/vapid-public-key, POST /api/v1/push/subscribe, POST /api/v1/push/unsubscribe, POST /api/v1/push/test, GET /api/v1/push/subscriptions (server.py), CLI subcommands swarmwatch events listen and swarmwatch push keys|test|subscriptions (cli.py).
+    - Primitives (TypeScript): SwarmEventSource, SseEvent (sse.ts), VapidSigner, PushClient (webpush.ts), client.listenEvents() (client.ts), exported via index.ts.
+    - Primitives (Console): #sseStatusBadge in #fleetBar, #btnPushNotify in header action group (dashboard.html).
+    - Invariant: W3C standard Server-Sent Events (	ext/event-stream) streaming with automatic 15s keep-alive pings and Last-Event-ID ring-buffer replay; zero-dependency pure Python NIST P-256 (secp256r1) integer arithmetic and ES256 VAPID JWT signing; asynchronous non-blocking push dispatch with automatic cleanup of expired subscriptions (410 Gone); zero external LLM token usage; 100% dual-SDK parity.
