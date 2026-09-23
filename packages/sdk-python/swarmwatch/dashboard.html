@@ -1593,6 +1593,10 @@
             <span class="status-indicator" id="ebpfDot" style="background: var(--success);"></span>
             <span id="ebpfText">EBPF: ATTACHED</span>
           </div>
+          <div class="fleet-badge" id="raftConsensusBadge" title="Raft Distributed Consensus Engine (ADR 0041)">
+            <span class="status-indicator" id="raftDot" style="background: var(--accent);"></span>
+            <span id="raftText">RAFT: LEADER (T0)</span>
+          </div>
         </div>
 
 
@@ -3812,6 +3816,33 @@
       refreshEbpfStatus();
       setInterval(refreshEbpfStatus, 8000);
 
+      // -------------------------------------------------------------------
+      // Raft Distributed Consensus Engine (Seam 30 / ADR 0041)
+      // -------------------------------------------------------------------
+      async function refreshRaftStatus() {
+        var raftDot = document.getElementById('raftDot');
+        var raftText = document.getElementById('raftText');
+        try {
+          var res = await fetch('/api/v1/raft/status');
+          if (res.ok) {
+            var data = await res.json();
+            var role = data.role || 'FOLLOWER';
+            var term = data.term || 0;
+            if (role === 'LEADER') {
+              if (raftDot) raftDot.style.background = 'var(--success)';
+              if (raftText) raftText.textContent = 'RAFT: LEADER (T' + term + ')';
+            } else if (role === 'CANDIDATE') {
+              if (raftDot) raftDot.style.background = 'var(--warning)';
+              if (raftText) raftText.textContent = 'RAFT: CANDIDATE (T' + term + ')';
+            } else {
+              if (raftDot) raftDot.style.background = 'var(--accent)';
+              if (raftText) raftText.textContent = 'RAFT: FOLLOWER (T' + term + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRaftStatus();
+      setInterval(refreshRaftStatus, 6000);
 
       if (btnMfaModal) {
 

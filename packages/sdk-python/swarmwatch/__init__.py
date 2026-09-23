@@ -332,6 +332,19 @@ from swarmwatch.ebpf import (
     global_ebpf_gateway,
     calculate_shannon_entropy,
 )
+from swarmwatch.raft import (
+    RaftNodeRole,
+    RaftLogEntry,
+    RequestVoteRpc,
+    RequestVoteResponse,
+    AppendEntriesRpc,
+    AppendEntriesResponse,
+    SwarmRaftStateMachine,
+    RaftConsensusEngine,
+    MockRaftCluster,
+    global_raft_engine,
+)
+
 
 
 

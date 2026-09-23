@@ -503,3 +503,30 @@ def record_ebpf_rst_intervention(reason: str = "entropy_collapse") -> None:
         ("reason",),
     ).inc(labels={"reason": reason})
 
+
+def set_raft_current_term(term: int) -> None:
+    """Set the gauge of current Raft consensus term."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.gauge("swarmwatch_raft_current_term", "Current Raft cluster epoch term").set(term)
+
+
+def set_raft_commit_index(idx: int) -> None:
+    """Set the gauge of current committed Raft log index."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.gauge("swarmwatch_raft_commit_index", "Index of highest committed entry in Raft log").set(idx)
+
+
+def set_raft_node_role(role: str) -> None:
+    """Set the gauge of current Raft node role (1=LEADER, 2=CANDIDATE, 3=FOLLOWER)."""
+    reg = PrometheusMetricsRegistry.get_default()
+    role_map = {"leader": 1.0, "candidate": 2.0, "follower": 3.0}
+    val = role_map.get(role.lower(), 0.0)
+    reg.gauge("swarmwatch_raft_node_role", "Numeric representation of active node role").set(val)
+
+
+def record_raft_election() -> None:
+    """Record an election cycle initiated by a candidate node."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.counter("swarmwatch_raft_elections_total", "Total Raft leader election attempts initiated").inc()
+
+

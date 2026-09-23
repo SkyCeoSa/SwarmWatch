@@ -274,6 +274,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/ebpf.ts`) with Node.js `net.Socket` interception.
   - Control plane REST endpoints (`GET /api/v1/ebpf/status`, `GET/POST/DELETE /api/v1/ebpf/rules`, `POST /api/v1/ebpf/simulate`) and CLI subcommand (`swarmwatch ebpf`).
   - Web Console integration: `#ebpfGatewayBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+- **Multi-Cluster High-Availability Raft Consensus Engine (Seam 30 & ADR 0041 Dual-SDK Parity)**:
+  - Deep module `RaftConsensusEngine` implementing pure standard-library distributed consensus, term progression, randomized election timers (150-300ms), and periodic heartbeats (50ms) without Redis or external key-value stores.
+  - Replicated state machine `RaftStateMachine` applying committed log entries for atomic fleet quotas, cluster-wide circuit trips, and policy updates across all nodes with strict quorum guarantees ($N/2 + 1$).
+  - Zero-dependency dual-transport architecture: in-memory message bus for deterministic sub-50ms testing and REST RPC inter-node communication (`RequestVoteRpc`, `AppendEntriesRpc`).
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/raft.ts`) tested with Node 22 type-stripping rules.
+  - Control plane REST endpoints (`GET /api/v1/raft/status`, `POST /api/v1/raft/propose`, `POST /api/v1/raft/rpc/request-vote`, `POST /api/v1/raft/rpc/append-entries`, `POST /api/v1/raft/step-down`) and CLI subcommand (`swarmwatch raft status|propose|cluster`).
+  - Web Console integration: `#raftConsensusBadge` in `#fleetBar` displaying live node role (`RAFT: LEADER` / `RAFT: FOLLOWER`), term, and commit index conforming strictly to Impeccable Craft Floor.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

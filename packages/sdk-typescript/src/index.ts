@@ -270,6 +270,23 @@ export {
   MockEbpfEngine,
 } from "./ebpf.ts";
 
+// Multi-Cluster High-Availability Raft Consensus Engine (Seam 30 / ADR 0041)
+export type {
+  RaftLogEntry,
+  RequestVoteRpc,
+  RequestVoteResponse,
+  AppendEntriesRpc,
+  AppendEntriesResponse,
+  SwarmRaftState,
+  RaftRpcSender,
+} from "./raft.ts";
+export {
+  RaftNodeRole,
+  SwarmRaftStateMachine,
+  RaftConsensusEngine,
+  MockRaftCluster,
+} from "./raft.ts";
+
 
 
 

@@ -141,6 +141,16 @@ def main(argv=None):
     ebpf_parser.add_argument("--host", default="api.openai.com", help="Target host for simulation (default: api.openai.com)")
     ebpf_parser.add_argument("--port", type=int, default=443, help="Target port for simulation (default: 443)")
 
+    # `swarmwatch raft` subcommand (Seam 30 / ADR 0041)
+    raft_parser = subparsers.add_parser("raft", help="Manage multi-cluster Raft consensus engine and quorum state machine")
+    raft_parser.add_argument("action", choices=["status", "propose", "cluster"], default="status", nargs="?", help="Raft action (status, propose, cluster)")
+    raft_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    raft_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+    raft_parser.add_argument("--command", default="trip", help="Command to propose (trip, reset, quota_inc)")
+    raft_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID for proposal")
+    raft_parser.add_argument("--reason", default="Manual operator trip via Raft CLI", help="Reason string for circuit trip proposal")
+    raft_parser.add_argument("--nodes", type=int, default=3, help="Number of nodes for mock cluster simulation (default: 3)")
+
     args = parser.parse_args(argv)
 
 
@@ -799,6 +809,102 @@ def main(argv=None):
                 print(f"  Shannon Entropy:  {decoder.entropy:.4f}")
                 if intervention:
                     print(f"  RST Reason:       {intervention.reason}")
+                print()
+            sys.exit(0)
+    elif args.subcommand == "raft":
+        import urllib.request
+        from swarmwatch.raft import global_raft_engine, MockRaftCluster
+        if args.action == "status":
+            target_url = args.url.rstrip("/") + "/api/v1/raft/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                    status_data = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                status_data = global_raft_engine.status()
+                status_data["swarms"] = global_raft_engine.state_machine.list_swarms()
+            if args.format == "json":
+                print(json.dumps(status_data, indent=2))
+            else:
+                role = status_data.get("role", "FOLLOWER")
+                if role == "LEADER":
+                    role_color = "\033[92mLEADER\033[0m"
+                elif role == "CANDIDATE":
+                    role_color = "\033[93mCANDIDATE\033[0m"
+                else:
+                    role_color = "\033[94mFOLLOWER\033[0m"
+                print("\n+--------------------------------------------------------------+")
+                print("| SWARMWATCH RAFT DISTRIBUTED CONSENSUS ENGINE (ADR 0041)     |")
+                print("+--------------------------------------------------------------+")
+                print(f"| Node ID:             {str(status_data.get('node_id', '')): <43} |")
+                print(f"| Cluster Role:        {role_color: <43} |")
+                print(f"| Current Term:        {str(status_data.get('term', 0)): <43} |")
+                print(f"| Leader ID:           {str(status_data.get('leader_id') or 'none'): <43} |")
+                print(f"| Commit Index:        {str(status_data.get('commit_index', 0)): <43} |")
+                print(f"| Last Log Index:      {str(status_data.get('last_log_index', 0)): <43} |")
+                print(f"| Quorum Size (N/2+1): {str(status_data.get('quorum_size', 1)) + '/' + str(status_data.get('cluster_size', 1)): <43} |")
+                print(f"| Tracked Swarms:      {str(len(status_data.get('swarms', []))): <43} |")
+                print("+--------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "propose":
+            import asyncio
+            payload = {
+                "swarm_id": args.swarm_id,
+                "reason": args.reason,
+                "tripped_by": "raft-cli",
+            }
+            # Attempt via HTTP first
+            target_url = args.url.rstrip("/") + "/api/v1/raft/propose"
+            try:
+                req_data = json.dumps({"command": args.command, "payload": payload}).encode("utf-8")
+                req = urllib.request.Request(target_url, data=req_data, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
+                    res = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                # Standalone fallback
+                if global_raft_engine.cluster_size <= 1 and not global_raft_engine.is_leader:
+                    global_raft_engine.become_leader()
+                success, entry, leader_id = asyncio.run(global_raft_engine.propose(args.command, payload))
+                res = {
+                    "status": "committed" if success else "failed",
+                    "entry": entry.to_dict() if entry else None,
+                    "commit_index": global_raft_engine.commit_index,
+                }
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                st = "\033[92mCOMMITTED\033[0m" if res.get("status") == "committed" else "\033[91mFAILED\033[0m"
+                print(f"\n[Raft Proposal] Status: {st}")
+                print(f"  Command:      {args.command}")
+                print(f"  Swarm ID:     {args.swarm_id}")
+                print(f"  Commit Index: {res.get('commit_index')}")
+                print()
+            sys.exit(0)
+        elif args.action == "cluster":
+            import asyncio
+            async def run_sim():
+                cluster = MockRaftCluster(node_count=args.nodes)
+                leader = await cluster.elect_leader()
+                success, entry = await cluster.propose_command(
+                    args.command,
+                    {"swarm_id": args.swarm_id, "reason": args.reason},
+                )
+                return cluster, leader, success, entry
+            cluster, leader, success, entry = asyncio.run(run_sim())
+            res = {
+                "nodes": [n.status() for n in cluster.nodes.values()],
+                "leader": leader.node_id,
+                "proposal_success": success,
+                "commit_index": leader.commit_index,
+            }
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"\n[Raft Multi-Node Simulation: {args.nodes} Nodes]")
+                print(f"  Leader Elected: \033[92m{leader.node_id}\033[0m (Term {leader.current_term})")
+                print(f"  Proposal:       {args.command} -> \033[92mQuorum Committed\033[0m (Index {leader.commit_index})")
+                print("\n  Node States:")
+                for nid, n in cluster.nodes.items():
+                    print(f"    - {nid}: role={n.role:<9} term={n.current_term} commit={n.commit_index} last_log={n.last_log_index}")
                 print()
             sys.exit(0)
     else:

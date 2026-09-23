@@ -560,3 +560,36 @@ _Avoid_: Kill connection, socket reset, packet drop
 Low-level kernel or socket abstraction executing immediate TCP RST / abort operations on violating connections.
 _Avoid_: Resetter, socket dropper, reset tool
 
+---
+
+### Multi-Cluster High-Availability Raft Consensus Engine (Seam 30 / ADR 0041)
+
+**RaftConsensusEngine**:
+The deep module managing distributed cluster consensus, term transitions, leader elections, and replicated state machine logs without external dependencies.
+_Avoid_: Master node daemon, cluster sync tool, leader loop
+
+**RaftNodeRole**:
+The operational role of a node within the Raft consensus group (`LEADER`, `CANDIDATE`, `FOLLOWER`).
+_Avoid_: Worker type, cluster rank, server state
+
+**RaftTerm**:
+Monotonically increasing epoch number coordinating leadership terms and preventing stale leader operations.
+_Avoid_: Cluster age, election round, epoch tag
+
+**RaftLogEntry**:
+An immutable replicated state machine entry recording term, log index, and domain command.
+_Avoid_: Replicated log line, journal item, commit record
+
+**RaftStateMachine**:
+The deterministic state machine applying committed Raft entries (circuit trips, quota increments, worker states).
+_Avoid_: State handler, sync runner, local cache
+
+**RequestVoteRpc**:
+Candidate RPC soliciting votes from cluster peers during leader elections.
+_Avoid_: Vote ping, ballot message, candidate request
+
+**AppendEntriesRpc**:
+Leader RPC replicating log entries and emitting periodic heartbeats to maintain authority.
+_Avoid_: Heartbeat ping, log push, sync packet
+
+

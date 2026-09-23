@@ -28,6 +28,7 @@ from starlette.responses import StreamingResponse
 from swarmwatch.sse import SseEvent, SseSubscriber, SseEventManager, global_sse_manager
 from swarmwatch.webpush import VapidKeyManager, PushKeys, PushSubscription, PushMessage, WebPushDispatcher, global_webpush_dispatcher, format_circuit_push_message
 from swarmwatch.ebpf import SocketRule, SocketIntervention, global_ebpf_gateway
+from swarmwatch.raft import RaftNodeRole, RaftLogEntry, RequestVoteRpc, AppendEntriesRpc, global_raft_engine
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
     CircuitPolicy,
@@ -137,6 +138,12 @@ class MfaVerifyRequest(BaseModel):
 class MfaChallengeRequest(BaseModel):
     username: str
     code: str
+
+
+class RaftProposeRequest(BaseModel):
+    command: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
 
 
 
@@ -3733,6 +3740,71 @@ def create_app(
         """Detaches the eBPF socket gateway."""
         global_ebpf_gateway.set_attached(False)
         return {"status": "detached"}
+
+    @app.get("/api/v1/raft/status")
+    async def get_raft_status_endpoint():
+        """Returns the current state and metrics of the Raft consensus engine."""
+        status_data = global_raft_engine.status()
+        status_data["swarms"] = global_raft_engine.state_machine.list_swarms()
+        return status_data
+
+    @app.post("/api/v1/raft/propose")
+    async def propose_raft_command_endpoint(
+        req: RaftProposeRequest,
+        tenant: TenantContext = Depends(require_permission(Permission.FLEET_MANAGE)),
+    ):
+        """Submits a command proposal to the Raft cluster leader."""
+        # Standalone single node auto-elects if follower
+        if global_raft_engine.cluster_size <= 1 and not global_raft_engine.is_leader:
+            global_raft_engine.become_leader()
+
+        success, entry, leader_id = await global_raft_engine.propose(req.command, req.payload)
+        if not success:
+            if leader_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Node is not leader. Current leader is '{leader_id}'",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to reach Raft consensus quorum for proposal",
+            )
+        return {
+            "status": "committed",
+            "entry": entry.to_dict() if entry else None,
+            "commit_index": global_raft_engine.commit_index,
+        }
+
+    @app.post("/api/v1/raft/rpc/request-vote")
+    async def raft_request_vote_rpc_endpoint(
+        rpc_data: Dict[str, Any] = Body(...),
+    ):
+        """Inter-node Raft RPC: RequestVote."""
+        rpc = RequestVoteRpc.from_dict(rpc_data)
+        resp = global_raft_engine.handle_request_vote(rpc)
+        return resp.to_dict()
+
+    @app.post("/api/v1/raft/rpc/append-entries")
+    async def raft_append_entries_rpc_endpoint(
+        rpc_data: Dict[str, Any] = Body(...),
+    ):
+        """Inter-node Raft RPC: AppendEntries (heartbeat / log replication)."""
+        rpc = AppendEntriesRpc.from_dict(rpc_data)
+        resp = global_raft_engine.handle_append_entries(rpc)
+        return resp.to_dict()
+
+    @app.post("/api/v1/raft/step-down")
+    async def raft_step_down_endpoint(
+        new_term: Optional[int] = Query(None),
+        tenant: TenantContext = Depends(require_permission(Permission.FLEET_MANAGE)),
+    ):
+        """Forces the current Raft node to step down to FOLLOWER."""
+        global_raft_engine.step_down(new_term)
+        return {
+            "status": "stepped_down",
+            "role": global_raft_engine.role,
+            "term": global_raft_engine.current_term,
+        }
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):
