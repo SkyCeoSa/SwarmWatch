@@ -1589,7 +1589,12 @@
             <span class="status-indicator" id="pushDot" style="background: var(--text-muted);"></span>
             <span id="pushText">PUSH: OFF</span>
           </div>
+          <div class="fleet-badge" id="ebpfGatewayBadge" title="Kernel-Level Socket LLM Interception Gateway (ADR 0040)">
+            <span class="status-indicator" id="ebpfDot" style="background: var(--success);"></span>
+            <span id="ebpfText">EBPF: ATTACHED</span>
+          </div>
         </div>
+
 
 
         <div class="fleet-meters-container" id="fleetMetersGroup">
@@ -3782,9 +3787,31 @@
               } catch(e) {}
             }
           }
-        });
-      }
       initSseStream();
+
+      // -------------------------------------------------------------------
+      // Kernel-Level Socket LLM Interception Gateway (Seam 29 / ADR 0040)
+      // -------------------------------------------------------------------
+      async function refreshEbpfStatus() {
+        var ebpfDot = document.getElementById('ebpfDot');
+        var ebpfText = document.getElementById('ebpfText');
+        try {
+          var res = await fetch('/api/v1/ebpf/status');
+          if (res.ok) {
+            var data = await res.json();
+            if (data.status === 'attached') {
+              if (ebpfDot) ebpfDot.style.background = 'var(--success)';
+              if (ebpfText) ebpfText.textContent = 'EBPF: ' + (data.packets_intercepted || 0) + ' PKTS';
+            } else {
+              if (ebpfDot) ebpfDot.style.background = 'var(--text-muted)';
+              if (ebpfText) ebpfText.textContent = 'EBPF: DETACHED';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEbpfStatus();
+      setInterval(refreshEbpfStatus, 8000);
+
 
       if (btnMfaModal) {
 

@@ -535,3 +535,28 @@ _Avoid_: Push token, browser hook, notification registration
 **PushMessage**:
 The notification payload delivered to client Service Workers containing title, body description, icon URI, and contextual metadata.
 _Avoid_: Push body, alert text, notification dict
+
+---
+
+### Kernel-Level Network Socket LLM Interception Gateway (Seam 29 / ADR 0040)
+
+**EbpfSocketGateway**:
+The deep module managing transparent socket interception, packet sniffing/forwarding, protocol decoding, and kernel-level circuit enforcement.
+_Avoid_: Socket proxy, network sniffer, wiretap daemon
+
+**SocketRule**:
+Declarative filter criteria for network traffic inspection specifying destination ports, domain patterns, target action (`ALLOW`, `INSPECT`, `TERMINATE_RST`), and token/cost thresholds.
+_Avoid_: Firewall rule, port mapping, filter config
+
+**SocketStreamDecoder**:
+Zero-dependency stream protocol parser extracting HTTP/1.1 headers, JSON payloads, and Server-Sent Events (SSE) token chunks from raw TCP byte streams without third-party HTTP decoders.
+_Avoid_: Stream unpacker, http reader, payload extractor
+
+**SocketIntervention**:
+Physical disruption and termination of an offending TCP session via TCP RST packet emulation or immediate socket shutdown (`SHUT_RDWR`), physically cutting off runaway agent loops at the network layer.
+_Avoid_: Kill connection, socket reset, packet drop
+
+**TcpRstEmitter**:
+Low-level kernel or socket abstraction executing immediate TCP RST / abort operations on violating connections.
+_Avoid_: Resetter, socket dropper, reset tool
+

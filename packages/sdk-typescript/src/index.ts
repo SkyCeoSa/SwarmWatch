@@ -258,6 +258,19 @@ export {
 } from "./webpush.ts";
 export { listenEvents } from "./client.ts";
 
+// Kernel-Level Network Socket LLM Interception Gateway (Seam 29 / ADR 0040)
+export type {
+  SocketRule,
+  SocketIntervention,
+} from "./ebpf.ts";
+export {
+  calculateShannonEntropy,
+  SocketStreamDecoder,
+  EbpfSocketGateway,
+  MockEbpfEngine,
+} from "./ebpf.ts";
+
+
 
 
 

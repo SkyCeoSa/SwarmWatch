@@ -322,6 +322,17 @@ from swarmwatch.webpush import (
     WebPushDispatcher,
     global_webpush_dispatcher,
 )
+from swarmwatch.ebpf import (
+    SocketRule,
+    SocketStreamDecoder,
+    SocketIntervention,
+    TcpRstEmitter,
+    EbpfSocketGateway,
+    MockEbpfEngine,
+    global_ebpf_gateway,
+    calculate_shannon_entropy,
+)
+
 
 
 

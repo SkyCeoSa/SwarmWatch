@@ -475,3 +475,31 @@ def set_active_push_subscriptions(count: int) -> None:
     reg = PrometheusMetricsRegistry.get_default()
     reg.gauge("swarmwatch_push_subscriptions_active", "Current count of active registered WebPush subscriptions").set(count)
 
+
+def record_ebpf_packet_intercepted(count: int = 1) -> None:
+    """Record TCP packets intercepted by the kernel/eBPF gateway."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.counter("swarmwatch_ebpf_packets_intercepted_total", "Total TCP packets intercepted by kernel eBPF gateway").inc(value=float(count))
+
+
+def record_ebpf_bytes_intercepted(bytes_count: int) -> None:
+    """Record total payload bytes intercepted across network sockets."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.counter("swarmwatch_ebpf_bytes_intercepted_total", "Total payload bytes intercepted across network sockets").inc(value=float(bytes_count))
+
+
+def set_active_ebpf_sockets(count: int) -> None:
+    """Set the gauge of currently monitored active sockets."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.gauge("swarmwatch_ebpf_active_sockets", "Current number of monitored TCP network sockets").set(count)
+
+
+def record_ebpf_rst_intervention(reason: str = "entropy_collapse") -> None:
+    """Record a kernel/socket-level TCP RST intervention."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.counter(
+        "swarmwatch_ebpf_rst_interventions_total",
+        "Total TCP RST socket interventions enacted",
+        ("reason",),
+    ).inc(labels={"reason": reason})
+

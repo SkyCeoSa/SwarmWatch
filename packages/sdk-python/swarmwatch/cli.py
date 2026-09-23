@@ -132,7 +132,17 @@ def main(argv=None):
     push_parser.add_argument("--endpoint", default=None, help="Target push subscription endpoint for test alerts")
     push_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch ebpf` subcommand (Seam 29 / ADR 0040)
+    ebpf_parser = subparsers.add_parser("ebpf", help="Inspect and manage kernel-level socket LLM interception gateway")
+    ebpf_parser.add_argument("action", choices=["status", "rules", "simulate"], default="status", nargs="?", help="eBPF action (status, rules, simulate)")
+    ebpf_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    ebpf_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+    ebpf_parser.add_argument("--data", default=None, help="Payload data string for simulation")
+    ebpf_parser.add_argument("--host", default="api.openai.com", help="Target host for simulation (default: api.openai.com)")
+    ebpf_parser.add_argument("--port", type=int, default=443, help="Target port for simulation (default: 443)")
+
     args = parser.parse_args(argv)
+
 
 
     if args.subcommand == "ui":
@@ -723,6 +733,74 @@ def main(argv=None):
             except Exception as e:
                 print(f"\033[91mError fetching subscriptions: {e}\033[0m", file=sys.stderr)
                 sys.exit(1)
+    elif args.subcommand == "ebpf":
+        import urllib.request
+        from swarmwatch.ebpf import global_ebpf_gateway
+        if args.action == "status":
+            target_url = args.url.rstrip("/") + "/api/v1/ebpf/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                    status_data = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                status_data = global_ebpf_gateway.status()
+            if args.format == "json":
+                print(json.dumps(status_data, indent=2))
+            else:
+                st_color = "\033[92mATTACHED\033[0m" if status_data.get("status") == "attached" else "\033[93mDETACHED\033[0m"
+                print("\n+--------------------------------------------------------------+")
+                print(f"| SWARMWATCH KERNEL eBPF SOCKET GATEWAY STATUS (ADR 0040)     |")
+                print("+--------------------------------------------------------------+")
+                print(f"| Interceptor State:   {st_color: <43} |")
+                print(f"| Active Sockets:      {str(status_data.get('active_sockets', 0)): <43} |")
+                print(f"| Packets Intercepted: {str(status_data.get('packets_intercepted', 0)): <43} |")
+                print(f"| Bytes Monitored:     {str(status_data.get('bytes_intercepted', 0)): <43} |")
+                print(f"| TCP RST Tripped:     {str(status_data.get('interventions_enacted', 0)): <43} |")
+                print(f"| Active Rules:        {str(status_data.get('rules_count', 0)): <43} |")
+                print("+--------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "rules":
+            target_url = args.url.rstrip("/") + "/api/v1/ebpf/rules"
+            try:
+                with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                    rules_data = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                rules_data = {"rules": [r.to_dict() for r in global_ebpf_gateway.list_rules()]}
+            rules = rules_data.get("rules", [])
+            if args.format == "json":
+                print(json.dumps(rules_data, indent=2))
+            else:
+                print(f"\n[SwarmWatch eBPF Rules ({len(rules)} Active)]")
+                print(f"  {'ID':<18} {'Action':<10} {'Ports':<18} {'Name'}")
+                print(f"  {'-'*18} {'-'*10} {'-'*18} {'-'*24}")
+                for r in rules:
+                    ports_str = ",".join(str(p) for p in r.get("ports", []))[:16]
+                    print(f"  {r.get('id', ''):<18} {r.get('action', ''):<10} {ports_str:<18} {r.get('name', '')}")
+                print()
+            sys.exit(0)
+        elif args.action == "simulate":
+            sim_data = args.data or "POST /v1/chat/completions HTTP/1.1\r\nHost: api.openai.com\r\n\r\n{\"messages\": [{\"role\": \"user\", \"content\": \"Test loop simulation\"}]}"
+            terminated, intervention, decoder = global_ebpf_gateway.inspect_stream_data(
+                sim_data.encode("utf-8"),
+                host=args.host,
+                port=args.port,
+            )
+            res = {
+                "terminated": terminated,
+                "intervention": intervention.to_dict() if intervention else None,
+                "tokens_estimated": decoder.estimated_token_count,
+                "entropy": decoder.entropy,
+            }
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                term_str = "\033[91mTERMINATED (TCP RST)\033[0m" if terminated else "\033[92mFORWARDED (CLEAN)\033[0m"
+                print(f"\n[eBPF Stream Simulation] Result: {term_str}")
+                print(f"  Estimated Tokens: {decoder.estimated_token_count}")
+                print(f"  Shannon Entropy:  {decoder.entropy:.4f}")
+                if intervention:
+                    print(f"  RST Reason:       {intervention.reason}")
+                print()
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

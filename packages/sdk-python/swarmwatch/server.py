@@ -27,6 +27,7 @@ from swarmwatch.otlp import OtelTraceParser, global_otlp_stats
 from starlette.responses import StreamingResponse
 from swarmwatch.sse import SseEvent, SseSubscriber, SseEventManager, global_sse_manager
 from swarmwatch.webpush import VapidKeyManager, PushKeys, PushSubscription, PushMessage, WebPushDispatcher, global_webpush_dispatcher, format_circuit_push_message
+from swarmwatch.ebpf import SocketRule, SocketIntervention, global_ebpf_gateway
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
     CircuitPolicy,
@@ -3655,6 +3656,83 @@ def create_app(
         if not manifest:
             raise HTTPException(status_code=404, detail=f"Manifest not found for swarm '{swarm_id}'")
         return manifest.model_dump(mode="json")
+
+    # -----------------------------------------------------------------------
+    # Kernel-Level Network Socket LLM Interception Gateway (Seam 29 / ADR 0040)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/ebpf/status")
+    async def get_ebpf_status_endpoint():
+        """Returns diagnostic and telemetry status of the eBPF socket gateway."""
+        return global_ebpf_gateway.status()
+
+    @app.get("/api/v1/ebpf/rules")
+    async def list_ebpf_rules_endpoint():
+        """Lists active socket inspection and circuit enforcement rules."""
+        rules = global_ebpf_gateway.list_rules()
+        return {"rules": [r.to_dict() for r in rules], "count": len(rules)}
+
+    @app.post("/api/v1/ebpf/rules")
+    async def create_ebpf_rule_endpoint(
+        rule_payload: Dict[str, Any] = Body(...),
+        tenant: TenantContext = Depends(require_permission(Permission.POLICY_WRITE)),
+    ):
+        """Creates or registers an eBPF socket interception rule."""
+        rule = SocketRule.from_dict(rule_payload)
+        saved = global_ebpf_gateway.add_rule(rule)
+        return {"status": "created", "rule": saved.to_dict()}
+
+    @app.delete("/api/v1/ebpf/rules/{rule_id}")
+    async def delete_ebpf_rule_endpoint(
+        rule_id: str,
+        tenant: TenantContext = Depends(require_permission(Permission.POLICY_WRITE)),
+    ):
+        """Removes an active socket interception rule."""
+        removed = global_ebpf_gateway.delete_rule(rule_id)
+        if not removed:
+            raise HTTPException(status_code=404, detail=f"Rule '{rule_id}' not found")
+        return {"status": "deleted", "id": rule_id}
+
+    @app.post("/api/v1/ebpf/simulate")
+    async def simulate_ebpf_stream_endpoint(
+        payload: Dict[str, Any] = Body(...),
+    ):
+        """Simulates network stream payload inspection and instant TCP RST intervention."""
+        data_str = payload.get("data", "")
+        data_bytes = data_str.encode("utf-8")
+        host = payload.get("host", "api.openai.com")
+        port = int(payload.get("port", 443))
+        src_addr = payload.get("src_addr", "127.0.0.1")
+
+        terminated, intervention, decoder = global_ebpf_gateway.inspect_stream_data(
+            data=data_bytes,
+            host=host,
+            port=port,
+            src_addr=src_addr,
+        )
+        return {
+            "status": "processed",
+            "terminated": terminated,
+            "intervention": intervention.to_dict() if intervention else None,
+            "tokens_estimated": decoder.estimated_token_count,
+            "entropy": decoder.entropy,
+            "extracted_text": decoder.extracted_text[:200] if decoder.extracted_text else "",
+        }
+
+    @app.post("/api/v1/ebpf/attach")
+    async def attach_ebpf_gateway_endpoint(
+        tenant: TenantContext = Depends(require_permission(Permission.POLICY_WRITE)),
+    ):
+        """Attaches the eBPF socket gateway."""
+        global_ebpf_gateway.set_attached(True)
+        return {"status": "attached"}
+
+    @app.post("/api/v1/ebpf/detach")
+    async def detach_ebpf_gateway_endpoint(
+        tenant: TenantContext = Depends(require_permission(Permission.POLICY_WRITE)),
+    ):
+        """Detaches the eBPF socket gateway."""
+        global_ebpf_gateway.set_attached(False)
+        return {"status": "detached"}
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

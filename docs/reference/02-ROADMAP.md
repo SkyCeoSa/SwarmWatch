@@ -259,14 +259,21 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - CLI subcommands: `swarmwatch otlp ingest` and `swarmwatch otlp validate`.
   - Web Console integration: `#otlpGatewayBadge` and `#otlpSpansCount` adhering strictly to Impeccable Craft Floor.
 - **Enterprise WebPush & Server-Sent Events (SSE) Real-Time Alerts (Seam 28 & ADR 0039 Dual-SDK Parity)**:
-  - Standards-compliant W3C Server-Sent Events endpoint (GET /api/v1/events/stream & GET /api/v1/swarms/{id}/events/stream) with automatic 15s keep-alive pings and Last-Event-ID ring-buffer replay.
-  - Zero-dependency RFC 8292 VAPID cryptographic engine (VapidKeyManager) implementing NIST P-256 (secp256r1) integer arithmetic and ES256 JWT signing in pure Python standard library.
-  - Outbound asynchronous WebPush notification dispatcher (WebPushEngine) with Dead-Letter Queue (DLQ) and automatic unregistration of expired subscriptions (410 Gone).
-  - Persistent SQLite WAL storage for push subscriptions (push_subscriptions table).
-  - Dual-SDK parity in TypeScript (@swarmwatch/sdk) providing SwarmEventSource, VapidSigner (using 
-ode:crypto), and client.listenEvents().
-  - CLI subcommands: swarmwatch events listen and swarmwatch push keys|test|subscriptions.
-  - Web Console integration: #sseStatusBadge in #fleetBar and #btnPushNotify header toggle strictly adhering to Impeccable Craft Floor.
+  - Standards-compliant W3C Server-Sent Events endpoint (`GET /api/v1/events/stream` & `GET /api/v1/swarms/{id}/events/stream`) with automatic 15s keep-alive pings and `Last-Event-ID` ring-buffer replay.
+  - Zero-dependency RFC 8292 VAPID cryptographic engine (`VapidKeyManager`) implementing NIST P-256 (secp256r1) integer arithmetic and ES256 JWT signing in pure Python standard library.
+  - Outbound asynchronous WebPush notification dispatcher (`WebPushEngine`) with Dead-Letter Queue (DLQ) and automatic unregistration of expired subscriptions (410 Gone).
+  - Persistent SQLite WAL storage for push subscriptions (`push_subscriptions` table).
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) providing `SwarmEventSource`, `VapidSigner` (using `node:crypto`), and `client.listenEvents()`.
+  - CLI subcommands: `swarmwatch events listen` and `swarmwatch push keys|test|subscriptions`.
+  - Web Console integration: `#sseStatusBadge` in `#fleetBar` and `#btnPushNotify` header toggle strictly adhering to Impeccable Craft Floor.
+- **Kernel-Level Network Socket LLM Interception Gateway (Seam 29 & ADR 0040 Dual-SDK Parity)**:
+  - Deep module `EbpfSocketGateway` managing transparent socket interception, packet sniffing/forwarding, protocol decoding, and kernel-level circuit enforcement.
+  - Zero-dependency stream protocol disassembler `SocketStreamDecoder` extracting HTTP/1.1 request bodies, JSON payloads, and Server-Sent Events (SSE) streaming tokens from raw TCP byte streams without external HTTP libraries.
+  - Real-time in-flight circuit breaking with physical connection severance (`SocketIntervention` / `TcpRstEmitter`) via TCP RST packets or socket shutdown (`SHUT_RDWR`) when entropy collapse or budget exhaustion is detected.
+  - Zero-dependency cross-platform architecture with Linux eBPF filter generation, transparent asyncio proxy gateway, and thread-safe `MockEbpfEngine` for deterministic sub-10ms testing on any OS.
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/ebpf.ts`) with Node.js `net.Socket` interception.
+  - Control plane REST endpoints (`GET /api/v1/ebpf/status`, `GET/POST/DELETE /api/v1/ebpf/rules`, `POST /api/v1/ebpf/simulate`) and CLI subcommand (`swarmwatch ebpf`).
+  - Web Console integration: `#ebpfGatewayBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 
