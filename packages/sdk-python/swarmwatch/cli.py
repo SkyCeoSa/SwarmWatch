@@ -163,6 +163,13 @@ def main(argv=None):
     heal_parser.add_argument("--reason", default="Manual operator remediation via CLI", help="Remediation justification")
     heal_parser.add_argument("--action-id", default=None, help="Action ID to rollback")
 
+    # `swarmwatch rootcause` subcommand (Seam 32 / ADR 0043)
+    rc_parser = subparsers.add_parser("rootcause", help="Analyze and isolate true multi-agent root causes via Structural Causal Models")
+    rc_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    rc_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+    rc_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID")
+    rc_parser.add_argument("--symptom-span", default=None, help="Optional symptom span ID to trace from")
+
     args = parser.parse_args(argv)
 
 
@@ -1020,6 +1027,55 @@ def main(argv=None):
                 print(f"\n[Self-Healing Rollback Result]: {res.get('status')}")
                 print()
             sys.exit(0)
+    elif args.subcommand == "rootcause":
+        import urllib.request
+        from swarmwatch.causal_inference import global_causal_inference_engine
+        target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/root-cause"
+        if args.symptom_span:
+            target_url += f"?symptom_span_id={args.symptom_span}"
+        try:
+            with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                rc_data = json.loads(resp.read().decode("utf-8"))
+        except Exception:
+            rc_data = global_causal_inference_engine.infer_root_cause([], symptom_span_id=args.symptom_span).to_dict()
+
+        if args.format == "json":
+            print(json.dumps(rc_data, indent=2))
+        else:
+            print("\n+--------------------------------------------------------------+")
+            print("| SWARMWATCH ROOT-CAUSE CAUSAL INFERENCE ENGINE (ADR 0043)    |")
+            print("+--------------------------------------------------------------+")
+            attr = rc_data.get("attribution")
+            if not rc_data.get("has_anomaly") or not attr:
+                print("| Status:             \033[92mNOMINAL (NO ANOMALY DETECTED)\033[0m            |")
+                print(f"| Analyzed Spans:     {str(rc_data.get('analyzed_spans_count', 0)): <43} |")
+                print("+--------------------------------------------------------------+\n")
+            else:
+                print(f"| Swarm ID:           {rc_data.get('swarm_id', ''): <43} |")
+                print(f"| Root Cause Agent:   \033[91m{attr.get('root_cause_agent', ''): <43}\033[0m |")
+                print(f"| Root Trigger Turn:  {str(attr.get('root_cause_turn', 1)): <43} |")
+                print(f"| Symptom Agent:      {attr.get('symptom_agent', ''): <43} |")
+                print(f"| Symptom Turn:       {str(attr.get('symptom_turn', 1)): <43} |")
+                print(f"| Propagation Depth:  {str(attr.get('propagation_depth', 0)) + ' hops': <43} |")
+                print(f"| Confidence Score:   {str(int(attr.get('confidence_score', 0) * 100)) + '%': <43} |")
+                print(f"| Recommended Fork:   \033[96mTurn {str(attr.get('recommended_fork_turn', 1))}\033[0m{' ': <36} |")
+                print("+--------------------------------------------------------------+")
+                crit = attr.get("critical_path", [])
+                print(f"\n[Critical Propagation Path ({len(crit)} Spans)]")
+                print(f"  {'Turn':<6} {'Agent':<18} {'Type':<12} {'Status':<10} {'Notes'}")
+                print(f"  {'-'*6} {'-'*18} {'-'*12} {'-'*10} {'-'*24}")
+                for p in crit:
+                    origin_mark = " [ORIGIN]" if p.get("is_fault_origin") else ""
+                    print(f"  {str(p.get('step_index', 0)):<6} {p.get('agent_name', '') + origin_mark:<18} {p.get('span_type', ''):<12} {p.get('status', ''):<10} {p.get('notes', '')[:30]}")
+                print()
+                cps = rc_data.get("context_poisoning", [])
+                if cps:
+                    print(f"[Context Poisoning Analysis]")
+                    for c in cps:
+                        print(f"  - Contamination: {c.get('summary', '')}")
+                        print(f"    Tainted Agents: {', '.join(c.get('tainted_agents', [])) or 'None'}")
+                    print()
+        sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

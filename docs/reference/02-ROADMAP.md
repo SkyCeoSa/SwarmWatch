@@ -288,6 +288,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/selfhealing.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/self-healing/status`, `GET /api/v1/self-healing/actions`, `POST /api/v1/self-healing/remediate`, `POST /api/v1/self-healing/rollback`, `POST /api/v1/self-healing/toggle`) and CLI subcommand (`swarmwatch heal status|actions|trigger|rollback`).
   - Web Console integration: `#selfHealingBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+- **Distributed Multi-Agent Root-Cause Causal Inference Engine (Seam 32 & ADR 0043 Dual-SDK Parity)**:
+  - Deep module `CausalInferenceEngine` implementing Structural Causal Models (SCM), backward ancestral DAG graph traversal, and Judea Pearl Do-Calculus counterfactual reasoning across swarm executions with zero external LLM token overhead.
+  - Causal fault attribution (`RootCauseAttribution`): identifies the true origin agent, trigger span, turn index, symptom agent, propagation depth, and confidence score ($[0.0, 1.0]$).
+  - Critical failure propagation path reconstruction (`CausalPathNode`) tracing how corrupted or hallucinatory context spreads through intermediary peer agents.
+  - Quantitative Context Poisoning Score ($CPS \in [0.0, 1.0]$) measuring prompt corruption contagion and identifying tainted downstream agents.
+  - Automatic Time-Machine fork point recommendation (`recommended_fork_turn = root_cause_turn - 1`) for seamless, non-destructive branching and recovery.
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/causal_inference.ts`) adhering to Node 22 type-stripping.
+  - Control plane REST endpoints (`GET /api/v1/swarms/{swarm_id}/root-cause`, `GET /api/v1/swarms/{swarm_id}/causal-path`, `GET /api/v1/swarms/{swarm_id}/context-poisoning`) and CLI subcommand (`swarmwatch rootcause`).
+  - Web Console integration: `#rootCauseBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

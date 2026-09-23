@@ -167,4 +167,9 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `AnomalyType`, `SelfHealingActionType`, `SelfHealingAction`, `SwarmSelfHealingController` (`selfhealing.ts`), exported via `index.ts`.
     - Primitives (Console): `#selfHealingBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: In-process real-time telemetry observation; zero-token mathematical anomaly detection (`REPEATED_TOOL_FAILURES`, `ENTROPY_VOLATILITY`, `BUDGET_RUNAWAY`, `CASCADE_ERROR`, `LATENCY_SPIKE`); surgical reversible remediation actions (`BLACKLIST_TOOL`, `ROUTE_MODEL_FALLBACK`, `CLAMP_QUOTA`, `AUTO_RESET_ON_STABILIZATION`, `INJECT_BACKOFF`); 100% state restoration on rollback; dual-SDK parity; 100% local deterministic offline testing; zero remote LLM token usage.
+32. **Distributed Multi-Agent Root-Cause Causal Inference Engine Seam (ADR 0043 Dual-SDK Parity)**:
+    - Primitives (Python): `CausalInferenceEngine` (`causal_inference.py`), `CausalPathNode`, `ContextPoisoningMetric`, `RootCauseAttribution`, `CausalInferenceResult`, server endpoints `GET /api/v1/swarms/{id}/root-cause`, `GET /api/v1/swarms/{id}/causal-path`, `GET /api/v1/swarms/{id}/context-poisoning` (`server.py`), CLI subcommand `swarmwatch rootcause` (`cli.py`).
+    - Primitives (TypeScript): `CausalPathNode`, `ContextPoisoningMetric`, `RootCauseAttribution`, `CausalInferenceResult`, `CausalInferenceEngine` (`causal_inference.ts`), exported via `index.ts`.
+    - Primitives (Console): `#rootCauseBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Structural Causal Model (SCM) analysis; backward ancestral DAG graph traversal ($Anc(S_{\text{symptom}})$); Judea Pearl Do-Calculus counterfactual reasoning; context poisoning scoring ($CPS \in [0.0, 1.0]$); automated Time-Machine fork turn determination (`recommended_fork_turn`); 100% deterministic local offline testing; zero remote LLM token usage; dual-SDK parity.
 

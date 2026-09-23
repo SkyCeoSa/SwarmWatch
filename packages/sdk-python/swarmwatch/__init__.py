@@ -353,6 +353,14 @@ from swarmwatch.selfhealing import (
     SwarmSelfHealingController,
     global_self_healing_controller,
 )
+from swarmwatch.causal_inference import (
+    CausalPathNode,
+    ContextPoisoningMetric,
+    RootCauseAttribution,
+    CausalInferenceResult,
+    CausalInferenceEngine,
+    global_causal_inference_engine,
+)
 
 
 

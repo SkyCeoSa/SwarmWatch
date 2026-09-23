@@ -1601,6 +1601,10 @@
             <span class="status-indicator" id="selfHealingDot" style="background: var(--success);"></span>
             <span id="selfHealingText">HEAL: ACTIVE (0)</span>
           </div>
+          <div class="fleet-badge" id="rootCauseBadge" title="Distributed Root-Cause Causal Inference (ADR 0043)">
+            <span class="status-indicator" id="rootCauseDot" style="background: var(--success);"></span>
+            <span id="rootCauseText">RCA: NOMINAL</span>
+          </div>
         </div>
 
 
@@ -3875,6 +3879,33 @@
       }
       refreshSelfHealingStatus();
       setInterval(refreshSelfHealingStatus, 7000);
+
+      // -------------------------------------------------------------------
+      // Distributed Root-Cause Causal Inference (Seam 32 / ADR 0043)
+      // -------------------------------------------------------------------
+      async function refreshRootCauseStatus() {
+        var rootCauseDot = document.getElementById('rootCauseDot');
+        var rootCauseText = document.getElementById('rootCauseText');
+        try {
+          var res = await fetch('/api/v1/swarms/swarm-live-01/root-cause');
+          if (res.ok) {
+            var data = await res.json();
+            if (data.has_anomaly && data.attribution) {
+              if (rootCauseDot) rootCauseDot.style.background = 'var(--danger)';
+              if (rootCauseText) {
+                var agent = data.attribution.root_cause_agent || 'agent';
+                var turn = data.attribution.root_cause_turn || 1;
+                rootCauseText.textContent = 'RCA: ' + agent + ' (T' + turn + ')';
+              }
+            } else {
+              if (rootCauseDot) rootCauseDot.style.background = 'var(--success)';
+              if (rootCauseText) rootCauseText.textContent = 'RCA: NOMINAL';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRootCauseStatus();
+      setInterval(refreshRootCauseStatus, 8000);
 
       if (btnMfaModal) {
 

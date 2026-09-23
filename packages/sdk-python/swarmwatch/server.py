@@ -35,6 +35,10 @@ from swarmwatch.selfhealing import (
     SelfHealingAction,
     global_self_healing_controller,
 )
+from swarmwatch.causal_inference import (
+    global_causal_inference_engine,
+    CausalInferenceEngine,
+)
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -3872,6 +3876,60 @@ def create_app(
         """Enables or disables autonomous self-healing controller execution."""
         global_self_healing_controller.config.enabled = enabled
         return {"status": "updated", "enabled": enabled}
+
+    @app.get("/api/v1/swarms/{swarm_id}/root-cause")
+    async def get_root_cause_endpoint(
+        swarm_id: str,
+        branch_id: str = Query("main"),
+        symptom_span_id: Optional[str] = Query(None),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Executes Structural Causal Model root-cause inference for a swarm session (ADR 0043)."""
+        spans = await active_storage.get_swarm_spans(
+            swarm_id=swarm_id,
+            branch_id=branch_id,
+            project_id=tenant.project_id if tenant else None,
+        )
+        result = global_causal_inference_engine.infer_root_cause(
+            spans=spans,
+            symptom_span_id=symptom_span_id,
+        )
+        return result.to_dict()
+
+    @app.get("/api/v1/swarms/{swarm_id}/causal-path")
+    async def get_causal_path_endpoint(
+        swarm_id: str,
+        symptom_span_id: Optional[str] = Query(None),
+        branch_id: str = Query("main"),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Returns the critical failure propagation path leading to symptom manifestation."""
+        spans = await active_storage.get_swarm_spans(
+            swarm_id=swarm_id,
+            branch_id=branch_id,
+            project_id=tenant.project_id if tenant else None,
+        )
+        if symptom_span_id:
+            path = global_causal_inference_engine.trace_causal_path(spans, symptom_span_id)
+        else:
+            res = global_causal_inference_engine.infer_root_cause(spans)
+            path = res.attribution.critical_path if res.attribution else []
+        return {"swarm_id": swarm_id, "critical_path": [p.to_dict() if hasattr(p, "to_dict") else p for p in path]}
+
+    @app.get("/api/v1/swarms/{swarm_id}/context-poisoning")
+    async def get_context_poisoning_endpoint(
+        swarm_id: str,
+        branch_id: str = Query("main"),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Returns context poisoning metrics measuring prompt corruption contagion across agents."""
+        spans = await active_storage.get_swarm_spans(
+            swarm_id=swarm_id,
+            branch_id=branch_id,
+            project_id=tenant.project_id if tenant else None,
+        )
+        metrics = global_causal_inference_engine.compute_context_poisoning(spans)
+        return {"swarm_id": swarm_id, "context_poisoning": [m.to_dict() if hasattr(m, "to_dict") else m for m in metrics]}
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

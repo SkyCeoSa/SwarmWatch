@@ -395,6 +395,23 @@ _Avoid_: Hook call, function callback, middleware run
 - **ModelFallbackRouter**: Dynamic routing mechanism switching erratic or costly LLM models to stable, efficient alternatives under autonomous policy direction.
   _Avoid_: Model swapper, alternate selector, backup route
 
+---
+
+### Distributed Multi-Agent Root-Cause Causal Inference Engine (Seam 32 / ADR 0043)
+- **CausalInferenceEngine**: Deep module executing Structural Causal Model (SCM) analysis, ancestral DAG traversal, and Judea Pearl Do-Calculus counterfactual reasoning across swarm executions.
+  _Avoid_: Debug tracer, fault finder, RCA bot
+- **RootCauseAttribution**: Deterministic forensic diagnosis attributing the true origin agent, trigger span, turn index, propagation depth, and confidence score of an execution anomaly.
+  _Avoid_: Culprit report, blame tag, fault attribution
+- **CausalPathNode**: An atomic node along the reconstructed critical failure propagation path from origin to symptom manifestation.
+  _Avoid_: Chain step, link item, trace hop
+- **ContextPoisoningMetric**: Quantitative measure of contaminated prompt context ($CPS \in [0.0, 1.0]$) injected by an upstream agent and spread to downstream peers.
+  _Avoid_: Taint score, pollution level, dirty context
+- **CausalInferenceResult**: Comprehensive forensic assessment document uniting root cause attribution, critical propagation path, context poisoning metrics, and Time-Machine fork turn recommendations.
+  _Avoid_: RCA output, cause summary, analysis result
+- **StructuralCausalModel**: The directed causal dependency graph representing causal relationships, intervening operations, and counterfactual potential outcomes across multi-agent interactions.
+  _Avoid_: Causal diagram, dependency tree, flow schema
+
+
 
 
 

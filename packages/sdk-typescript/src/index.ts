@@ -299,6 +299,18 @@ export {
   SwarmSelfHealingController,
 } from "./selfhealing.ts";
 
+// Distributed Multi-Agent Root-Cause Causal Inference Engine (Seam 32 / ADR 0043)
+export type {
+  CausalPathNode,
+  ContextPoisoningMetric,
+  RootCauseAttribution,
+  CausalInferenceResult,
+} from "./causal_inference.ts";
+export {
+  CausalInferenceEngine,
+  globalCausalInferenceEngine,
+} from "./causal_inference.ts";
+
 
 
 
