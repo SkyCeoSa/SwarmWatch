@@ -25,6 +25,8 @@ class SwarmSpan(BaseModel):
     start_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     end_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     duration_ms: float = 0.0
+    cost_estimate: float = 0.0
+
 
     @model_validator(mode="before")
     @classmethod

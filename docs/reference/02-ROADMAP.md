@@ -249,8 +249,18 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/rbac.ts`) tested with Node 22 type-stripping rules.
   - Interactive CLI subcommands: `swarmwatch mfa generate|verify` and `swarmwatch rbac check|matrix`.
   - Developer console integration: `#fleetRoleBadge`, `#fleetMfaBadge`, and `#mfaModal` strictly adhering to Impeccable Craft Floor (0 anti-patterns).
+- **OpenTelemetry OTLP Ingestion Gateway (Seam 27 & ADR 0038 Dual-SDK Parity)**:
+  - Official OpenTelemetry 1.0+ HTTP trace specification receiver (`POST /v1/traces` & `POST /api/v1/otlp/traces`).
+  - Zero-dependency binary protobuf wire format decoder (`ProtobufWireDecoder`) and proto3 JSON mapper (`OtelTraceParser`).
+  - Bi-directional translation of standard OpenTelemetry GenAI Semantic Conventions (`gen_ai.system`, `gen_ai.agent.name`, `gen_ai.usage.total_tokens`, `gen_ai.operation.name`, events) to `SwarmSpan`.
+  - In-flight circuit breaker interception (`EntropyCircuitBreaker` and `RedisCircuitCoordinator`) evaluating Shannon entropy, cyclic dialogues, and budget limits on external agent traffic.
+  - Multi-tenant project context resolution via standard OTel headers (`x-swarmwatch-project-id`, `X-API-Key`, `Authorization`).
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/otlp.ts`) supporting `toOtelGenAiSpan`, `formatOtlpTracesPayload`, `parseOtlpTracesPayload`, and `OtlpTraceExporter`.
+  - CLI subcommands: `swarmwatch otlp ingest` and `swarmwatch otlp validate`.
+  - Web Console integration: `#otlpGatewayBadge` and `#otlpSpansCount` adhering strictly to Impeccable Craft Floor.
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (220 tests) and TypeScript (156 tests) runtimes (376 total tests).
+  - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 

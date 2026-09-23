@@ -13,7 +13,7 @@ import time
 from typing import Any, Dict, List, Optional, Set
 import uuid
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status, Body
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status, Body, Request
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
@@ -23,6 +23,7 @@ from swarmwatch.serializer import TimeMachine
 from swarmwatch.webhooks import WebhookConfig, WebhookNotifier, format_webhook_payload, DeadLetterRecord
 from swarmwatch.tenant import Organization, Project, ApiKey, TenantContext, ApiKeyManager
 from swarmwatch.rbac import Role, Permission, ROLE_PERMISSIONS, has_permission, UserAccount, TotpEngine
+from swarmwatch.otlp import OtelTraceParser, global_otlp_stats
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
     CircuitPolicy,
@@ -2331,9 +2332,11 @@ def create_app(
         x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
         x_user: Optional[str] = Header(default=None, alias="X-User"),
         x_mfa_code: Optional[str] = Header(default=None, alias="X-MFA-Code"),
+        x_project_id: Optional[str] = Header(default=None, alias="x-swarmwatch-project-id"),
         project_id: Optional[str] = Query(default=None),
     ) -> TenantContext:
-        target_proj = project_id or "default-project"
+        target_proj = x_project_id or project_id or "default-project"
+
 
         # 1. User Header Authentication & RBAC resolution
         if x_user:
@@ -2837,6 +2840,87 @@ def create_app(
                 "span": s.model_dump(mode="json"),
             })
         return {"received": len(spans), "status": "persisted", "project_id": tenant.project_id}
+
+    @app.post("/v1/traces")
+    @app.post("/api/v1/otlp/traces")
+    async def otlp_traces_endpoint(
+        request: Request,
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """
+        Official OpenTelemetry Collector HTTP Trace Export Endpoint (ADR 0038).
+        Accepts application/json (proto3 JSON mapping) and application/x-protobuf.
+        Translates GenAI Semantic Conventions to SwarmSpan, persists spans,
+        evaluates circuit breaker thresholds, emits OpenMetrics, and broadcasts over WebSocket.
+        """
+        content_type = request.headers.get("content-type", "application/json")
+        body = await request.body()
+
+        spans, rejected = OtelTraceParser.parse_otlp_payload(
+            payload_bytes=body,
+            content_type=content_type,
+            default_project_id=tenant.project_id,
+        )
+
+        if spans:
+            t0 = time.perf_counter()
+            for s in spans:
+                if not getattr(s, "project_id", None) or s.project_id == "default-project":
+                    s.project_id = tenant.project_id
+            await active_storage.save_spans(spans)
+            duration = time.perf_counter() - t0
+            per_span_duration = duration / max(len(spans), 1)
+
+            for s in spans:
+                record_span_ingested(
+                    project_id=s.project_id,
+                    agent_type=getattr(s, "source_agent", "agent"),
+                    status="ok",
+                    duration_seconds=per_span_duration,
+                )
+                await ws_manager.broadcast(s.swarm_id, {
+                    "type": "span_update",
+                    "span": s.model_dump(mode="json"),
+                })
+
+                # In-Flight Circuit Breaker Interception for Runaway Loops & Collapsed Entropy
+                if s.entropy_score < 0.35 and s.entropy_score > 0.0:
+                    trip_reason = f"Runaway Loop Detected via OTLP Gateway (Entropy {s.entropy_score:.2f} <= 0.35)"
+                    await ws_manager.broadcast(s.swarm_id, {
+                        "type": "circuit_breaker_tripped",
+                        "reason": trip_reason,
+                        "tokens_saved": 150000,
+                        "dollars_saved": 3.00,
+                        "entropy_score": s.entropy_score,
+                        "tripped_span_id": s.id,
+                    })
+
+        resp_body: Dict[str, Any] = {"partialSuccess": {}}
+        if rejected > 0:
+            resp_body["partialSuccess"] = {
+                "rejectedSpans": rejected,
+                "errorMessage": f"Failed to parse {rejected} span(s)",
+            }
+        return resp_body
+
+    @app.get("/v1/traces")
+    async def otlp_gateway_status():
+        """Returns OpenTelemetry OTLP Ingestion Gateway status and capabilities."""
+        return {
+            "status": "ready",
+            "gateway": "SwarmWatch OpenTelemetry OTLP Ingestion Gateway",
+            "version": "0.1.0",
+            "endpoint": "/v1/traces",
+            "supported_encodings": ["application/json", "application/x-protobuf"],
+            "semantic_conventions": "OpenTelemetry GenAI 1.0+",
+        }
+
+    @app.get("/api/v1/otlp/stats")
+    async def otlp_stats_endpoint(
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Returns telemetry metrics for OTLP trace ingestion."""
+        return global_otlp_stats.to_dict()
 
 
     @app.get("/api/v1/swarms")

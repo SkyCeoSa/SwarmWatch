@@ -317,4 +317,19 @@ _Avoid_: Hook call, function callback, middleware run
 - **SecurityAuditEvent**: Structured and immutable audit trail event recording security identity actions, enrollment steps, and access decisions.
   _Avoid_: Security log, auth record, event trace
 
+---
+
+### OpenTelemetry OTLP Ingestion Gateway (Seam 27 / ADR 0038)
+- **OtlpIngestionGateway**: The in-process high-throughput trace receiver exposing standard `/v1/traces` endpoints accepting standard OpenTelemetry JSON and Protobuf payloads.
+  _Avoid_: OTel proxy, trace listener, OTLP collector clone
+- **OtelTraceParser**: The deep parsing module translating nested OpenTelemetry `resourceSpans`, `scopeSpans`, attributes, and events into SwarmWatch internal primitives.
+  _Avoid_: Trace converter, span scraper, otel translator
+- **ProtobufWireDecoder**: The pure standard library binary decoder parsing tag-length-value (TLV) wire protocol records without external Google protobuf pip dependencies.
+  _Avoid_: Proto unpacker, binary deserializer, pb reader
+- **GenAiSemanticTranslator**: The specialized convention extractor mapping standard `gen_ai.*` attributes (systems, operations, model IDs, token tallies, prompts, completions) into SwarmWatch schemas.
+  _Avoid_: LLM field mapper, prompt parser, ai tag reader
+- **OtlpTraceExportResponse**: The official response envelope returned to upstream OTel SDKs and collectors (`partialSuccess`, `rejectedSpans`, `errorMessage`) conforming to OTel 1.0 specifications.
+  _Avoid_: Trace ack, ingest result, upload response
+
+
 

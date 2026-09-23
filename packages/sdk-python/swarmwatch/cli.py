@@ -106,7 +106,17 @@ def main(argv=None):
     rbac_parser.add_argument("--permission", "-p", default="swarms:read", help="Target action permission string")
     rbac_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch otlp` subcommand (Seam 27 / ADR 0038)
+    otlp_parser = subparsers.add_parser("otlp", help="Ingest and validate OpenTelemetry OTLP trace payloads")
+    otlp_parser.add_argument("action", choices=["ingest", "validate", "stats"], help="OTLP action (ingest, validate, stats)")
+    otlp_parser.add_argument("--file", "-f", default=None, help="Path to OTLP trace JSON file")
+    otlp_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL (default: http://127.0.0.1:8765)")
+    otlp_parser.add_argument("--api-key", default=os.getenv("SWARMWATCH_API_KEY", None), help="Optional SwarmWatch API key")
+    otlp_parser.add_argument("--project-id", default=None, help="Target tenant project ID")
+    otlp_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
     if args.subcommand == "ui":
         url = f"http://{args.host}:{args.port}"
@@ -491,9 +501,88 @@ def main(argv=None):
                     print("+--------------------------------------------------------------+")
                 print()
             sys.exit(0)
+    elif args.subcommand == "otlp":
+        from swarmwatch.otlp import OtelTraceParser, global_otlp_stats
+        if args.action == "validate":
+            if not args.file:
+                print("Error: --file is required for 'otlp validate'", file=sys.stderr)
+                sys.exit(1)
+            try:
+                with open(args.file, "rb") as f:
+                    content = f.read()
+                spans, rejected = OtelTraceParser.parse_otlp_payload(content, content_type="application/json")
+                if args.format == "json":
+                    print(json.dumps({
+                        "valid": rejected == 0,
+                        "parsed_spans": len(spans),
+                        "rejected_spans": rejected,
+                        "spans": [s.model_dump(mode="json") for s in spans],
+                    }, indent=2))
+                else:
+                    status_tag = "\033[92mVALID\033[0m" if rejected == 0 else "\033[93mPARTIAL\033[0m"
+                    print(f"\n[SwarmWatch OTLP Validator] Status: {status_tag}")
+                    print(f"  Parsed Spans:   {len(spans)}")
+                    print(f"  Rejected Spans: {rejected}")
+                    for s in spans:
+                        print(f"  + [{s.id}] {s.source_agent} -> {s.target_agent} ({s.span_type}) | Tokens: {s.token_count} | Entropy: {s.entropy_score:.2f}")
+                    print()
+                sys.exit(0 if rejected == 0 else 1)
+            except Exception as e:
+                print(f"Error validating OTLP file: {e}", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "ingest":
+            if not args.file:
+                print("Error: --file is required for 'otlp ingest'", file=sys.stderr)
+                sys.exit(1)
+            try:
+                with open(args.file, "rb") as f:
+                    content = f.read()
+                import urllib.request
+                target_url = args.url.rstrip("/") + "/v1/traces"
+                headers = {"Content-Type": "application/json"}
+                if args.api_key:
+                    headers["X-API-Key"] = args.api_key
+                if args.project_id:
+                    headers["x-swarmwatch-project-id"] = args.project_id
+                req = urllib.request.Request(target_url, data=content, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=10.0) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                    if args.format == "json":
+                        print(json.dumps(resp_data, indent=2))
+                    else:
+                        print(f"\033[92m[SwarmWatch OTLP Gateway] Ingestion successful -> {target_url}\033[0m")
+                        print(f"  Response: {json.dumps(resp_data)}")
+                sys.exit(0)
+            except Exception as e:
+                print(f"\033[91mError ingesting OTLP trace: {e}\033[0m", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "stats":
+            import urllib.request
+            target_url = args.url.rstrip("/") + "/api/v1/otlp/stats"
+            headers = {}
+            if args.api_key:
+                headers["X-API-Key"] = args.api_key
+            try:
+                req = urllib.request.Request(target_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
+                    stats_data = json.loads(resp.read().decode("utf-8"))
+                if args.format == "json":
+                    print(json.dumps(stats_data, indent=2))
+                else:
+                    print("\n[SwarmWatch OTLP Ingestion Gateway Stats]")
+                    print(f"  Total Received: {stats_data.get('total_spans_received', 0)}")
+                    print(f"  Total Parsed:   {stats_data.get('total_spans_parsed', 0)}")
+                    print(f"  Total Rejected: {stats_data.get('total_spans_rejected', 0)}")
+                    print(f"  Active Systems: {', '.join(stats_data.get('active_systems', [])) or 'none'}")
+                    print(f"  Last Ingested:  {stats_data.get('last_ingested_at') or 'never'}\n")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error fetching OTLP stats: {e}", file=sys.stderr)
+                sys.exit(1)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 
 if __name__ == "__main__":

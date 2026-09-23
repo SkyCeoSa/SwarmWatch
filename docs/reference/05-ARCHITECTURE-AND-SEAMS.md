@@ -142,4 +142,10 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `Role`, `Permission`, `ROLE_PERMISSIONS`, `hasPermission`, `base32Encode`, `base32Decode`, `TotpEngine` (`rbac.ts`), exported via `index.ts`.
     - Primitives (Console): Operator identity & MFA widget (`#fleetRoleBadge`, `#fleetMfaBadge`, `#btnMfaModal`, `#mfaModal`), step-up authentication challenge modal, dynamic `X-MFA-Code` header attachment for destructive control plane operations (`dashboard.html`).
     - Invariant: Zero external cryptographic library dependencies (pure Python `hashlib`/`hmac` & Node.js `node:crypto`); standard RFC 6238 TOTP (30s time-step, $\pm 1$ drift window, RFC 3548 Base32); single-use SHA-256 hashed recovery backup codes; 4-tier hierarchical RBAC matrix (`ADMIN`, `OPERATOR`, `AUDITOR`, `VIEWER`); Step-Up challenge enforcement for destructive endpoints; zero remote LLM token usage; 100% dual-SDK parity.
+27. **OpenTelemetry OTLP Ingestion Gateway Seam (HTTP / Protobuf & JSON / ADR 0038 Dual-SDK Parity)**:
+    - Primitives (Python): `OtelTraceParser`, `ProtobufWireDecoder`, `extract_otlp_attributes`, `otlp_span_to_swarm_span`, `OtlpIngestionStats` (`otlp.py`), server endpoints `POST /v1/traces`, `POST /api/v1/otlp/traces`, `GET /v1/traces`, `GET /api/v1/otlp/stats` (`server.py`), CLI subcommands `swarmwatch otlp ingest` and `swarmwatch otlp validate` (`cli.py`).
+    - Primitives (TypeScript): `toOtelGenAiSpan`, `formatOtlpTracesPayload`, `parseOtlpTracesPayload`, `OtlpTraceExporter` (`otlp.ts`), exported via `index.ts`.
+    - Primitives (Console): `#otlpGatewayBadge` and `#otlpSpansCount` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Official OpenTelemetry 1.0+ HTTP trace specification conformance (`POST /v1/traces`); zero-dependency pure standard library protobuf wire format decoding; transparent translation of OpenTelemetry GenAI Semantic Conventions (`gen_ai.*`); real-time interception via `EntropyCircuitBreaker` and `RedisCircuitCoordinator`; Prometheus metrics emission (`record_span_ingested`); WebSocket broadcast; zero remote LLM token usage; 100% dual-SDK parity.
+
 

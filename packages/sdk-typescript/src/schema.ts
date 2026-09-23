@@ -19,7 +19,9 @@ export interface SwarmSpan {
   end_time: string;
   project_id?: string;
   duration_ms?: number;
+  cost_estimate?: number;
 }
+
 
 export interface StateSnapshot {
   id: string;

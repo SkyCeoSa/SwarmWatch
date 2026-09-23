@@ -1577,7 +1577,12 @@
             <span class="status-indicator" id="fleetMfaDot" style="background: var(--success);"></span>
             <span id="fleetMfaText">MFA: ACTIVE</span>
           </div>
+          <div class="fleet-badge" id="otlpGatewayBadge" title="OpenTelemetry OTLP Ingestion Gateway (ADR 0038)">
+            <span class="status-indicator" id="otlpDot" style="background: var(--accent);"></span>
+            <span id="otlpText">OTLP: /v1/traces</span>
+          </div>
         </div>
+
 
         <div class="fleet-meters-container" id="fleetMetersGroup">
           <div class="fleet-meter-item" title="Cumulative Fleet Turns Quota">
@@ -3685,7 +3690,22 @@
         } catch(e) {}
       }
 
+      async function refreshOtlpStats() {
+        try {
+          var res = await fetch('/api/v1/otlp/stats');
+          if (res.ok) {
+            var stats = await res.json();
+            var otlpText = document.getElementById('otlpText');
+            if (otlpText && stats.total_spans_received > 0) {
+              otlpText.textContent = 'OTLP: ' + stats.total_spans_received + ' SPANS';
+            }
+          }
+        } catch(e) {}
+      }
+      refreshOtlpStats();
+
       if (btnMfaModal) {
+
         btnMfaModal.addEventListener('click', function() {
           if (mfaModal) mfaModal.style.display = 'flex';
           refreshAuthSession();

@@ -288,5 +288,14 @@ from swarmwatch.rbac import (
     UserAccount,
     TotpEngine,
 )
+from swarmwatch.otlp import (
+    OtelTraceParser,
+    ProtobufWireDecoder,
+    otlp_span_to_swarm_span,
+    extract_otlp_attributes,
+    OtlpIngestionStats,
+    global_otlp_stats,
+)
+
 
 

@@ -218,4 +218,23 @@ export {
   base32Decode,
 } from "./rbac.ts";
 
+// OpenTelemetry OTLP Ingestion & GenAI Semantic Conventions (Seam 27 / ADR 0038)
+export type {
+  OtelAttributeValue,
+  OtelKeyValue,
+  OtelSpanEvent,
+  OtelSpan,
+  OtelScopeSpans,
+  OtelResourceSpans,
+  OtlpExportTraceRequest,
+} from "./otlp.ts";
+export {
+  extractOtlpValue,
+  extractOtlpAttributes,
+  formatOtlpTracesPayload,
+  parseOtlpTracesPayload,
+  OtlpTraceExporter,
+} from "./otlp.ts";
+
+
 
