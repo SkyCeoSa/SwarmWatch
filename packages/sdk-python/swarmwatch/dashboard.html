@@ -1597,6 +1597,10 @@
             <span class="status-indicator" id="raftDot" style="background: var(--accent);"></span>
             <span id="raftText">RAFT: LEADER (T0)</span>
           </div>
+          <div class="fleet-badge" id="selfHealingBadge" title="Autonomous Self-Healing Policy Controller (ADR 0042)">
+            <span class="status-indicator" id="selfHealingDot" style="background: var(--success);"></span>
+            <span id="selfHealingText">HEAL: ACTIVE (0)</span>
+          </div>
         </div>
 
 
@@ -3843,6 +3847,34 @@
       }
       refreshRaftStatus();
       setInterval(refreshRaftStatus, 6000);
+
+      // -------------------------------------------------------------------
+      // Autonomous Self-Healing Policy Controller (Seam 31 / ADR 0042)
+      // -------------------------------------------------------------------
+      async function refreshSelfHealingStatus() {
+        var selfHealingDot = document.getElementById('selfHealingDot');
+        var selfHealingText = document.getElementById('selfHealingText');
+        try {
+          var res = await fetch('/api/v1/self-healing/status');
+          if (res.ok) {
+            var data = await res.json();
+            var activeCount = data.active_actions_count || 0;
+            var isEnabled = data.enabled !== false;
+            if (!isEnabled) {
+              if (selfHealingDot) selfHealingDot.style.background = 'var(--text-muted)';
+              if (selfHealingText) selfHealingText.textContent = 'HEAL: OFF';
+            } else if (activeCount > 0) {
+              if (selfHealingDot) selfHealingDot.style.background = 'var(--warning)';
+              if (selfHealingText) selfHealingText.textContent = 'HEAL: REMEDIATED (' + activeCount + ')';
+            } else {
+              if (selfHealingDot) selfHealingDot.style.background = 'var(--success)';
+              if (selfHealingText) selfHealingText.textContent = 'HEAL: ACTIVE (0)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSelfHealingStatus();
+      setInterval(refreshSelfHealingStatus, 7000);
 
       if (btnMfaModal) {
 

@@ -287,6 +287,19 @@ export {
   MockRaftCluster,
 } from "./raft.ts";
 
+// Autonomous Counterfactual Swarm Optimization & Self-Healing Policy Controller (Seam 31 / ADR 0042)
+export type {
+  AnomalyType,
+  SelfHealingActionType,
+  CounterfactualEvaluation,
+  SelfHealingAction,
+  SelfHealingPolicyConfig,
+} from "./selfhealing.ts";
+export {
+  SwarmSelfHealingController,
+} from "./selfhealing.ts";
+
+
 
 
 

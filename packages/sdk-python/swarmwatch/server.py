@@ -29,6 +29,13 @@ from swarmwatch.sse import SseEvent, SseSubscriber, SseEventManager, global_sse_
 from swarmwatch.webpush import VapidKeyManager, PushKeys, PushSubscription, PushMessage, WebPushDispatcher, global_webpush_dispatcher, format_circuit_push_message
 from swarmwatch.ebpf import SocketRule, SocketIntervention, global_ebpf_gateway
 from swarmwatch.raft import RaftNodeRole, RaftLogEntry, RequestVoteRpc, AppendEntriesRpc, global_raft_engine
+from swarmwatch.selfhealing import (
+    AnomalyType,
+    SelfHealingActionType,
+    SelfHealingAction,
+    global_self_healing_controller,
+)
+
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
     CircuitPolicy,
@@ -143,6 +150,15 @@ class MfaChallengeRequest(BaseModel):
 class RaftProposeRequest(BaseModel):
     command: str
     payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SelfHealingRemediateRequest(BaseModel):
+    swarm_id: str = "swarm-live-01"
+    agent_name: str
+    action_type: str
+    target: str
+    reason: Optional[str] = None
+
 
 
 
@@ -2323,6 +2339,7 @@ def create_app(
     time_machine = TimeMachine(storage=active_storage)
     active_policy = CircuitPolicy.from_preset(CircuitPreset.BALANCED)
     active_policy_engine = policy_engine or PolicyEngine()
+    global_self_healing_controller.set_policy_engine(active_policy_engine)
     active_webhook_notifier = webhook_notifier or WebhookNotifier()
     api_key_manager = ApiKeyManager()
     from swarmwatch.redis_circuit import RedisCircuitCoordinator
@@ -2840,6 +2857,7 @@ def create_app(
         per_span_duration = duration / max(len(spans), 1)
 
         for s in spans:
+            global_self_healing_controller.observe_span(s)
             record_span_ingested(
                 project_id=s.project_id,
                 agent_type=getattr(s, "agent_name", "agent"),
@@ -3805,6 +3823,55 @@ def create_app(
             "role": global_raft_engine.role,
             "term": global_raft_engine.current_term,
         }
+
+    @app.get("/api/v1/self-healing/status")
+    async def get_self_healing_status_endpoint():
+        """Returns diagnostic state and counterfactual savings of the self-healing controller."""
+        return global_self_healing_controller.status()
+
+    @app.get("/api/v1/self-healing/actions")
+    async def get_self_healing_actions_endpoint():
+        """Returns the full ledger of autonomous self-healing actions."""
+        return {"actions": [a.to_dict() for a in global_self_healing_controller.get_action_history()]}
+
+    @app.post("/api/v1/self-healing/remediate")
+    async def remediate_self_healing_endpoint(
+        req: SelfHealingRemediateRequest,
+        tenant: TenantContext = Depends(require_permission(Permission.POLICY_WRITE)),
+    ):
+        """Enacts an explicit self-healing remediation action."""
+        action = global_self_healing_controller.remediate(
+            swarm_id=req.swarm_id,
+            agent_name=req.agent_name,
+            action_type=req.action_type,
+            target=req.target,
+            reason=req.reason,
+        )
+        return action.to_dict()
+
+    @app.post("/api/v1/self-healing/rollback")
+    async def rollback_self_healing_endpoint(
+        action_id: Optional[str] = Query(None),
+        swarm_id: Optional[str] = Query(None),
+        tenant: TenantContext = Depends(require_permission(Permission.POLICY_WRITE)),
+    ):
+        """Reverts a specific self-healing action or all actions for a swarm."""
+        if action_id:
+            success = global_self_healing_controller.rollback_action(action_id)
+            if not success:
+                raise HTTPException(status_code=404, detail=f"Active action '{action_id}' not found")
+            return {"status": "rolled_back", "action_id": action_id}
+        rolled_count = global_self_healing_controller.rollback_all(swarm_id=swarm_id)
+        return {"status": "rolled_back_all", "count": rolled_count}
+
+    @app.post("/api/v1/self-healing/toggle")
+    async def toggle_self_healing_endpoint(
+        enabled: bool = Query(True),
+        tenant: TenantContext = Depends(require_permission(Permission.POLICY_WRITE)),
+    ):
+        """Enables or disables autonomous self-healing controller execution."""
+        global_self_healing_controller.config.enabled = enabled
+        return {"status": "updated", "enabled": enabled}
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

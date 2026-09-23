@@ -40,9 +40,10 @@ class RuleConfig(BaseModel):
                 if k == "prohibited_tools":
                     # Union prohibited tools lists
                     combined = list(dict.fromkeys(data.get("prohibited_tools", []) + v))
-                    data[k] = combined
                 else:
                     data[k] = v
+        if override.prohibited_tools:
+            data["prohibited_tools"] = list(dict.fromkeys(data.get("prohibited_tools", []) + override.prohibited_tools))
         return RuleConfig(**data)
 
 

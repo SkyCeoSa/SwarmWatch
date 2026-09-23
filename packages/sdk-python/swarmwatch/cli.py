@@ -151,6 +151,18 @@ def main(argv=None):
     raft_parser.add_argument("--reason", default="Manual operator trip via Raft CLI", help="Reason string for circuit trip proposal")
     raft_parser.add_argument("--nodes", type=int, default=3, help="Number of nodes for mock cluster simulation (default: 3)")
 
+    # `swarmwatch heal` subcommand (Seam 31 / ADR 0042)
+    heal_parser = subparsers.add_parser("heal", help="Inspect and control autonomous self-healing and counterfactual optimization")
+    heal_parser.add_argument("action", choices=["status", "actions", "trigger", "rollback"], default="status", nargs="?", help="Self-healing action (status, actions, trigger, rollback)")
+    heal_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    heal_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+    heal_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID")
+    heal_parser.add_argument("--agent", default="coder", help="Target agent name for remediation")
+    heal_parser.add_argument("--strategy", choices=["blacklist_tool", "route_model_fallback", "auto_reset_on_stabilization"], default="blacklist_tool", help="Remediation strategy")
+    heal_parser.add_argument("--target", default="execute_sql", help="Remediation target (e.g. tool name or fallback model)")
+    heal_parser.add_argument("--reason", default="Manual operator remediation via CLI", help="Remediation justification")
+    heal_parser.add_argument("--action-id", default=None, help="Action ID to rollback")
+
     args = parser.parse_args(argv)
 
 
@@ -905,6 +917,107 @@ def main(argv=None):
                 print("\n  Node States:")
                 for nid, n in cluster.nodes.items():
                     print(f"    - {nid}: role={n.role:<9} term={n.current_term} commit={n.commit_index} last_log={n.last_log_index}")
+                print()
+            sys.exit(0)
+    elif args.subcommand == "heal":
+        import urllib.request
+        from swarmwatch.selfhealing import global_self_healing_controller
+        if args.action == "status":
+            target_url = args.url.rstrip("/") + "/api/v1/self-healing/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                    status_data = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                status_data = global_self_healing_controller.status()
+            if args.format == "json":
+                print(json.dumps(status_data, indent=2))
+            else:
+                st_color = "\033[92mACTIVE\033[0m" if status_data.get("enabled") else "\033[91mDISABLED\033[0m"
+                print("\n+--------------------------------------------------------------+")
+                print("| SWARMWATCH AUTONOMOUS SELF-HEALING CONTROLLER (ADR 0042)    |")
+                print("+--------------------------------------------------------------+")
+                print(f"| Controller State:       {st_color: <43} |")
+                print(f"| Active Actions:         {str(status_data.get('active_actions_count', 0)): <43} |")
+                print(f"| Total Interventions:    {str(status_data.get('total_actions_recorded', 0)): <43} |")
+                print(f"| Counterfactual Tokens:  {str(status_data.get('cumulative_tokens_saved', 0)) + ' tokens': <43} |")
+                print(f"| Counterfactual Dollars: {'$' + str(status_data.get('cumulative_cost_saved', 0.0)): <43} |")
+                routes = status_data.get("active_model_routes", {})
+                route_str = ", ".join(f"{k}->{v}" for k, v in routes.items()) or "none"
+                print(f"| Model Fallbacks:        {route_str[:40]: <43} |")
+                print("+--------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "actions":
+            target_url = args.url.rstrip("/") + "/api/v1/self-healing/actions"
+            try:
+                with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                    actions_data = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                actions_data = {"actions": [a.to_dict() for a in global_self_healing_controller.get_action_history()]}
+            actions = actions_data.get("actions", [])
+            if args.format == "json":
+                print(json.dumps(actions_data, indent=2))
+            else:
+                print(f"\n[Self-Healing Remediation Ledger ({len(actions)} Records)]")
+                print(f"  {'ID':<14} {'Agent':<14} {'Action':<22} {'Target':<16} {'Saved Tokens'}")
+                print(f"  {'-'*14} {'-'*14} {'-'*22} {'-'*16} {'-'*12}")
+                for a in actions:
+                    cf = a.get("counterfactual", {})
+                    tokens_str = str(cf.get("tokens_saved", 0))
+                    print(f"  {a.get('id', ''):<14} {a.get('agent_name', ''):<14} {a.get('action_type', ''):<22} {a.get('target', ''):<16} {tokens_str}")
+                print()
+            sys.exit(0)
+        elif args.action == "trigger":
+            payload = {
+                "swarm_id": args.swarm_id,
+                "agent_name": args.agent,
+                "action_type": args.strategy,
+                "target": args.target,
+                "reason": args.reason,
+            }
+            target_url = args.url.rstrip("/") + "/api/v1/self-healing/remediate"
+            try:
+                req_data = json.dumps(payload).encode("utf-8")
+                req = urllib.request.Request(target_url, data=req_data, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
+                    res = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                action = global_self_healing_controller.remediate(
+                    swarm_id=args.swarm_id,
+                    agent_name=args.agent,
+                    action_type=args.strategy,
+                    target=args.target,
+                    reason=args.reason,
+                )
+                res = action.to_dict()
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"\n[Self-Healing Remediation Enacted]")
+                print(f"  Action ID:   {res.get('id')}")
+                print(f"  Strategy:    {res.get('action_type')}")
+                print(f"  Target:      {res.get('target')}")
+                print(f"  Tokens Saved: {res.get('counterfactual', {}).get('tokens_saved', 0)}")
+                print()
+            sys.exit(0)
+        elif args.action == "rollback":
+            target_url = args.url.rstrip("/") + "/api/v1/self-healing/rollback"
+            if args.action_id:
+                target_url += f"?action_id={args.action_id}"
+            try:
+                req = urllib.request.Request(target_url, data=b"", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
+                    res = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                if args.action_id:
+                    success = global_self_healing_controller.rollback_action(args.action_id)
+                    res = {"status": "rolled_back" if success else "failed", "action_id": args.action_id}
+                else:
+                    count = global_self_healing_controller.rollback_all(args.swarm_id)
+                    res = {"status": "rolled_back_all", "count": count}
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"\n[Self-Healing Rollback Result]: {res.get('status')}")
                 print()
             sys.exit(0)
     else:

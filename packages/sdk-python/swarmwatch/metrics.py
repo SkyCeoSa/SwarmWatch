@@ -530,3 +530,29 @@ def record_raft_election() -> None:
     reg.counter("swarmwatch_raft_elections_total", "Total Raft leader election attempts initiated").inc()
 
 
+def record_self_healing_action(action_type: str, anomaly_type: str) -> None:
+    """Record an autonomous self-healing remediation action executed."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.counter(
+        "swarmwatch_self_healing_actions_total",
+        "Total autonomous self-healing actions executed",
+        ("action_type", "anomaly_type"),
+    ).inc(labels={"action_type": action_type, "anomaly_type": anomaly_type})
+
+
+def set_self_healing_active_actions(count: int) -> None:
+    """Set the gauge of currently active self-healing actions."""
+    reg = PrometheusMetricsRegistry.get_default()
+    reg.gauge("swarmwatch_self_healing_active_actions", "Current number of active self-healing remediation actions").set(count)
+
+
+def record_counterfactual_savings(tokens: int, cost: float) -> None:
+    """Record estimated counterfactual savings achieved through self-healing optimizations."""
+    reg = PrometheusMetricsRegistry.get_default()
+    if tokens > 0:
+        reg.counter("swarmwatch_counterfactual_tokens_saved_total", "Total counterfactual tokens saved by self-healing").inc(value=float(tokens))
+    if cost > 0.0:
+        reg.counter("swarmwatch_counterfactual_cost_saved_total", "Total counterfactual dollar cost saved by self-healing").inc(value=cost)
+
+
+

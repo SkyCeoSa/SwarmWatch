@@ -281,8 +281,16 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/raft.ts`) tested with Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/raft/status`, `POST /api/v1/raft/propose`, `POST /api/v1/raft/rpc/request-vote`, `POST /api/v1/raft/rpc/append-entries`, `POST /api/v1/raft/step-down`) and CLI subcommand (`swarmwatch raft status|propose|cluster`).
   - Web Console integration: `#raftConsensusBadge` in `#fleetBar` displaying live node role (`RAFT: LEADER` / `RAFT: FOLLOWER`), term, and commit index conforming strictly to Impeccable Craft Floor.
+- **Autonomous Counterfactual Swarm Optimization & Self-Healing Policy Controller (Seam 31 & ADR 0042 Dual-SDK Parity)**:
+  - Deep module `SwarmSelfHealingController` executing continuous in-process telemetry observation, multi-agent anomaly detection (`REPEATED_TOOL_FAILURES`, `ENTROPY_VOLATILITY`, `BUDGET_RUNAWAY`, `CASCADE_ERROR`, `LATENCY_SPIKE`), and mathematical counterfactual optimization calculus with zero remote LLM token usage.
+  - Reversible remediation taxonomy (`SelfHealingActionType`): dynamic tool blacklisting (`BLACKLIST_TOOL`), automatic model down-routing fallback (`ROUTE_MODEL_FALLBACK`), proactive quota clamping (`CLAMP_QUOTA`), stabilization probation resets (`AUTO_RESET_ON_STABILIZATION`), and backoff throttling (`INJECT_BACKOFF`).
+  - Full state preservation (`original_state`) enabling instantaneous automatic or operator-driven rollbacks.
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/selfhealing.ts`) adhering to Node 22 type-stripping.
+  - Control plane REST endpoints (`GET /api/v1/self-healing/status`, `GET /api/v1/self-healing/actions`, `POST /api/v1/self-healing/remediate`, `POST /api/v1/self-healing/rollback`, `POST /api/v1/self-healing/toggle`) and CLI subcommand (`swarmwatch heal status|actions|trigger|rollback`).
+  - Web Console integration: `#selfHealingBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 

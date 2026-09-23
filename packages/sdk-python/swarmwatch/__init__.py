@@ -344,6 +344,16 @@ from swarmwatch.raft import (
     MockRaftCluster,
     global_raft_engine,
 )
+from swarmwatch.selfhealing import (
+    AnomalyType,
+    SelfHealingActionType,
+    SelfHealingAction,
+    SelfHealingPolicyConfig,
+    CounterfactualEvaluation,
+    SwarmSelfHealingController,
+    global_self_healing_controller,
+)
+
 
 
 

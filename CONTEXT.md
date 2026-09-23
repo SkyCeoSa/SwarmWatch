@@ -379,6 +379,23 @@ _Avoid_: Hook call, function callback, middleware run
 - **AppendEntriesRpc**: Leader RPC replicating log entries and emitting periodic heartbeats to maintain authority.
   _Avoid_: Heartbeat ping, log push, sync packet
 
+---
+
+### Autonomous Counterfactual Swarm Optimization & Self-Healing Policy Controller (Seam 31 / ADR 0042)
+- **SwarmSelfHealingController**: The autonomous control plane module continuously monitoring causal span streams, detecting multi-agent operational anomalies, and enacting surgical, reversible policy remediations.
+  _Avoid_: Auto fixer, health daemon, repair bot
+- **SelfHealingAction**: An atomic remediation intervention recording action type, target entity, counterfactual savings, original state, and rollback lifecycle.
+  _Avoid_: Patch record, fix event, repair command
+- **AnomalyType**: Formal classification of detectable runtime failure modes (`REPEATED_TOOL_FAILURES`, `ENTROPY_VOLATILITY`, `BUDGET_RUNAWAY`, `CASCADE_ERROR`, `LATENCY_SPIKE`).
+  _Avoid_: Bug type, error kind, defect category
+- **SelfHealingActionType**: Surgical intervention strategies (`BLACKLIST_TOOL`, `ROUTE_MODEL_FALLBACK`, `CLAMP_QUOTA`, `AUTO_RESET_ON_STABILIZATION`, `INJECT_BACKOFF`).
+  _Avoid_: Fix action, repair type, mitigation step
+- **CounterfactualEvaluation**: Deterministic calculus quantifying token and financial dollar savings achieved by comparing the alternative remediation trajectory against the unmitigated failure path.
+  _Avoid_: What-if math, savings estimate, cost check
+- **ModelFallbackRouter**: Dynamic routing mechanism switching erratic or costly LLM models to stable, efficient alternatives under autonomous policy direction.
+  _Avoid_: Model swapper, alternate selector, backup route
+
+
 
 
 
