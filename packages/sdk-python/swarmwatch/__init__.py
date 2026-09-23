@@ -249,6 +249,13 @@ __all__ = [
     "ServerNodeRole",
     "ClusterNodeInfo",
     "ClusterLeaderStatus",
+    "ObjectStorageClient",
+    "MockObjectStorageClient",
+    "S3ObjectStorageClient",
+    "ColdStorageArchiver",
+    "ArchiveManifest",
+    "ArchiveRecord",
+    "RestoredSwarmSummary",
 ]
 
 from swarmwatch.redis_lock import (
@@ -258,3 +265,13 @@ from swarmwatch.redis_lock import (
     ClusterNodeInfo,
     ClusterLeaderStatus,
 )
+from swarmwatch.archival import (
+    ObjectStorageClient,
+    MockObjectStorageClient,
+    S3ObjectStorageClient,
+    ColdStorageArchiver,
+    ArchiveManifest,
+    ArchiveRecord,
+    RestoredSwarmSummary,
+)
+

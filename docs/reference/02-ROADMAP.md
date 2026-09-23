@@ -232,6 +232,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Control plane REST endpoints (`GET /api/v1/cluster/leader`, `POST /api/v1/cluster/leader/step-down`), WebSocket leader change broadcasts, and CLI subcommand (`swarmwatch cluster status|step-down`).
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) implementing `RedisDistributedLock` and `RedisLeaderElector`.
   - Console leader status indicator in `#fleetBar` adhering to the Impeccable Craft Floor.
+- **S3 / Google Cloud Storage Streaming Log Archival & Cold Storage Tier (Seam 25 & ADR 0036)**:
+  - Pluggable object storage interface `ObjectStorageClient` with zero-dependency `MockObjectStorageClient` (in-memory) and `S3ObjectStorageClient` (pure stdlib HTTP/SigV4).
+  - Deep module `ColdStorageArchiver` coordinating gzip streaming compression, time-partitioned key hierarchy, and deterministic cryptographic manifest generation (`ArchiveManifest`).
+  - Bi-directional tiering (`archive_swarm` and `restore_swarm`) offloading completed swarms from hot database to cold S3/GCS buckets and re-hydrating on demand.
+  - Control plane REST endpoints: `POST /api/v1/storage/archive/{swarm_id}`, `POST /api/v1/storage/restore/{swarm_id}`, `GET /api/v1/storage/archives`, `GET /api/v1/storage/archives/{swarm_id}/manifest`.
+  - Interactive CLI subcommand: `swarmwatch archive list|export|restore|manifest`.
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) implementing `ObjectStorageClient`, `MockObjectStorageClient`, and `ColdStorageArchiver`.
+  - Developer console cold archive action button and status badge adhering to the Impeccable Craft Floor.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

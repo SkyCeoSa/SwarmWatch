@@ -133,3 +133,8 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Python): `RedisDistributedLock` (`redis_lock.py`), `RedisLeaderElector`, `ServerNodeRole`, REST endpoints `GET /api/v1/cluster/leader`, `POST /api/v1/cluster/leader/step-down`, CLI `swarmwatch cluster`.
     - Primitives (TypeScript): `RedisDistributedLock` (`redis_lock.ts`), `RedisLeaderElector`, `ServerNodeRole`.
     - Invariant: Atomic mutual exclusion and lease renewals; split-brain prevention for multi-server background jobs; sub-second automatic standby failover; active cluster node roster tracking in Redis; dual-SDK parity; 100% deterministic local execution.
+25. **S3 / Google Cloud Storage Streaming Log Archival & Cold Storage Tier Seam (ADR 0036 Dual-SDK Parity)**:
+    - Primitives (Python): `ObjectStorageClient` (`archival.py`), `MockObjectStorageClient`, `S3ObjectStorageClient`, `ColdStorageArchiver`, `ArchiveManifest`, `ArchiveRecord`, REST endpoints `/api/v1/storage/archive/{id}`, `/api/v1/storage/restore/{id}`, `/api/v1/storage/archives`, CLI `swarmwatch archive`.
+    - Primitives (TypeScript): `ObjectStorageClient` (`archival.ts`), `MockObjectStorageClient`, `ColdStorageArchiver`, `ArchiveManifest`, `ArchiveRecord`.
+    - Invariant: Zero-dependency streaming gzip compression; cryptographic SHA-256 manifest verification; standard time-partitioned cloud data lake hierarchy; bi-directional archive and restoration round-trip; leader-coordinated singleton background execution; 100% local deterministic offline verification.
+

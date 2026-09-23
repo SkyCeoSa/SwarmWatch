@@ -190,3 +190,16 @@ export {
   RedisDistributedLock,
   RedisLeaderElector,
 } from "./redis_lock.ts";
+
+// S3 / Google Cloud Storage Streaming Log Archival & Cold Storage Tier (Seam 25 / ADR 0036)
+export type {
+  ObjectStorageClient,
+  ArchiveManifest,
+  ArchiveRecord,
+  RestoredSwarmSummary,
+} from "./archival.ts";
+export {
+  MockObjectStorageClient,
+  ColdStorageArchiver,
+} from "./archival.ts";
+

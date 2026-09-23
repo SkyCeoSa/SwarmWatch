@@ -13,7 +13,7 @@ import time
 from typing import Any, Dict, List, Optional, Set
 import uuid
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status, Body
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
@@ -106,6 +106,12 @@ class CreateApiKeyRequest(BaseModel):
     name: str = "Default API Key"
     is_test: bool = False
     scopes: Optional[List[str]] = None
+
+
+class ArchiveSwarmRequest(BaseModel):
+    delete_local: bool = False
+    bucket: Optional[str] = None
+
 
 
 async def run_swarm_simulation(
@@ -2275,6 +2281,7 @@ def create_app(
     webhook_notifier: Optional[WebhookNotifier] = None,
     redis_coordinator: Optional[Any] = None,
     leader_elector: Optional[Any] = None,
+    archiver: Optional[Any] = None,
 ) -> FastAPI:
     """FastAPI application factory for SwarmWatch ingestion server."""
     app = FastAPI(title="SwarmWatch Server", version="0.1.0")
@@ -2290,6 +2297,13 @@ def create_app(
     from swarmwatch.redis_lock import RedisLeaderElector
     active_leader_elector = leader_elector or RedisLeaderElector(client=active_redis_coordinator._client)
     active_leader_elector.start()
+    from swarmwatch.archival import ColdStorageArchiver, MockObjectStorageClient
+    active_archiver = archiver or ColdStorageArchiver(
+        client=MockObjectStorageClient(),
+        storage_adapter=active_storage,
+    )
+    app.state.archiver = active_archiver
+
 
     async def get_tenant_context(
         authorization: Optional[str] = Header(default=None),
@@ -2988,6 +3002,85 @@ def create_app(
             }
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+    @app.post("/api/v1/storage/archive/{swarm_id}")
+    async def archive_swarm_endpoint(
+        swarm_id: str,
+        req: ArchiveSwarmRequest = Body(default_factory=ArchiveSwarmRequest),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Archives a swarm from hot storage to cold S3/GCS object storage."""
+        try:
+            record = await active_archiver.archive_swarm(
+                swarm_id=swarm_id,
+                bucket=req.bucket,
+                delete_local=req.delete_local,
+                project_id=tenant.project_id,
+                org_id=tenant.org_id,
+            )
+            await ws_manager.broadcast_all({
+                "type": "swarm_archived",
+                "swarm_id": swarm_id,
+                "archive_key": record.archive_key,
+                "compressed_size_bytes": record.compressed_size_bytes,
+                "sha256": record.sha256_checksum,
+            })
+            return {"status": "archived", "record": record.model_dump(mode="json")}
+        except Exception as e:
+            logger.error(f"Error archiving swarm '{swarm_id}': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/v1/storage/restore/{swarm_id}")
+    async def restore_swarm_endpoint(
+        swarm_id: str,
+        bucket: Optional[str] = Query(default=None),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Restores an archived swarm from cold object storage into hot database."""
+        try:
+            summary = await active_archiver.restore_swarm(
+                swarm_id=swarm_id,
+                bucket=bucket,
+                target_storage=active_storage,
+            )
+            await ws_manager.broadcast_all({
+                "type": "swarm_restored",
+                "swarm_id": swarm_id,
+                "spans_restored": summary.spans_restored,
+                "snapshots_restored": summary.snapshots_restored,
+            })
+            return {"status": "restored", "summary": summary.model_dump(mode="json")}
+        except FileNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error restoring swarm '{swarm_id}': {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/v1/storage/archives")
+    async def list_archives_endpoint(
+        bucket: Optional[str] = Query(default=None),
+        prefix: Optional[str] = Query(default=None),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Lists all archived swarms across cold object storage."""
+        archives = active_archiver.list_archives(
+            bucket=bucket,
+            project_id=tenant.project_id,
+            prefix=prefix,
+        )
+        return {"archives": [a.model_dump(mode="json") for a in archives]}
+
+    @app.get("/api/v1/storage/archives/{swarm_id}/manifest")
+    async def get_archive_manifest_endpoint(
+        swarm_id: str,
+        bucket: Optional[str] = Query(default=None),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Retrieves raw cryptographic manifest for an archived swarm."""
+        manifest = active_archiver.get_archive_manifest(swarm_id=swarm_id, bucket=bucket)
+        if not manifest:
+            raise HTTPException(status_code=404, detail=f"Manifest not found for swarm '{swarm_id}'")
+        return manifest.model_dump(mode="json")
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

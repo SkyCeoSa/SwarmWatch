@@ -284,3 +284,21 @@ _Avoid_: Hook call, function callback, middleware run
   _Avoid_: Keepalive ping, leader tick, lease refresher
 - **ClusterNodeRoster**: The cluster-wide registry of active SwarmWatch server instances, roles, and epoch timestamps stored in Redis.
   _Avoid_: Server list, node catalog, host directory
+---
+
+### Cold Storage Streaming Log Archival & Cold Storage Tier (Seam 25 / ADR 0036)
+- **ObjectStorageClient**: The pluggable object storage interface abstracting Amazon S3, MinIO, Ceph, Cloudflare R2, and Google Cloud Storage operations (`upload_object`, `download_object`, `list_objects`, `delete_object`, `head_object`).
+  _Avoid_: S3 wrapper, bucket adapter, cloud connector
+- **MockObjectStorageClient**: The thread-safe in-memory object store providing deterministic byte storage, checksum validation, and prefix listing for offline tests.
+  _Avoid_: Fake S3, dummy bucket, test blob
+- **S3ObjectStorageClient**: The pure standard-library HTTP/SigV4 REST client communicating with S3-compatible cloud object storage without external SDK dependencies.
+  _Avoid_: Boto clone, S3 script, aws-cli runner
+- **ColdStorageArchiver**: The deep module coordinating the serialization, gzip compression, partitioning, and cryptographic manifest generation for cold swarm telemetry offloading.
+  _Avoid_: Log tarballer, dump maker, zip exporter
+- **ArchiveManifest**: The immutable cryptographic metadata envelope recording bit-level SHA-256 hashes, uncompressed/compressed sizes, compression ratio, telemetry tallies, and multi-tenant context.
+  _Avoid_: Index file, info json, header tag
+- **ArchiveRecord**: The high-level descriptor of an archived swarm session stored in object storage.
+  _Avoid_: Cold row, archive summary, backup entry
+- **PartitionScheme**: The standard time-partitioned object key layout: `swarmwatch/v1/org={org_id}/proj={project_id}/year={YYYY}/month={MM}/day={DD}/swarm={swarm_id}.jsonl.gz`.
+  _Avoid_: Folder structure, key path, bucket directory
+

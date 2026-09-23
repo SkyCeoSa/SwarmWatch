@@ -470,6 +470,11 @@
       border-color: rgba(148, 163, 184, 0.3);
       color: var(--text-secondary);
     }
+    .fleet-badge.archived {
+      background: rgba(148, 163, 184, 0.12);
+      border-color: rgba(148, 163, 184, 0.3);
+      color: var(--text-primary);
+    }
     .fleet-backend-tag {
       font-family: var(--font-mono);
       font-size: 12px;
@@ -1556,6 +1561,7 @@
             <span id="fleetLeaderText">LEADER [srv-node-local]</span>
           </div>
           <span class="fleet-backend-tag" id="fleetNodesCountTag" title="Registered Active Cluster Server Nodes">1 Node</span>
+          <span class="fleet-badge archived" id="fleetArchiveStatusBadge" style="display: none;" title="Swarm Cold Storage Status (ADR 0036)">COLD ARCHIVE</span>
           <div class="fleet-workers-container" id="fleetWorkersList" title="Active Cluster Worker Pods">
             <span class="fleet-worker-pill"><span class="fleet-worker-dot"></span>worker-01</span>
           </div>
@@ -1583,6 +1589,10 @@
           <button class="btn-fleet-reset" id="btnLeaderStepDown" style="display: none;" title="Voluntarily relinquish cluster leadership to standby node">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
             <span>Step Down</span>
+          </button>
+          <button class="btn-fleet-reset" id="btnArchiveSwarm" title="Archive completed swarm telemetry to S3/GCS cold storage (ADR 0036)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Archive Cold</span>
           </button>
           <button class="btn-fleet-trip" id="btnFleetTrip" title="Broadcast immediate emergency trip to all cluster workers">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
@@ -3232,6 +3242,14 @@
                 fetchFleetMetrics();
               } else if (msg.type === 'cluster_leader_changed') {
                 fetchFleetMetrics();
+              } else if (msg.type === 'swarm_archived') {
+                var archBadge = document.getElementById('fleetArchiveStatusBadge');
+                if (archBadge) archBadge.style.display = 'inline-flex';
+                showToast('Swarm archived to cold storage: ' + (msg.archive_key || msg.swarm_id), 'success');
+              } else if (msg.type === 'swarm_restored') {
+                var archBadge = document.getElementById('fleetArchiveStatusBadge');
+                if (archBadge) archBadge.style.display = 'none';
+                showToast('Swarm restored from cold storage: ' + msg.swarm_id, 'info');
               }
             } catch(e) {}
           };
@@ -3727,6 +3745,31 @@
         } catch(e) {
           showToast('Failed to step down: ' + e.message, 'danger');
         }
+      }
+
+      var btnArchiveSwarm = document.getElementById('btnArchiveSwarm');
+      if (btnArchiveSwarm) {
+        btnArchiveSwarm.addEventListener('click', async function() {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          if (!confirm("Archive telemetry for swarm '" + targetSwarm + "' to S3/GCS cold object storage?")) return;
+          try {
+            var res = await fetch('/api/v1/storage/archive/' + targetSwarm, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ delete_local: false })
+            });
+            var data = await res.json();
+            if (res.ok && data.record) {
+              var archBadge = document.getElementById('fleetArchiveStatusBadge');
+              if (archBadge) archBadge.style.display = 'inline-flex';
+              showToast("Swarm archived! Compression ratio: " + data.record.compression_ratio + "x", "success");
+            } else {
+              showToast("Archive failed: " + (data.detail || data.message || "Unknown error"), "danger");
+            }
+          } catch(e) {
+            showToast("Archive error: " + e.message, "danger");
+          }
+        });
       }
 
       fetchFleetMetrics();

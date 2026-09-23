@@ -5,6 +5,7 @@ Allows starting the live dashboard and ingestion server via `swarmwatch ui`.
 """
 
 import argparse
+import json
 import os
 import sys
 import webbrowser
@@ -80,6 +81,16 @@ def main(argv=None):
     cluster_parser.add_argument("--redis-url", default=os.getenv("SWARMWATCH_REDIS_URL", "redis://127.0.0.1:6379/0"), help="Redis server URL (default: redis://127.0.0.1:6379/0)")
     cluster_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch archive` subcommand (Seam 25 / ADR 0036)
+    archive_parser = subparsers.add_parser("archive", help="Manage S3/GCS cold storage streaming archival and restore")
+    archive_parser.add_argument("action", choices=["list", "export", "restore", "manifest"], help="Archive action (list, export, restore, manifest)")
+    archive_parser.add_argument("--swarm-id", "-s", default=None, help="Target swarm session ID")
+    archive_parser.add_argument("--bucket", "-b", default=os.getenv("SWARMWATCH_ARCHIVE_BUCKET", "swarmwatch-cold-storage"), help="Target S3/GCS bucket")
+    archive_parser.add_argument("--db", default=os.getenv("SWARMWATCH_DB", "swarmwatch.db"), help="Path to local SQLite database")
+    archive_parser.add_argument("--delete-local", action="store_true", help="Purge local records after successful archival")
+    archive_parser.add_argument("--project-id", default=None, help="Filter by tenant project ID")
+    archive_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
     if args.subcommand == "ui":
@@ -131,7 +142,6 @@ def main(argv=None):
         else:
             print(output_text)
     elif args.subcommand == "test-alerts":
-        import json
         from swarmwatch.synthetic_alert import AlertSimulationPipeline
 
         target_routes = ["slack", "discord", "pagerduty"] if args.routes == "all" else [r.strip() for r in args.routes.split(",") if r.strip()]
@@ -157,7 +167,6 @@ def main(argv=None):
 
         sys.exit(0 if report.all_passed else 1)
     elif args.subcommand == "benchmark":
-        import json
         from swarmwatch.profiler import TelemetryProfiler, IngestionBenchmarkConfig
 
         config = IngestionBenchmarkConfig(
@@ -207,7 +216,6 @@ def main(argv=None):
             monitor.run()
         sys.exit(0)
     elif args.subcommand == "fleet":
-        import json
         from swarmwatch.redis_circuit import RedisCircuitCoordinator
 
         coord = RedisCircuitCoordinator(redis_url=args.redis_url)
@@ -285,6 +293,109 @@ def main(argv=None):
                         print(f"[SwarmWatch] Step down returned noop (node not active leader).")
         finally:
             client.close()
+        sys.exit(0)
+    elif args.subcommand == "archive":
+        import asyncio
+        from swarmwatch.archival import ColdStorageArchiver, MockObjectStorageClient, S3ObjectStorageClient
+
+        storage = SQLiteStorageAdapter(db_path=args.db)
+        if os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"):
+            obj_client = S3ObjectStorageClient(
+                endpoint_url=os.getenv("AWS_ENDPOINT_URL", "https://s3.amazonaws.com"),
+                access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                region_name=os.getenv("AWS_REGION", "us-east-1"),
+            )
+        else:
+            obj_client = MockObjectStorageClient(base_dir=os.getenv("SWARMWATCH_STORAGE_DIR", ".swarmwatch_storage"))
+
+        archiver = ColdStorageArchiver(
+            client=obj_client,
+            default_bucket=args.bucket,
+            storage_adapter=storage,
+        )
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            if args.action == "export":
+                if not args.swarm_id:
+                    print("Error: --swarm-id is required for export action", file=sys.stderr)
+                    sys.exit(1)
+                record = loop.run_until_complete(
+                    archiver.archive_swarm(
+                        swarm_id=args.swarm_id,
+                        bucket=args.bucket,
+                        delete_local=args.delete_local,
+                        project_id=args.project_id,
+                    )
+                )
+                if args.format == "json":
+                    print(json.dumps(record.model_dump(mode="json"), indent=2))
+                else:
+                    print("\n+--------------------------------------------------------------+")
+                    print(f"| SWARMWATCH TELEMETRY COLD ARCHIVE EXPORT (ADR 0036)          |")
+                    print("+--------------------------------------------------------------+")
+                    print(f"| Swarm ID:         {record.swarm_id: <42} |")
+                    print(f"| S3 Bucket:        {record.bucket: <42} |")
+                    print(f"| S3 Key:           {record.archive_key: <42} |")
+                    print(f"| Compressed Size:  {f'{record.compressed_size_bytes:,} bytes': <42} |")
+                    print(f"| Uncompressed:     {f'{record.uncompressed_size_bytes:,} bytes': <42} |")
+                    print(f"| Comp. Ratio:      {f'{record.compression_ratio}x': <42} |")
+                    print(f"| Total Spans:      {str(record.spans_count): <42} |")
+                    print(f"| Snapshots:        {str(record.snapshots_count): <42} |")
+                    print(f"| SHA-256:          {record.sha256_checksum[:32] + '...': <42} |")
+                    print("+--------------------------------------------------------------+\n")
+            elif args.action == "restore":
+                if not args.swarm_id:
+                    print("Error: --swarm-id is required for restore action", file=sys.stderr)
+                    sys.exit(1)
+                summary = loop.run_until_complete(
+                    archiver.restore_swarm(
+                        swarm_id=args.swarm_id,
+                        bucket=args.bucket,
+                        target_storage=storage,
+                    )
+                )
+                if args.format == "json":
+                    print(json.dumps(summary.model_dump(mode="json"), indent=2))
+                else:
+                    print(f"\n\033[92m[SwarmWatch] Swarm '{args.swarm_id}' successfully restored from cold storage.\033[0m")
+                    print(f"   Spans restored:     {summary.spans_restored}")
+                    print(f"   Snapshots restored: {summary.snapshots_restored}")
+                    print(f"   SHA-256 Verified:   {summary.sha256_verified}\n")
+            elif args.action == "list":
+                records = archiver.list_archives(bucket=args.bucket, project_id=args.project_id)
+                if args.format == "json":
+                    print(json.dumps([r.model_dump(mode="json") for r in records], indent=2))
+                else:
+                    print("\n+----------------------------------------------------------------------------------------+")
+                    print(f"| SWARMWATCH COLD STORAGE ARCHIVE ROSTER ({args.bucket})                                  |")
+                    print("+----------------------------------------------------------------------------------------+")
+                    print(f"| {'SWARM ID': <18} | {'SPANS': <6} | {'SNAPS': <6} | {'COMPRESSED': <12} | {'RATIO': <6} | {'DATE': <19} |")
+                    print("+----------------------------------------------------------------------------------------+")
+                    for r in records:
+                        print(f"| {r.swarm_id: <18} | {str(r.spans_count): <6} | {str(r.snapshots_count): <6} | {f'{r.compressed_size_bytes:,}B': <12} | {f'{r.compression_ratio}x': <6} | {r.archived_at[:19]: <19} |")
+                    print("+----------------------------------------------------------------------------------------+\n")
+            elif args.action == "manifest":
+                if not args.swarm_id:
+                    print("Error: --swarm-id is required for manifest action", file=sys.stderr)
+                    sys.exit(1)
+                manifest = archiver.get_archive_manifest(swarm_id=args.swarm_id, bucket=args.bucket)
+                if not manifest:
+                    print(f"Manifest not found for swarm '{args.swarm_id}' in bucket '{args.bucket}'", file=sys.stderr)
+                    sys.exit(1)
+                if args.format == "json":
+                    print(json.dumps(manifest.model_dump(mode="json"), indent=2))
+                else:
+                    print("\n+--------------------------------------------------------------+")
+                    print(f"| SWARMWATCH ARCHIVE MANIFEST ({manifest.swarm_id})            |")
+                    print("+--------------------------------------------------------------+")
+                    for k, v in manifest.model_dump(mode="json").items():
+                        print(f"| {k: <20}: {str(v): <38} |")
+                    print("+--------------------------------------------------------------+\n")
+        finally:
+            loop.close()
         sys.exit(0)
     else:
         parser.print_help()
