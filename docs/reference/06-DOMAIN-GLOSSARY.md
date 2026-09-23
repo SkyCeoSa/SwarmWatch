@@ -455,3 +455,31 @@ _Avoid_: Cold row, archive summary, backup entry
 **PartitionScheme**:
 The standard time-partitioned object key layout: swarmwatch/v1/org={org_id}/proj={project_id}/year={YYYY}/month={MM}/day={DD}/swarm={swarm_id}.jsonl.gz.
 _Avoid_: Folder structure, key path, bucket directory
+
+---
+
+### Enterprise Multi-Factor Authentication (MFA / TOTP) & Strict RBAC Engine (Seam 26 / ADR 0037)
+
+**Role**:
+The standardized categorical authorization tier (`ADMIN`, `OPERATOR`, `AUDITOR`, `VIEWER`) defining an actor's privilege envelope.
+_Avoid_: User type, access tier, permission group
+
+**Permission**:
+The fine-grained operation identifier (e.g. `VIEW_ANALYTICS`, `EXPORT_AUDIT`, `DISPATCH_ACTIONS`, `EXECUTE_CIRCUIT_TRIP`, `MODIFY_POLICIES`, `MANAGE_KEYS`, `MANAGE_USERS`) checked via the RBAC matrix.
+_Avoid_: Action right, privilege flag, capability check
+
+**TotpEngine**:
+The zero-dependency in-process cryptographic authenticator generating and validating RFC 6238 time-based one-time passwords using HMAC-SHA1 and RFC 3548 Base32 encoding.
+_Avoid_: 2FA script, authenticator helper, code generator
+
+**StepUpChallenge**:
+The mandatory, high-friction multi-factor verification required before executing destructive or high-impact control plane mutations (fleet trip/reset, policy changes, API key revocation, data purges).
+_Avoid_: Extra login, confirmation dialog, 2FA popup
+
+**BackupRecoveryCode**:
+A single-use, cryptographically generated hex recovery token stored exclusively as a SHA-256 hash and burned upon redemption.
+_Avoid_: Emergency code, recovery password, fallback key
+
+**SecurityAuditEvent**:
+An immutable record capturing actor identity, role, timestamp, target resource, operation kind, and outcome status for enterprise compliance inspection.
+_Avoid_: Auth log, access entry, audit line

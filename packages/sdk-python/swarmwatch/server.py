@@ -22,6 +22,7 @@ from swarmwatch.storage import StorageAdapter, SQLiteStorageAdapter
 from swarmwatch.serializer import TimeMachine
 from swarmwatch.webhooks import WebhookConfig, WebhookNotifier, format_webhook_payload, DeadLetterRecord
 from swarmwatch.tenant import Organization, Project, ApiKey, TenantContext, ApiKeyManager
+from swarmwatch.rbac import Role, Permission, ROLE_PERMISSIONS, has_permission, UserAccount, TotpEngine
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
     CircuitPolicy,
@@ -111,6 +112,26 @@ class CreateApiKeyRequest(BaseModel):
 class ArchiveSwarmRequest(BaseModel):
     delete_local: bool = False
     bucket: Optional[str] = None
+
+
+class CreateUserRequest(BaseModel):
+    username: str
+    email: str
+    role: Role = Role.VIEWER
+
+
+class MfaEnrollRequest(BaseModel):
+    username: str
+
+
+class MfaVerifyRequest(BaseModel):
+    username: str
+    code: str
+
+
+class MfaChallengeRequest(BaseModel):
+    username: str
+    code: str
 
 
 
@@ -2308,8 +2329,40 @@ def create_app(
     async def get_tenant_context(
         authorization: Optional[str] = Header(default=None),
         x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_user: Optional[str] = Header(default=None, alias="X-User"),
+        x_mfa_code: Optional[str] = Header(default=None, alias="X-MFA-Code"),
         project_id: Optional[str] = Query(default=None),
     ) -> TenantContext:
+        target_proj = project_id or "default-project"
+
+        # 1. User Header Authentication & RBAC resolution
+        if x_user:
+            user = await active_storage.get_user_by_username(x_user.strip())
+            if user:
+                mfa_verified = False
+                if user.mfa_enabled:
+                    if x_mfa_code:
+                        if user.totp_secret and TotpEngine.verify_totp(x_mfa_code, user.totp_secret):
+                            mfa_verified = True
+                        else:
+                            valid_b, remaining = TotpEngine.verify_and_consume_backup_code(x_mfa_code, user.backup_codes)
+                            if valid_b:
+                                user.backup_codes = remaining
+                                await active_storage.save_user(user)
+                                mfa_verified = True
+                else:
+                    mfa_verified = True
+
+                return TenantContext(
+                    org_id="default-org",
+                    project_id=target_proj,
+                    user_id=user.id,
+                    role=user.role,
+                    mfa_verified=mfa_verified,
+                    scopes=["*"] if user.role == Role.ADMIN else [p.value for p in ROLE_PERMISSIONS.get(user.role, set())],
+                )
+
+        # 2. API Key Authentication
         raw_key = None
         if authorization:
             if authorization.startswith("Bearer "):
@@ -2339,17 +2392,69 @@ def create_app(
                 org_id=org_id,
                 project_id=key_record.project_id,
                 key_id=key_record.id,
+                role=Role.ADMIN,
+                mfa_verified=True,
                 scopes=key_record.scopes,
             )
 
-        # Fallback for single-tenant local operation
-        target_proj = project_id or "default-project"
+        # 3. Fallback for single-tenant local operation
         return TenantContext(
             org_id="default-org",
             project_id=target_proj,
             key_id=None,
+            role=Role.ADMIN,
+            mfa_verified=True,
             scopes=["*"],
         )
+
+    def require_permission(permission: Permission, require_mfa_for_destructive: bool = False):
+        async def _dependency(
+            tenant: TenantContext = Depends(get_tenant_context),
+            x_mfa_code: Optional[str] = Header(default=None, alias="X-MFA-Code"),
+        ) -> TenantContext:
+            if not has_permission(tenant.role, permission):
+                await active_storage.record_audit_event(
+                    action=permission.value,
+                    resource=tenant.project_id,
+                    status="DENIED",
+                    user_id=tenant.user_id,
+                    details={"reason": f"Role '{tenant.role.value}' lacks permission '{permission.value}'"}
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Permission denied: role '{tenant.role.value}' cannot execute '{permission.value}'"
+                )
+
+            if require_mfa_for_destructive and tenant.user_id:
+                user = await active_storage.get_user(tenant.user_id)
+                if user and user.mfa_enabled and not tenant.mfa_verified:
+                    verified = False
+                    if x_mfa_code:
+                        if user.totp_secret and TotpEngine.verify_totp(x_mfa_code, user.totp_secret):
+                            verified = True
+                        else:
+                            valid_b, remaining = TotpEngine.verify_and_consume_backup_code(x_mfa_code, user.backup_codes)
+                            if valid_b:
+                                user.backup_codes = remaining
+                                await active_storage.save_user(user)
+                                verified = True
+
+                    if not verified:
+                        await active_storage.record_audit_event(
+                            action=permission.value,
+                            resource=tenant.project_id,
+                            status="MFA_CHALLENGE_FAILED",
+                            user_id=tenant.user_id,
+                            username=user.username,
+                            details={"reason": "Step-up MFA code missing or invalid"}
+                        )
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="MFA verification required for this sensitive operation"
+                        )
+
+            return tenant
+        return _dependency
 
     @app.get("/health")
     async def health():
@@ -2524,7 +2629,7 @@ def create_app(
     @app.delete("/api/v1/keys/{key_id}")
     async def revoke_api_key_endpoint(
         key_id: str,
-        tenant: TenantContext = Depends(get_tenant_context)
+        tenant: TenantContext = Depends(require_permission(Permission.KEYS_REVOKE, require_mfa_for_destructive=True))
     ):
         success = await active_storage.revoke_api_key(key_id)
         api_key_manager.clear_cache()
@@ -2533,7 +2638,162 @@ def create_app(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="API Key not found or already revoked"
             )
+        await active_storage.record_audit_event(
+            action="api_key_revoked",
+            resource=f"key:{key_id}",
+            status="SUCCESS",
+            user_id=tenant.user_id,
+            details={"key_id": key_id}
+        )
         return {"status": "revoked", "key_id": key_id}
+
+    # Enterprise RBAC & MFA Management Endpoints (ADR 0037)
+    @app.post("/api/v1/auth/users")
+    async def create_user_endpoint(
+        req: CreateUserRequest,
+        tenant: TenantContext = Depends(require_permission(Permission.MFA_MANAGE))
+    ):
+        existing = await active_storage.get_user_by_username(req.username)
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Username '{req.username}' already exists")
+        user = UserAccount(
+            username=req.username,
+            email=req.email,
+            role=req.role,
+        )
+        await active_storage.save_user(user)
+        await active_storage.record_audit_event(
+            action="user_created",
+            resource=f"user:{user.id}",
+            status="SUCCESS",
+            user_id=tenant.user_id,
+            details={"username": user.username, "role": user.role.value}
+        )
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role.value,
+            "mfa_enabled": user.mfa_enabled,
+            "created_at": user.created_at.isoformat(),
+        }
+
+    @app.get("/api/v1/auth/users")
+    async def list_users_endpoint(
+        tenant: TenantContext = Depends(require_permission(Permission.KEYS_READ))
+    ):
+        users = await active_storage.list_users()
+        return [
+            {
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "role": u.role.value,
+                "mfa_enabled": u.mfa_enabled,
+                "created_at": u.created_at.isoformat(),
+            }
+            for u in users
+        ]
+
+    @app.post("/api/v1/auth/mfa/enroll")
+    async def enroll_mfa_endpoint(
+        req: MfaEnrollRequest,
+    ):
+        user = await active_storage.get_user_by_username(req.username)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User '{req.username}' not found")
+        secret = TotpEngine.generate_secret()
+        raw_backups, hashed_backups = TotpEngine.generate_backup_codes(count=8)
+        user.totp_secret = secret
+        user.backup_codes = hashed_backups
+        # Note: mfa_enabled remains False until verify is executed
+        await active_storage.save_user(user)
+        otpauth_uri = TotpEngine.build_otpauth_uri(user.username, secret)
+        return {
+            "username": user.username,
+            "secret": secret,
+            "otpauth_uri": otpauth_uri,
+            "backup_codes": raw_backups,
+        }
+
+    @app.post("/api/v1/auth/mfa/verify")
+    async def verify_mfa_activation_endpoint(
+        req: MfaVerifyRequest,
+    ):
+        user = await active_storage.get_user_by_username(req.username)
+        if not user or not user.totp_secret:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA enrollment not initiated for user")
+
+        valid = TotpEngine.verify_totp(req.code, user.totp_secret)
+        if not valid:
+            valid_b, remaining = TotpEngine.verify_and_consume_backup_code(req.code, user.backup_codes)
+            if valid_b:
+                user.backup_codes = remaining
+                valid = True
+
+        if not valid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid 6-digit TOTP or recovery code")
+
+        user.mfa_enabled = True
+        await active_storage.save_user(user)
+        await active_storage.record_audit_event(
+            action="mfa_activated",
+            resource=f"user:{user.id}",
+            status="SUCCESS",
+            user_id=user.id,
+            username=user.username,
+        )
+        return {"status": "mfa_enabled", "username": user.username}
+
+    @app.post("/api/v1/auth/mfa/challenge")
+    async def verify_mfa_challenge_endpoint(
+        req: MfaChallengeRequest,
+    ):
+        user = await active_storage.get_user_by_username(req.username)
+        if not user or not user.mfa_enabled or not user.totp_secret:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="MFA is not active for this user")
+
+        valid = TotpEngine.verify_totp(req.code, user.totp_secret)
+        used_backup = False
+        if not valid:
+            valid_b, remaining = TotpEngine.verify_and_consume_backup_code(req.code, user.backup_codes)
+            if valid_b:
+                user.backup_codes = remaining
+                await active_storage.save_user(user)
+                valid = True
+                used_backup = True
+
+        if not valid:
+            await active_storage.record_audit_event(
+                action="mfa_challenge",
+                resource=f"user:{user.id}",
+                status="FAILED",
+                user_id=user.id,
+                username=user.username,
+            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid TOTP or recovery code")
+
+        await active_storage.record_audit_event(
+            action="mfa_challenge",
+            resource=f"user:{user.id}",
+            status="SUCCESS",
+            user_id=user.id,
+            username=user.username,
+            details={"used_backup_code": used_backup}
+        )
+        return {
+            "status": "verified",
+            "username": user.username,
+            "used_backup_code": used_backup,
+            "remaining_backup_codes": len(user.backup_codes),
+        }
+
+    @app.get("/api/v1/auth/audit")
+    async def list_audit_events_endpoint(
+        limit: int = Query(default=100),
+        tenant: TenantContext = Depends(require_permission(Permission.AUDIT_READ))
+    ):
+        return await active_storage.list_audit_events(limit=limit)
 
     @app.get("/", response_class=HTMLResponse)
     @app.get("/ui", response_class=HTMLResponse)
@@ -2626,7 +2886,7 @@ def create_app(
     @app.post("/api/v1/fleet/redis/trip")
     async def trip_redis_fleet_endpoint(
         payload: Dict[str, Any],
-        tenant: TenantContext = Depends(get_tenant_context),
+        tenant: TenantContext = Depends(require_permission(Permission.FLEET_MANAGE, require_mfa_for_destructive=True)),
     ):
         """Remotely trips the distributed Redis circuit breaker across all cluster nodes."""
         swarm_id = payload.get("swarm_id", "swarm-live-01")
@@ -2654,7 +2914,7 @@ def create_app(
     @app.post("/api/v1/fleet/redis/reset")
     async def reset_redis_fleet_endpoint(
         payload: Dict[str, Any],
-        tenant: TenantContext = Depends(get_tenant_context),
+        tenant: TenantContext = Depends(require_permission(Permission.FLEET_MANAGE, require_mfa_for_destructive=True)),
     ):
         """Resets distributed Redis fleet metrics for a swarm session."""
         swarm_id = payload.get("swarm_id", "swarm-live-01")
@@ -3007,9 +3267,29 @@ def create_app(
     async def archive_swarm_endpoint(
         swarm_id: str,
         req: ArchiveSwarmRequest = Body(default_factory=ArchiveSwarmRequest),
-        tenant: TenantContext = Depends(get_tenant_context),
+        tenant: TenantContext = Depends(require_permission(Permission.STORAGE_ARCHIVE)),
+        x_mfa_code: Optional[str] = Header(default=None, alias="X-MFA-Code"),
     ):
         """Archives a swarm from hot storage to cold S3/GCS object storage."""
+        if req.delete_local and tenant.user_id:
+            user = await active_storage.get_user(tenant.user_id)
+            if user and user.mfa_enabled and not tenant.mfa_verified:
+                verified = False
+                if x_mfa_code:
+                    if user.totp_secret and TotpEngine.verify_totp(x_mfa_code, user.totp_secret):
+                        verified = True
+                    else:
+                        valid_b, remaining = TotpEngine.verify_and_consume_backup_code(x_mfa_code, user.backup_codes)
+                        if valid_b:
+                            user.backup_codes = remaining
+                            await active_storage.save_user(user)
+                            verified = True
+                if not verified:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="MFA verification required to delete local data"
+                    )
+
         try:
             record = await active_archiver.archive_swarm(
                 swarm_id=swarm_id,
@@ -3034,7 +3314,7 @@ def create_app(
     async def restore_swarm_endpoint(
         swarm_id: str,
         bucket: Optional[str] = Query(default=None),
-        tenant: TenantContext = Depends(get_tenant_context),
+        tenant: TenantContext = Depends(require_permission(Permission.STORAGE_RESTORE)),
     ):
         """Restores an archived swarm from cold object storage into hot database."""
         try:

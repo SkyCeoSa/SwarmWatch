@@ -91,6 +91,21 @@ def main(argv=None):
     archive_parser.add_argument("--project-id", default=None, help="Filter by tenant project ID")
     archive_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch mfa` subcommand (Seam 26 / ADR 0037)
+    mfa_parser = subparsers.add_parser("mfa", help="Manage RFC 6238 TOTP Multi-Factor Authentication")
+    mfa_parser.add_argument("action", choices=["generate", "verify"], help="MFA action (generate, verify)")
+    mfa_parser.add_argument("--username", "-u", default="admin", help="Username for TOTP envelope")
+    mfa_parser.add_argument("--secret", default=None, help="Base32 TOTP secret key")
+    mfa_parser.add_argument("--code", "-c", default=None, help="6-digit TOTP code to verify")
+    mfa_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
+    # `swarmwatch rbac` subcommand (Seam 26 / ADR 0037)
+    rbac_parser = subparsers.add_parser("rbac", help="Inspect and verify Enterprise Role-Based Access Control matrix")
+    rbac_parser.add_argument("action", choices=["check", "matrix"], help="RBAC action (check, matrix)")
+    rbac_parser.add_argument("--role", "-r", choices=["admin", "operator", "auditor", "viewer"], default="viewer", help="Target role")
+    rbac_parser.add_argument("--permission", "-p", default="swarms:read", help="Target action permission string")
+    rbac_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
     if args.subcommand == "ui":
@@ -397,6 +412,85 @@ def main(argv=None):
         finally:
             loop.close()
         sys.exit(0)
+    elif args.subcommand == "mfa":
+        from swarmwatch.rbac import TotpEngine
+        if args.action == "generate":
+            secret = TotpEngine.generate_secret()
+            raw_backups, _ = TotpEngine.generate_backup_codes(count=8)
+            uri = TotpEngine.build_otpauth_uri(args.username, secret)
+            if args.format == "json":
+                print(json.dumps({
+                    "username": args.username,
+                    "secret": secret,
+                    "otpauth_uri": uri,
+                    "backup_codes": raw_backups,
+                }, indent=2))
+            else:
+                print("\n+--------------------------------------------------------------+")
+                print("| SWARMWATCH ENTERPRISE MFA / TOTP ENROLLMENT (ADR 0037)       |")
+                print("+--------------------------------------------------------------+")
+                print(f"| Username:     {args.username: <46} |")
+                print(f"| Secret:       {secret: <46} |")
+                print("+--------------------------------------------------------------+")
+                print("| BACKUP RECOVERY CODES:                                       |")
+                print("+--------------------------------------------------------------+")
+                for i in range(0, len(raw_backups), 2):
+                    c1 = raw_backups[i]
+                    c2 = raw_backups[i+1] if i+1 < len(raw_backups) else ""
+                    print(f"| * {c1: <16} | * {c2: <38} |")
+                print("+--------------------------------------------------------------+\n")
+        elif args.action == "verify":
+            if not args.secret or not args.code:
+                print("Error: --secret and --code are required for verify action", file=sys.stderr)
+                sys.exit(1)
+            is_valid = TotpEngine.verify_totp(args.code, args.secret)
+            if args.format == "json":
+                print(json.dumps({"valid": is_valid, "code": args.code}, indent=2))
+            else:
+                if is_valid:
+                    print(f"\033[92m[SwarmWatch] TOTP code '{args.code}' verified successfully.\033[0m")
+                else:
+                    print(f"\033[91m[SwarmWatch] TOTP verification failed for code '{args.code}'.\033[0m")
+                    sys.exit(1)
+        sys.exit(0)
+    elif args.subcommand == "rbac":
+        from swarmwatch.rbac import Role, Permission, ROLE_PERMISSIONS, has_permission
+        if args.action == "check":
+            try:
+                target_role = Role(args.role.lower())
+                target_perm = Permission(args.permission)
+            except ValueError as e:
+                print(f"Error: Invalid role or permission: {e}", file=sys.stderr)
+                sys.exit(1)
+            granted = has_permission(target_role, target_perm)
+            if args.format == "json":
+                print(json.dumps({
+                    "role": target_role.value,
+                    "permission": target_perm.value,
+                    "granted": granted,
+                }, indent=2))
+            else:
+                tag = "\033[92mGRANTED\033[0m" if granted else "\033[91mDENIED\033[0m"
+                print(f"[SwarmWatch RBAC] Role '{target_role.value}' -> Permission '{target_perm.value}': {tag}")
+            sys.exit(0 if granted else 1)
+        elif args.action == "matrix":
+            if args.format == "json":
+                matrix_data = {
+                    r.value: [p.value for p in perms]
+                    for r, perms in ROLE_PERMISSIONS.items()
+                }
+                print(json.dumps(matrix_data, indent=2))
+            else:
+                print("\n+--------------------------------------------------------------+")
+                print("| SWARMWATCH ENTERPRISE RBAC MATRIX (ADR 0037)                 |")
+                print("+--------------------------------------------------------------+")
+                for r, perms in ROLE_PERMISSIONS.items():
+                    print(f"| ROLE: {r.value.upper(): <54} |")
+                    for p in sorted(perms, key=lambda x: x.value):
+                        print(f"|   + {p.value: <56} |")
+                    print("+--------------------------------------------------------------+")
+                print()
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

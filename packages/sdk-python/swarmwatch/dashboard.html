@@ -1382,6 +1382,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         <span>API Keys</span>
       </button>
+      <button class="btn-action btn-secondary" id="btnMfaModal" title="Security & MFA Settings (ADR 0037)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"></rect><circle cx="12" cy="16" r="1"></circle><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        <span>Security / MFA</span>
+      </button>
       <button class="btn-action btn-primary" id="btnSimulate">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>
         <span>Run Swarm Simulation</span>
@@ -1564,6 +1568,14 @@
           <span class="fleet-badge archived" id="fleetArchiveStatusBadge" style="display: none;" title="Swarm Cold Storage Status (ADR 0036)">COLD ARCHIVE</span>
           <div class="fleet-workers-container" id="fleetWorkersList" title="Active Cluster Worker Pods">
             <span class="fleet-worker-pill"><span class="fleet-worker-dot"></span>worker-01</span>
+          </div>
+          <div class="fleet-badge" id="fleetRoleBadge" title="Enterprise RBAC Role (ADR 0037)">
+            <span class="status-indicator" id="fleetRoleDot" style="background: var(--accent);"></span>
+            <span id="fleetRoleText">ROLE: ADMIN</span>
+          </div>
+          <div class="fleet-badge" id="fleetMfaBadge" title="MFA Verification Status (ADR 0037)">
+            <span class="status-indicator" id="fleetMfaDot" style="background: var(--success);"></span>
+            <span id="fleetMfaText">MFA: ACTIVE</span>
           </div>
         </div>
 
@@ -1794,6 +1806,76 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enterprise MFA & RBAC Control Modal (ADR 0037) -->
+  <div id="mfaModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.85); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 4px; width: 620px; max-width: 90vw; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">Enterprise MFA &amp; RBAC Control</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">RFC 6238 TOTP Authenticator &amp; Role Verification (ADR 0037)</div>
+        </div>
+        <button id="btnCloseMfaModal" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Close</button>
+      </div>
+
+      <!-- Current Session Identity -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 10px 12px;">
+        <div>
+          <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Operator ID</div>
+          <div id="mfaUsernameDisplay" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-primary); margin-top: 2px;">admin</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Role Assigned</div>
+          <div id="mfaRoleDisplay" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--accent); margin-top: 2px;">ADMIN</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">MFA Status</div>
+          <div id="mfaStatusDisplay" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--success); margin-top: 2px;">ACTIVE</div>
+        </div>
+      </div>
+
+      <!-- Step-Up Verification Section -->
+      <div style="display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 12px; background: var(--bg-canvas);">
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-primary);">Step-Up Authentication Challenge</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Destructive cluster actions (fleet trip/reset, policy mutations, key revocation) require step-up challenge verification.</div>
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+          <input type="text" id="mfaStepUpInput" placeholder="Enter 6-digit TOTP or backup code" style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;">
+          <button id="btnVerifyStepUp" class="btn-action btn-secondary" style="height: 30px; padding: 0 12px;">Authorize Session</button>
+        </div>
+        <div id="mfaStepUpStatus" style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); min-height: 16px;"></div>
+      </div>
+
+      <!-- TOTP Enrollment Section -->
+      <div style="display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 12px; background: var(--bg-canvas);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 12px; font-weight: 600; color: var(--text-primary);">TOTP Enrollment</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Configure Google Authenticator / 1Password compatible RFC 6238 TOTP.</div>
+          </div>
+          <button id="btnEnrollMfa" class="btn-action btn-primary" style="height: 28px; padding: 0 10px; font-size: 12px;">Enroll New Token</button>
+        </div>
+
+        <div id="mfaEnrollSection" style="display: none; flex-direction: column; gap: 10px; margin-top: 6px;">
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 10px;">
+            <div style="font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 4px;">TOTP Secret Key (RFC 3548 Base32)</div>
+            <div id="mfaSecretKey" style="font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); user-select: all; word-break: break-all;">-</div>
+            <div id="mfaUriText" style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 4px; word-break: break-all;">-</div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Single-Use Recovery Backup Codes</div>
+            <div id="mfaBackupCodes" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-family: var(--font-mono); font-size: 12px; background: var(--bg-surface); padding: 8px; border-radius: 4px; border: 1px solid var(--border-subtle); color: var(--text-secondary);"></div>
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+            <input type="text" id="mfaCodeInput" placeholder="Enter 6-digit TOTP code to verify" style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;">
+            <button id="btnVerifyMfaActivation" class="btn-action btn-primary" style="height: 30px; padding: 0 12px;">Confirm &amp; Activate</button>
+          </div>
+          <div id="mfaEnrollStatus" style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); min-height: 16px;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -3364,6 +3446,7 @@
           if (e.key === 'Escape') {
             closeForkModal();
             if (apiKeyModal) apiKeyModal.style.display = 'none';
+            if (mfaModal) mfaModal.style.display = 'none';
           }
           if (e.key === 'Enter' && forkModal && forkModal.style.display === 'flex') {
             executeFork();
@@ -3383,6 +3466,7 @@
         } else if (e.key === 'Escape') {
           closeForkModal();
           if (apiKeyModal) apiKeyModal.style.display = 'none';
+          if (mfaModal) mfaModal.style.display = 'none';
         }
       });
 
@@ -3493,9 +3577,15 @@
                 btn.addEventListener('click', async function() {
                   var id = this.getAttribute('data-revoke-id');
                   if (confirm('Revoke this API Key permanently?')) {
-                    var delRes = await fetch('/api/v1/keys/' + id, { method: 'DELETE' });
+                    var hdrs = {};
+                    var activeMfa = sessionStorage.getItem('swarmwatch_mfa_code');
+                    if (activeMfa) hdrs['X-MFA-Code'] = activeMfa;
+                    var delRes = await fetch('/api/v1/keys/' + id, { method: 'DELETE', headers: hdrs });
                     if (delRes.ok) {
                       loadApiKeys();
+                    } else if (delRes.status === 403) {
+                      alert('MFA step-up verification required to revoke API keys. Please verify via Security / MFA modal.');
+                      if (mfaModal) mfaModal.style.display = 'flex';
                     }
                   }
                 });
@@ -3541,6 +3631,173 @@
               loadApiKeys();
             }
           } catch(e) {}
+        });
+      }
+
+      // =========================================================================
+      // Enterprise MFA & Role-Based Access Control (Seam 26 / ADR 0037)
+      // =========================================================================
+      var mfaModal = document.getElementById('mfaModal');
+      var btnMfaModal = document.getElementById('btnMfaModal');
+      var btnCloseMfaModal = document.getElementById('btnCloseMfaModal');
+      var btnEnrollMfa = document.getElementById('btnEnrollMfa');
+      var btnVerifyMfaActivation = document.getElementById('btnVerifyMfaActivation');
+      var btnVerifyStepUp = document.getElementById('btnVerifyStepUp');
+      var mfaEnrollSection = document.getElementById('mfaEnrollSection');
+      var mfaSecretKey = document.getElementById('mfaSecretKey');
+      var mfaUriText = document.getElementById('mfaUriText');
+      var mfaBackupCodes = document.getElementById('mfaBackupCodes');
+      var mfaCodeInput = document.getElementById('mfaCodeInput');
+      var mfaStepUpInput = document.getElementById('mfaStepUpInput');
+      var mfaEnrollStatus = document.getElementById('mfaEnrollStatus');
+      var mfaStepUpStatus = document.getElementById('mfaStepUpStatus');
+      var fleetRoleBadge = document.getElementById('fleetRoleBadge');
+      var fleetRoleText = document.getElementById('fleetRoleText');
+      var fleetMfaBadge = document.getElementById('fleetMfaBadge');
+      var fleetMfaText = document.getElementById('fleetMfaText');
+      var mfaUsernameDisplay = document.getElementById('mfaUsernameDisplay');
+      var mfaRoleDisplay = document.getElementById('mfaRoleDisplay');
+      var mfaStatusDisplay = document.getElementById('mfaStatusDisplay');
+
+      async function refreshAuthSession() {
+        try {
+          var res = await fetch('/api/v1/auth/users');
+          if (res.ok) {
+            var users = await res.json();
+            var adminUser = users.find(function(u) { return u.username === 'admin'; }) || users[0];
+            if (adminUser) {
+              if (mfaUsernameDisplay) mfaUsernameDisplay.textContent = adminUser.username;
+              if (mfaRoleDisplay) mfaRoleDisplay.textContent = (adminUser.role || 'ADMIN').toUpperCase();
+              if (fleetRoleText) fleetRoleText.textContent = 'ROLE: ' + (adminUser.role || 'ADMIN').toUpperCase();
+              var mfaActive = !!adminUser.mfa_enabled;
+              if (mfaStatusDisplay) {
+                mfaStatusDisplay.textContent = mfaActive ? 'ACTIVE' : 'UNENROLLED';
+                mfaStatusDisplay.style.color = mfaActive ? 'var(--success)' : 'var(--text-muted)';
+              }
+              if (fleetMfaText) {
+                fleetMfaText.textContent = mfaActive ? 'MFA: ACTIVE' : 'MFA: NONE';
+              }
+              if (fleetMfaBadge) {
+                fleetMfaBadge.className = mfaActive ? 'fleet-badge' : 'fleet-badge standby';
+              }
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (btnMfaModal) {
+        btnMfaModal.addEventListener('click', function() {
+          if (mfaModal) mfaModal.style.display = 'flex';
+          refreshAuthSession();
+        });
+      }
+      if (btnCloseMfaModal) {
+        btnCloseMfaModal.addEventListener('click', function() {
+          if (mfaModal) mfaModal.style.display = 'none';
+        });
+      }
+
+      if (btnEnrollMfa) {
+        btnEnrollMfa.addEventListener('click', async function() {
+          try {
+            mfaEnrollStatus.textContent = 'Enrolling TOTP credential...';
+            mfaEnrollStatus.style.color = 'var(--text-muted)';
+            var res = await fetch('/api/v1/auth/mfa/enroll', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: 'admin' })
+            });
+            if (res.ok) {
+              var data = await res.json();
+              mfaSecretKey.textContent = data.secret_base32 || '-';
+              mfaUriText.textContent = data.provisioning_uri || '';
+              if (mfaBackupCodes && Array.isArray(data.backup_codes)) {
+                mfaBackupCodes.innerHTML = '';
+                data.backup_codes.forEach(function(code) {
+                  var span = document.createElement('span');
+                  span.style.padding = '4px 6px';
+                  span.style.background = 'var(--bg-canvas)';
+                  span.style.borderRadius = '3px';
+                  span.style.border = '1px solid var(--border-subtle)';
+                  span.style.textAlign = 'center';
+                  span.textContent = code;
+                  mfaBackupCodes.appendChild(span);
+                });
+              }
+              mfaEnrollSection.style.display = 'flex';
+              mfaEnrollStatus.textContent = 'Scan or copy secret into authenticator app, then enter 6-digit code below:';
+              mfaEnrollStatus.style.color = 'var(--text-secondary)';
+            } else {
+              var errData = await res.json();
+              mfaEnrollStatus.textContent = 'Enrollment failed: ' + (errData.detail || 'Error');
+              mfaEnrollStatus.style.color = 'var(--danger)';
+            }
+          } catch(e) {
+            mfaEnrollStatus.textContent = 'Network error: ' + e.message;
+            mfaEnrollStatus.style.color = 'var(--danger)';
+          }
+        });
+      }
+
+      if (btnVerifyMfaActivation) {
+        btnVerifyMfaActivation.addEventListener('click', async function() {
+          var code = mfaCodeInput ? mfaCodeInput.value.trim() : '';
+          if (!code) {
+            mfaEnrollStatus.textContent = 'Please enter a 6-digit code.';
+            mfaEnrollStatus.style.color = 'var(--danger)';
+            return;
+          }
+          try {
+            var res = await fetch('/api/v1/auth/mfa/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: 'admin', code: code })
+            });
+            var data = await res.json();
+            if (res.ok && data.verified) {
+              mfaEnrollStatus.textContent = 'TOTP verified and activated successfully!';
+              mfaEnrollStatus.style.color = 'var(--success)';
+              sessionStorage.setItem('swarmwatch_mfa_code', code);
+              refreshAuthSession();
+            } else {
+              mfaEnrollStatus.textContent = 'Verification failed: ' + (data.detail || 'Invalid code');
+              mfaEnrollStatus.style.color = 'var(--danger)';
+            }
+          } catch(e) {
+            mfaEnrollStatus.textContent = 'Network error: ' + e.message;
+            mfaEnrollStatus.style.color = 'var(--danger)';
+          }
+        });
+      }
+
+      if (btnVerifyStepUp) {
+        btnVerifyStepUp.addEventListener('click', async function() {
+          var code = mfaStepUpInput ? mfaStepUpInput.value.trim() : '';
+          if (!code) {
+            mfaStepUpStatus.textContent = 'Please enter a 6-digit TOTP or backup code.';
+            mfaStepUpStatus.style.color = 'var(--danger)';
+            return;
+          }
+          try {
+            var res = await fetch('/api/v1/auth/mfa/challenge', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: 'admin', code: code })
+            });
+            var data = await res.json();
+            if (res.ok && data.verified) {
+              mfaStepUpStatus.textContent = 'Session authorized with Step-Up MFA (' + (data.method || 'totp') + ')';
+              mfaStepUpStatus.style.color = 'var(--success)';
+              sessionStorage.setItem('swarmwatch_mfa_code', code);
+              refreshAuthSession();
+            } else {
+              mfaStepUpStatus.textContent = 'Step-up challenge rejected: Invalid code or token';
+              mfaStepUpStatus.style.color = 'var(--danger)';
+            }
+          } catch(e) {
+            mfaStepUpStatus.textContent = 'Network error: ' + e.message;
+            mfaStepUpStatus.style.color = 'var(--danger)';
+          }
         });
       }
 
@@ -3698,9 +3955,12 @@
         var reason = prompt("Enter Emergency Trip Reason for Redis Fleet:", "Operator emergency halt via console");
         if (!reason) return;
         try {
+          var hdrs = { 'Content-Type': 'application/json' };
+          var activeMfa = sessionStorage.getItem('swarmwatch_mfa_code');
+          if (activeMfa) hdrs['X-MFA-Code'] = activeMfa;
           var res = await fetch('/api/v1/fleet/redis/trip', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: hdrs,
             body: JSON.stringify({
               swarm_id: 'swarm-live-01',
               reason: reason,
@@ -3711,6 +3971,9 @@
           if (res.ok) {
             showToast('Distributed emergency trip broadcast to Redis fleet', 'danger');
             fetchFleetMetrics();
+          } else if (res.status === 403) {
+            showToast('MFA step-up authorization required to trip fleet', 'danger');
+            if (mfaModal) mfaModal.style.display = 'flex';
           }
         } catch(e) {
           showToast('Failed to trip fleet: ' + e.message, 'danger');
@@ -3719,15 +3982,21 @@
 
       async function triggerFleetReset() {
         try {
+          var hdrs = { 'Content-Type': 'application/json' };
+          var activeMfa = sessionStorage.getItem('swarmwatch_mfa_code');
+          if (activeMfa) hdrs['X-MFA-Code'] = activeMfa;
           var res = await fetch('/api/v1/fleet/redis/reset', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: hdrs,
             body: JSON.stringify({ swarm_id: 'swarm-live-01' })
           });
           if (res.ok) {
             showToast('Redis fleet state reset and circuit re-armed', 'success');
             clearFleetTripAlert();
             fetchFleetMetrics();
+          } else if (res.status === 403) {
+            showToast('MFA step-up authorization required to reset fleet', 'danger');
+            if (mfaModal) mfaModal.style.display = 'flex';
           }
         } catch(e) {
           showToast('Failed to reset fleet: ' + e.message, 'danger');
@@ -3826,6 +4095,16 @@
         selectSpanByIndex(1);
         openForkModal();
       }
+      if (window.location.search.indexOf('modal=mfa') !== -1) {
+        if (mfaModal) mfaModal.style.display = 'flex';
+        if (mfaSecretKey) mfaSecretKey.textContent = 'JBSWY3DPEHPK3PXP';
+        if (mfaUriText) mfaUriText.textContent = 'otpauth://totp/SwarmWatch:admin?secret=JBSWY3DPEHPK3PXP&issuer=SwarmWatch';
+        if (mfaEnrollSection) mfaEnrollSection.style.display = 'flex';
+        if (mfaBackupCodes) {
+          mfaBackupCodes.innerHTML = '<span style="padding: 4px 6px; background: var(--bg-canvas); border-radius: 3px; border: 1px solid var(--border-subtle); text-align: center;">A1B2-C3D4</span><span style="padding: 4px 6px; background: var(--bg-canvas); border-radius: 3px; border: 1px solid var(--border-subtle); text-align: center;">E5F6-G7H8</span>';
+        }
+      }
+      refreshAuthSession();
 
       if (fullUrl.indexOf('view=dag') !== -1) {
         switchView('dag');

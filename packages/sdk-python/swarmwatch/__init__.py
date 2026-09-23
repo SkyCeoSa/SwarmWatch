@@ -256,6 +256,12 @@ __all__ = [
     "ArchiveManifest",
     "ArchiveRecord",
     "RestoredSwarmSummary",
+    "Role",
+    "Permission",
+    "ROLE_PERMISSIONS",
+    "has_permission",
+    "UserAccount",
+    "TotpEngine",
 ]
 
 from swarmwatch.redis_lock import (
@@ -274,4 +280,13 @@ from swarmwatch.archival import (
     ArchiveRecord,
     RestoredSwarmSummary,
 )
+from swarmwatch.rbac import (
+    Role,
+    Permission,
+    ROLE_PERMISSIONS,
+    has_permission,
+    UserAccount,
+    TotpEngine,
+)
+
 

@@ -203,3 +203,19 @@ export {
   ColdStorageArchiver,
 } from "./archival.ts";
 
+// Enterprise MFA / TOTP Authentication & Strict RBAC (Seam 26 / ADR 0037)
+export type {
+  UserAccount,
+} from "./rbac.ts";
+export {
+  Role,
+  Permission,
+  ALL_PERMISSIONS,
+  ROLE_PERMISSIONS,
+  hasPermission,
+  TotpEngine,
+  base32Encode,
+  base32Decode,
+} from "./rbac.ts";
+
+

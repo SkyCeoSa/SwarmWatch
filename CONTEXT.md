@@ -301,4 +301,20 @@ _Avoid_: Hook call, function callback, middleware run
   _Avoid_: Cold row, archive summary, backup entry
 - **PartitionScheme**: The standard time-partitioned object key layout: `swarmwatch/v1/org={org_id}/proj={project_id}/year={YYYY}/month={MM}/day={DD}/swarm={swarm_id}.jsonl.gz`.
   _Avoid_: Folder structure, key path, bucket directory
+---
+
+### Enterprise MFA / TOTP & Role-Based Access Control (Seam 26 / ADR 0037)
+- **Role**: Canonical authorization tier within the SwarmWatch enterprise control plane (`ADMIN`, `OPERATOR`, `AUDITOR`, `VIEWER`).
+  _Avoid_: User level, access rank, account group
+- **Permission**: Granular action entitlement defining authorized operations (e.g. `swarms:trip`, `fleet:manage`, `policy:write`, `keys:revoke`).
+  _Avoid_: Priv, capability, access flag
+- **TotpEngine**: Zero-dependency RFC 6238 Time-Based One-Time Password generator and validator implementing HMAC-SHA1 dynamic truncation across 30-second steps.
+  _Avoid_: Authenticator plugin, 2FA library, OTP tool
+- **StepUpChallenge**: Mandatory secondary authentication verification required prior to executing sensitive or destructive operations via `X-MFA-Code`.
+  _Avoid_: Sudo mode, reauth check, secondary password
+- **BackupRecoveryCode**: Single-use formatted emergency recovery code (`XXXX-XXXX`) stored as a cryptographic SHA-256 hash and burned upon verification.
+  _Avoid_: Backup key, rescue string, static password
+- **SecurityAuditEvent**: Structured and immutable audit trail event recording security identity actions, enrollment steps, and access decisions.
+  _Avoid_: Security log, auth record, event trace
+
 

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent, CounterfactualSavings
 from swarmwatch.tenant import Organization, Project, ApiKey
+from swarmwatch.rbac import UserAccount, Role
 
 
 class StorageAdapter(abc.ABC):
@@ -110,6 +111,38 @@ class StorageAdapter(abc.ABC):
 
     async def list_swarms(self, project_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
         """List active swarms with turn metrics, branch info, and circuit status."""
+        return []
+
+    async def save_user(self, user: UserAccount) -> None:
+        """Create or update a user account record."""
+        pass
+
+    async def get_user_by_username(self, username: str) -> Optional[UserAccount]:
+        """Fetch user account by username."""
+        return None
+
+    async def get_user(self, user_id: str) -> Optional[UserAccount]:
+        """Fetch user account by ID."""
+        return None
+
+    async def list_users(self) -> List[UserAccount]:
+        """List all user accounts."""
+        return []
+
+    async def record_audit_event(
+        self,
+        action: str,
+        resource: str,
+        status: str,
+        user_id: Optional[str] = None,
+        username: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record an enterprise security audit event."""
+        pass
+
+    async def list_audit_events(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """List security audit trail events."""
         return []
 
     @abc.abstractmethod
@@ -228,6 +261,28 @@ class SQLiteStorageAdapter(StorageAdapter):
                     metric_val REAL NOT NULL,
                     savings_json TEXT,
                     created_at TIMESTAMP NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    email TEXT,
+                    role TEXT NOT NULL DEFAULT 'viewer',
+                    mfa_enabled INTEGER NOT NULL DEFAULT 0,
+                    totp_secret TEXT,
+                    backup_codes_json TEXT DEFAULT '[]',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS audit_events (
+                    id TEXT PRIMARY KEY,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    user_id TEXT,
+                    username TEXT,
+                    action TEXT NOT NULL,
+                    resource TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    details_json TEXT
                 );
             """)
 
@@ -780,6 +835,136 @@ class SQLiteStorageAdapter(StorageAdapter):
 
     async def list_swarms(self, project_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
         return self.list_swarms_sync(project_id=project_id, limit=limit)
+
+    # Enterprise User & MFA CRUD
+    def save_user_sync(self, user: UserAccount) -> None:
+        conn = self._get_connection()
+        with conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO users (
+                    id, username, email, role, mfa_enabled, totp_secret, backup_codes_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                user.id,
+                user.username,
+                user.email,
+                user.role.value if isinstance(user.role, Role) else str(user.role),
+                1 if user.mfa_enabled else 0,
+                user.totp_secret,
+                json.dumps(user.backup_codes),
+                user.created_at.isoformat() if isinstance(user.created_at, datetime) else str(user.created_at)
+            ))
+
+    async def save_user(self, user: UserAccount) -> None:
+        self.save_user_sync(user)
+
+    def get_user_by_username_sync(self, username: str) -> Optional[UserAccount]:
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT * FROM users WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return self._row_to_user(row)
+
+    async def get_user_by_username(self, username: str) -> Optional[UserAccount]:
+        return self.get_user_by_username_sync(username)
+
+    def get_user_sync(self, user_id: str) -> Optional[UserAccount]:
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return self._row_to_user(row)
+
+    async def get_user(self, user_id: str) -> Optional[UserAccount]:
+        return self.get_user_sync(user_id)
+
+    def list_users_sync(self) -> List[UserAccount]:
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT * FROM users ORDER BY created_at ASC")
+        rows = cursor.fetchall()
+        return [self._row_to_user(r) for r in rows]
+
+    async def list_users(self) -> List[UserAccount]:
+        return self.list_users_sync()
+
+    def _row_to_user(self, r: sqlite3.Row) -> UserAccount:
+        created_at = datetime.fromisoformat(r["created_at"]) if isinstance(r["created_at"], str) else r["created_at"]
+        backup_codes = json.loads(r["backup_codes_json"]) if r["backup_codes_json"] else []
+        role_val = Role(r["role"]) if r["role"] in [e.value for e in Role] else Role.VIEWER
+        return UserAccount(
+            id=r["id"],
+            username=r["username"],
+            email=r["email"],
+            role=role_val,
+            mfa_enabled=bool(r["mfa_enabled"]),
+            totp_secret=r["totp_secret"],
+            backup_codes=backup_codes,
+            created_at=created_at,
+        )
+
+    # Enterprise Audit Trail
+    def record_audit_event_sync(
+        self,
+        action: str,
+        resource: str,
+        status: str,
+        user_id: Optional[str] = None,
+        username: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        conn = self._get_connection()
+        import uuid
+        with conn:
+            conn.execute("""
+                INSERT INTO audit_events (
+                    id, timestamp, user_id, username, action, resource, status, details_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                str(uuid.uuid4()),
+                datetime.now(timezone.utc).isoformat(),
+                user_id,
+                username,
+                action,
+                resource,
+                status,
+                json.dumps(details) if details else "{}"
+            ))
+
+    async def record_audit_event(
+        self,
+        action: str,
+        resource: str,
+        status: str,
+        user_id: Optional[str] = None,
+        username: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.record_audit_event_sync(action, resource, status, user_id, username, details)
+
+    def list_audit_events_sync(self, limit: int = 100) -> List[Dict[str, Any]]:
+        conn = self._get_connection()
+        cursor = conn.execute("""
+            SELECT * FROM audit_events ORDER BY timestamp DESC LIMIT ?
+        """, (limit,))
+        rows = cursor.fetchall()
+        events = []
+        for r in rows:
+            events.append({
+                "id": r["id"],
+                "timestamp": str(r["timestamp"]),
+                "user_id": r["user_id"],
+                "username": r["username"],
+                "action": r["action"],
+                "resource": r["resource"],
+                "status": r["status"],
+                "details": json.loads(r["details_json"]) if r["details_json"] else {},
+            })
+        return events
+
+    async def list_audit_events(self, limit: int = 100) -> List[Dict[str, Any]]:
+        return self.list_audit_events_sync(limit=limit)
 
     def close_sync(self) -> None:
         if hasattr(self._local, "conn") and self._local.conn:

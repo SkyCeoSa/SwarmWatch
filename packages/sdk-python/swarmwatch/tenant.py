@@ -13,6 +13,8 @@ from typing import Dict, List, Optional
 import uuid
 from pydantic import BaseModel, Field
 
+from swarmwatch.rbac import Role
+
 
 class Organization(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -47,6 +49,9 @@ class ApiKey(BaseModel):
 class TenantContext(BaseModel):
     org_id: str = "default-org"
     project_id: str = "default-project"
+    user_id: Optional[str] = None
+    role: Role = Role.ADMIN
+    mfa_verified: bool = False
     key_id: Optional[str] = None
     scopes: List[str] = Field(default_factory=lambda: ["*"])
 

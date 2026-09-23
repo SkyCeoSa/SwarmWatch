@@ -240,8 +240,17 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Interactive CLI subcommand: `swarmwatch archive list|export|restore|manifest`.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) implementing `ObjectStorageClient`, `MockObjectStorageClient`, and `ColdStorageArchiver`.
   - Developer console cold archive action button and status badge adhering to the Impeccable Craft Floor.
+- **Enterprise Multi-Factor Authentication (MFA / TOTP) & Strict RBAC Engine (Seam 26 & ADR 0037)**:
+  - Zero-dependency RFC 6238 TOTP engine (`TotpEngine`) implementing HMAC-SHA1 dynamic truncation across 30-second steps and configurable clock drift tolerance (+/- 1 window = 90s).
+  - Single-use SHA-256 hashed recovery backup codes (`XXXX-XXXX`) burned immediately upon verification.
+  - 4-tier Role-Based Access Control matrix (`ADMIN`, `OPERATOR`, `AUDITOR`, `VIEWER`) with constant-time permission validation (`has_permission`).
+  - Step-Up MFA challenge verification (`X-MFA-Code`) on destructive endpoints (fleet trip, fleet reset, API key revocation, storage purges).
+  - Storage persistence for users and audit logs (`users` and `audit_events` tables in SQLite).
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/rbac.ts`) tested with Node 22 type-stripping rules.
+  - Interactive CLI subcommands: `swarmwatch mfa generate|verify` and `swarmwatch rbac check|matrix`.
+  - Developer console integration: `#fleetRoleBadge`, `#fleetMfaBadge`, and `#mfaModal` strictly adhering to Impeccable Craft Floor (0 anti-patterns).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python and TypeScript runtimes.
+  - Full local test suite passing 100% across Python (220 tests) and TypeScript (156 tests) runtimes (376 total tests).
 
 
 
