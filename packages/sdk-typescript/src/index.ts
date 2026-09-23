@@ -311,8 +311,11 @@ export {
   globalCausalInferenceEngine,
 } from "./causal_inference.ts";
 
-
-
-
-
-
+// Ultra-High-Throughput gRPC Streaming Ingestion Gateway (Seam 33 / ADR 0044)
+export type {
+  GrpcStatusCode,
+} from "./grpc.ts";
+export {
+  GrpcMessageFramer,
+  GrpcStreamClient,
+} from "./grpc.ts";

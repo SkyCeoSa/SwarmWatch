@@ -273,6 +273,15 @@ __all__ = [
     "format_circuit_push_message",
     "WebPushDispatcher",
     "global_webpush_dispatcher",
+    "GrpcStatusCode",
+    "GrpcCircuitBreakException",
+    "GrpcMessageFramer",
+    "SwarmProtobufCodec",
+    "GrpcGatewayStats",
+    "global_grpc_stats",
+    "GrpcStreamingGateway",
+    "global_grpc_gateway",
+    "GrpcStreamServer",
 ]
 
 from swarmwatch.redis_lock import (
@@ -360,6 +369,17 @@ from swarmwatch.causal_inference import (
     CausalInferenceResult,
     CausalInferenceEngine,
     global_causal_inference_engine,
+)
+from swarmwatch.grpc_gateway import (
+    GrpcStatusCode,
+    GrpcCircuitBreakException,
+    GrpcMessageFramer,
+    SwarmProtobufCodec,
+    GrpcGatewayStats,
+    global_grpc_stats,
+    GrpcStreamingGateway,
+    global_grpc_gateway,
+    GrpcStreamServer,
 )
 
 

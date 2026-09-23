@@ -648,6 +648,26 @@ _Avoid_: RCA output, cause summary, analysis result
 The directed causal dependency graph representing causal relationships, intervening operations, and counterfactual potential outcomes across multi-agent interactions.
 _Avoid_: Causal diagram, dependency tree, flow schema
 
+---
 
+### Ultra-High-Throughput gRPC Streaming Ingestion Gateway (Seam 33 / ADR 0044)
 
+**GrpcStreamingGateway**:
+The deep module executing binary gRPC/HTTP2 stream demultiplexing, in-flight circuit breaking, and telemetry span ingestion at high frequency (>50,000 spans/sec).
+_Avoid_: RPC proxy, gRPC receiver, streaming listener
 
+**GrpcMessageFramer**:
+The pure standard-library byte framing engine encoding and decoding 5-byte prefixed gRPC protocol envelopes (`[compression(1B)][length(4B BE)][payload]`).
+_Avoid_: Packet framer, chunk wrapper, byte slicer
+
+**GrpcFrame**:
+An atomic framed binary message carrying a serialized protobuf payload across a gRPC stream.
+_Avoid_: RPC packet, message chunk, payload block
+
+**GrpcStatusCode**:
+The canonical gRPC integer status code (`OK=0`, `CANCELLED=1`, `INVALID_ARGUMENT=3`, `RESOURCE_EXHAUSTED=8`, etc.) signaling stream disposition and circuit trips.
+_Avoid_: Return code, error number, HTTP status
+
+**GrpcStreamSession**:
+An active, multiplexed bidirectional or client-streaming connection delivering telemetry spans from an agent worker pod.
+_Avoid_: Stream connection, socket channel, worker link

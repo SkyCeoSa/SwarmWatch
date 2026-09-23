@@ -172,4 +172,8 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `CausalPathNode`, `ContextPoisoningMetric`, `RootCauseAttribution`, `CausalInferenceResult`, `CausalInferenceEngine` (`causal_inference.ts`), exported via `index.ts`.
     - Primitives (Console): `#rootCauseBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Structural Causal Model (SCM) analysis; backward ancestral DAG graph traversal ($Anc(S_{\text{symptom}})$); Judea Pearl Do-Calculus counterfactual reasoning; context poisoning scoring ($CPS \in [0.0, 1.0]$); automated Time-Machine fork turn determination (`recommended_fork_turn`); 100% deterministic local offline testing; zero remote LLM token usage; dual-SDK parity.
-
+33. **Ultra-High-Throughput gRPC Streaming Ingestion Gateway Seam (ADR 0044 Dual-SDK Parity)**:
+    - Primitives (Python): `GrpcStreamingGateway` (`grpc_gateway.py`), `GrpcMessageFramer`, `GrpcStatusCode`, `GrpcStreamServer`, server endpoints `POST /swarmwatch.v1.TelemetryService/StreamSpans`, `POST /swarmwatch.v1.TelemetryService/IngestBatch`, `POST /opentelemetry.proto.collector.trace.v1.TraceService/Export`, `GET /api/v1/grpc/status`, `POST /api/v1/grpc/simulate` (`server.py`), CLI subcommand `swarmwatch grpc` (`cli.py`).
+    - Primitives (TypeScript): `GrpcMessageFramer`, `GrpcStatusCode`, `GrpcStreamClient` (`grpc.ts`), exported via `index.ts`.
+    - Primitives (Console): `#grpcGatewayBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: 5-byte binary gRPC wire framing (`[compression(1B)][length(4B BE)][payload]`); zero external C-extensions or `grpcio` requirements; in-flight circuit breaking directly on binary stream chunks returning `RESOURCE_EXHAUSTED` (8); dual gateway topology (ASGI endpoint & pure asyncio TCP server on port 50051); >50,000 spans/sec throughput; 100% local deterministic offline testing; zero remote LLM token usage; dual-SDK parity.

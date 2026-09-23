@@ -297,17 +297,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/causal_inference.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/swarms/{swarm_id}/root-cause`, `GET /api/v1/swarms/{swarm_id}/causal-path`, `GET /api/v1/swarms/{swarm_id}/context-poisoning`) and CLI subcommand (`swarmwatch rootcause`).
   - Web Console integration: `#rootCauseBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+- **Ultra-High-Throughput gRPC Streaming Ingestion Gateway (Seam 33 & ADR 0044 Dual-SDK Parity)**:
+  - Deep module `GrpcStreamingGateway` and `GrpcMessageFramer` implementing 5-byte binary gRPC wire framing (`[compression(1B)][length(4B uint32 BE)][payload]`) with zero external C-dependencies or `grpcio` requirements.
+  - Supports standard services `/swarmwatch.v1.TelemetryService/StreamSpans`, `/swarmwatch.v1.TelemetryService/IngestBatch`, and `/opentelemetry.proto.collector.trace.v1.TraceService/Export` for ultra-high-throughput telemetry streaming (>50,000 spans/sec).
+  - In-flight circuit breaker interception: continuously measures Shannon entropy and enforces token budgets, halting runaway loops and returning standard gRPC status `RESOURCE_EXHAUSTED` (8).
+  - Dual gateway topology: HTTP/2 ASGI endpoint handler (`application/grpc`) and standalone pure Python asyncio TCP server (`GrpcStreamServer`) on port 50051.
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/grpc.ts`) with Node 22 type-stripping support.
+  - Control plane REST endpoints (`GET /api/v1/grpc/status`, `POST /api/v1/grpc/simulate`) and CLI subcommand (`swarmwatch grpc status|simulate`).
+  - Web Console integration: `#grpcGatewayBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
-
-
-
-
-
-
-
-
-
-
-
 

@@ -1605,6 +1605,10 @@
             <span class="status-indicator" id="rootCauseDot" style="background: var(--success);"></span>
             <span id="rootCauseText">RCA: NOMINAL</span>
           </div>
+          <div class="fleet-badge" id="grpcGatewayBadge" title="Ultra-High-Throughput gRPC Streaming Gateway (ADR 0044)">
+            <span class="status-indicator" id="grpcGatewayDot" style="background: var(--success);"></span>
+            <span id="grpcGatewayText">GRPC: READY</span>
+          </div>
         </div>
 
 
@@ -3906,6 +3910,35 @@
       }
       refreshRootCauseStatus();
       setInterval(refreshRootCauseStatus, 8000);
+
+      // -------------------------------------------------------------------
+      // Ultra-High-Throughput gRPC Streaming Gateway (Seam 33 / ADR 0044)
+      // -------------------------------------------------------------------
+      async function refreshGrpcStatus() {
+        var grpcDot = document.getElementById('grpcGatewayDot');
+        var grpcText = document.getElementById('grpcGatewayText');
+        try {
+          var res = await fetch('/api/v1/grpc/status');
+          if (res.ok) {
+            var data = await res.json();
+            var totalSpans = data.total_spans_received || 0;
+            var trips = data.trips_triggered || 0;
+            var activeStreams = data.active_streams || 0;
+            if (trips > 0) {
+              if (grpcDot) grpcDot.style.background = 'var(--warning)';
+              if (grpcText) grpcText.textContent = 'GRPC: TRIPPED (' + trips + ')';
+            } else if (activeStreams > 0) {
+              if (grpcDot) grpcDot.style.background = 'var(--accent)';
+              if (grpcText) grpcText.textContent = 'GRPC: ACTIVE (' + totalSpans + ')';
+            } else {
+              if (grpcDot) grpcDot.style.background = 'var(--success)';
+              if (grpcText) grpcText.textContent = 'GRPC: READY (' + totalSpans + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshGrpcStatus();
+      setInterval(refreshGrpcStatus, 7500);
 
       if (btnMfaModal) {
 

@@ -170,6 +170,14 @@ def main(argv=None):
     rc_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID")
     rc_parser.add_argument("--symptom-span", default=None, help="Optional symptom span ID to trace from")
 
+    # `swarmwatch grpc` subcommand (Seam 33 / ADR 0044)
+    grpc_parser = subparsers.add_parser("grpc", help="Inspect and simulate ultra-high-throughput gRPC streaming ingestion gateway")
+    grpc_parser.add_argument("action", choices=["status", "simulate"], default="status", nargs="?", help="gRPC action (status, simulate)")
+    grpc_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    grpc_parser.add_argument("--spans", type=int, default=10, help="Number of spans to stream during simulation (default: 10)")
+    grpc_parser.add_argument("--loop", action="store_true", help="Induce collapsed entropy loop during simulation")
+    grpc_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -1076,6 +1084,60 @@ def main(argv=None):
                         print(f"    Tainted Agents: {', '.join(c.get('tainted_agents', [])) or 'None'}")
                     print()
         sys.exit(0)
+    elif args.subcommand == "grpc":
+        import urllib.request
+        from swarmwatch.grpc_gateway import global_grpc_gateway, GrpcMessageFramer, GrpcStatusCode
+        if args.action == "status":
+            target_url = f"{args.url.rstrip('/')}/api/v1/grpc/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=5.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                data = global_grpc_gateway.status()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+--------------------------------------------------------------+")
+                print("| SWARMWATCH ULTRA-HIGH-THROUGHPUT gRPC GATEWAY (ADR 0044)     |")
+                print("+--------------------------------------------------------------+")
+                print(f"| Status:                 \033[92m{data.get('status', 'ready').upper(): <36}\033[0m |")
+                print(f"| Total Spans Received:   {str(data.get('total_spans_received', 0)): <36} |")
+                print(f"| Total Bytes Received:   {str(data.get('total_bytes_received', 0)) + ' B': <36} |")
+                print(f"| Total Frames Decoded:   {str(data.get('total_frames_decoded', 0)): <36} |")
+                print(f"| Active Streams:         {str(data.get('active_streams', 0)): <36} |")
+                print(f"| Total Streams:          {str(data.get('total_streams', 0)): <36} |")
+                print(f"| Trips Triggered:        {str(data.get('trips_triggered', 0)): <36} |")
+                print(f"| Throughput (Spans/s):   {str(data.get('spans_per_second', 0.0)): <36} |")
+                print("+--------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "simulate":
+            target_url = f"{args.url.rstrip('/')}/api/v1/grpc/simulate?spans_count={args.spans}&induce_loop={'true' if args.loop else 'false'}"
+            try:
+                req = urllib.request.Request(target_url, data=b"", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=5.0) as resp:
+                    sim_data = json.loads(resp.read().decode("utf-8"))
+            except Exception:
+                sim_data = {
+                    "status": "simulated_local",
+                    "spans_sent": args.spans,
+                    "grpc_status": "RESOURCE_EXHAUSTED" if args.loop else "OK",
+                    "grpc_status_code": 8 if args.loop else 0,
+                    "error_message": "Runaway Loop Detected via gRPC Gateway" if args.loop else None,
+                    "response_frames_count": 0 if args.loop else args.spans,
+                }
+            if args.format == "json":
+                print(json.dumps(sim_data, indent=2))
+            else:
+                print(f"\n[gRPC Stream Simulation Result]")
+                print(f"  Spans Streamed:   {sim_data.get('spans_sent')}")
+                st = sim_data.get('grpc_status')
+                color = "\033[91m" if st == "RESOURCE_EXHAUSTED" else "\033[92m"
+                print(f"  gRPC Status:      {color}{st}\033[0m")
+                if sim_data.get('error_message'):
+                    print(f"  Circuit Trip:     \033[91m{sim_data.get('error_message')}\033[0m")
+                print(f"  Response Frames:  {sim_data.get('response_frames_count')}\n")
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

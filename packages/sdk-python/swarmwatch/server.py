@@ -39,6 +39,12 @@ from swarmwatch.causal_inference import (
     global_causal_inference_engine,
     CausalInferenceEngine,
 )
+from swarmwatch.grpc_gateway import (
+    GrpcMessageFramer,
+    GrpcStatusCode,
+    global_grpc_gateway,
+    global_grpc_stats,
+)
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -3930,6 +3936,86 @@ def create_app(
         )
         metrics = global_causal_inference_engine.compute_context_poisoning(spans)
         return {"swarm_id": swarm_id, "context_poisoning": [m.to_dict() if hasattr(m, "to_dict") else m for m in metrics]}
+
+    # -----------------------------------------------------------------------
+    # Ultra-High-Throughput gRPC Streaming Ingestion Gateway (Seam 33 / ADR 0044)
+    # -----------------------------------------------------------------------
+    global_grpc_gateway.set_storage(active_storage)
+    global_grpc_gateway.set_broadcast_callback(ws_manager.broadcast)
+    global_grpc_gateway.set_alert_callback(broadcast_alert_event)
+
+    @app.post("/swarmwatch.v1.TelemetryService/StreamSpans")
+    @app.post("/swarmwatch.v1.TelemetryService/IngestBatch")
+    @app.post("/opentelemetry.proto.collector.trace.v1.TraceService/Export")
+    async def grpc_gateway_endpoint(
+        request: Request,
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """
+        Ultra-High-Throughput gRPC Streaming Ingestion Gateway endpoint (ADR 0044).
+        Accepts binary 5-byte framed gRPC streaming payloads (application/grpc and application/grpc+proto).
+        """
+        raw_body = await request.body()
+        path = request.url.path
+        responses, status_code, err = await global_grpc_gateway.handle_grpc_stream_chunk(
+            chunk=raw_body,
+            service_path=path,
+            project_id=tenant.project_id,
+        )
+
+        resp_content = b"".join(responses) if responses else b""
+        headers = {
+            "content-type": "application/grpc",
+            "grpc-status": str(status_code),
+        }
+        if err:
+            headers["grpc-message"] = str(err)
+        return Response(content=resp_content, status_code=200, headers=headers)
+
+    @app.get("/api/v1/grpc/status")
+    async def get_grpc_status_endpoint():
+        """Returns diagnostic and telemetry throughput statistics of the gRPC streaming gateway."""
+        return global_grpc_gateway.status()
+
+    @app.post("/api/v1/grpc/simulate")
+    async def simulate_grpc_stream_endpoint(
+        spans_count: int = Query(default=10),
+        induce_loop: bool = Query(default=False),
+        tenant: TenantContext = Depends(get_tenant_context),
+    ):
+        """Simulates in-memory gRPC streaming spans with optional loop induction for verification."""
+        synthetic_spans = []
+        for i in range(spans_count):
+            entropy = 0.18 if (induce_loop and i == spans_count - 1) else 0.88
+            synthetic_spans.append({
+                "id": f"sim-grpc-span-{i}",
+                "trace_id": f"sim-grpc-trace-{int(time.time()*1000)}",
+                "swarm_id": "swarm-live-01",
+                "source_agent": "planner_agent" if i % 2 == 0 else "coder_agent",
+                "target_agent": "coder_agent" if i % 2 == 0 else "planner_agent",
+                "span_type": "turn",
+                "token_count": 120,
+                "entropy_score": entropy,
+                "status": "ok",
+                "input_payload": {"msg": f"synthetic step {i}"},
+                "output_payload": {"res": "acknowledged"},
+            })
+
+        payload = json.dumps(synthetic_spans).encode("utf-8")
+        framed = GrpcMessageFramer.encode_frame(payload)
+        responses, code, err = await global_grpc_gateway.handle_grpc_stream_chunk(
+            chunk=framed,
+            service_path="/swarmwatch.v1.TelemetryService/StreamSpans",
+            project_id=tenant.project_id,
+        )
+        return {
+            "status": "processed",
+            "spans_sent": spans_count,
+            "grpc_status": GrpcStatusCode.name_of(code),
+            "grpc_status_code": code,
+            "error_message": err,
+            "response_frames_count": len(responses),
+        }
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):
