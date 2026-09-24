@@ -319,3 +319,16 @@ export {
   GrpcMessageFramer,
   GrpcStreamClient,
 } from "./grpc.ts";
+
+// Embedding-Free Vector Semantic Drift & Hallucination Divergence Detector (Seam 34 / ADR 0045)
+export type {
+  DivergenceStatus,
+  SemanticDriftProfile,
+  DriftAggregateStats,
+} from "./drift.ts";
+export {
+  MinHashSigner,
+  SemanticDriftDetector,
+  globalDriftDetector,
+} from "./drift.ts";
+

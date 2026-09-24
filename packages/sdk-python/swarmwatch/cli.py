@@ -178,6 +178,15 @@ def main(argv=None):
     grpc_parser.add_argument("--loop", action="store_true", help="Induce collapsed entropy loop during simulation")
     grpc_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch drift` subcommand (Seam 34 / ADR 0045)
+    drift_parser = subparsers.add_parser("drift", help="Inspect and analyze embedding-free semantic drift and hallucination divergence")
+    drift_parser.add_argument("action", choices=["status", "analyze", "anchor"], default="status", nargs="?", help="Drift action (status, analyze, anchor)")
+    drift_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    drift_parser.add_argument("--text", default="", help="Turn text to evaluate for semantic drift")
+    drift_parser.add_argument("--anchor", default="", help="Anchor text for semantic drift evaluation")
+    drift_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    drift_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -1137,6 +1146,74 @@ def main(argv=None):
                 if sim_data.get('error_message'):
                     print(f"  Circuit Trip:     \033[91m{sim_data.get('error_message')}\033[0m")
                 print(f"  Response Frames:  {sim_data.get('response_frames_count')}\n")
+            sys.exit(0)
+    elif args.subcommand == "drift":
+        from swarmwatch.drift import global_drift_detector, MinHashSigner, DivergenceStatus
+        if args.action == "status":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/drift"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_drift_detector.get_aggregate_stats(args.swarm_id)
+                data["timeline"] = [p.model_dump(mode="json") for p in global_drift_detector.get_timeline(args.swarm_id)]
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EMBEDDING-FREE SEMANTIC DRIFT DETECTOR (ADR 0045)  |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Total Turns:          {data.get('total_turns')}")
+                print(f"  Current Drift Score:  {data.get('current_drift_score', 0.0):.4f}")
+                print(f"  Max Drift Score:      {data.get('max_drift_score', 0.0):.4f}")
+                print(f"  Mean Drift Score:     {data.get('mean_drift_score', 0.0):.4f}")
+                st = data.get('current_status', 'nominal')
+                color = "\033[92m" if st == "nominal" else ("\033[93m" if st == "warning" else "\033[91m")
+                print(f"  Divergence Status:    {color}{st.upper()}\033[0m")
+                if data.get('is_tripped'):
+                    print(f"  Circuit Tripped:      \033[91mYES ({data.get('trip_reason')})\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "anchor":
+            if not args.anchor:
+                print("Error: --anchor required for action 'anchor'", file=sys.stderr)
+                sys.exit(1)
+            global_drift_detector.set_anchor(args.swarm_id, args.anchor)
+            if args.format == "json":
+                print(json.dumps({"status": "anchor_set", "swarm_id": args.swarm_id, "anchor_length": len(args.anchor)}))
+            else:
+                print(f"\n[Anchor Defined] Swarm: {args.swarm_id} ({len(args.anchor)} chars)\n")
+            sys.exit(0)
+
+        elif args.action == "analyze":
+            if not args.text:
+                print("Error: --text required for action 'analyze'", file=sys.stderr)
+                sys.exit(1)
+            if args.anchor:
+                global_drift_detector.set_anchor(args.swarm_id, args.anchor)
+            profile = global_drift_detector.evaluate_turn(
+                swarm_id=args.swarm_id,
+                agent_name="cli_agent",
+                text=args.text,
+            )
+            data = profile.model_dump(mode="json")
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n[Semantic Drift Analysis]")
+                print(f"  Drift Score:          {data.get('drift_score', 0.0):.4f}")
+                print(f"  Anchor Similarity:    {data.get('anchor_similarity', 1.0):.4f}")
+                print(f"  Predecessor Sim:      {data.get('consecutive_similarity', 1.0):.4f}")
+                print(f"  Lexical Dispersion:   {data.get('lexical_dispersion', 1.0):.4f}")
+                st = data.get('divergence_status', 'nominal')
+                color = "\033[92m" if st == "nominal" else ("\033[93m" if st == "warning" else "\033[91m")
+                print(f"  Status:               {color}{st.upper()}\033[0m")
+                if data.get('is_circuit_broken'):
+                    print(f"  Circuit Trip:         \033[91m{data.get('trip_reason')}\033[0m")
+                print()
             sys.exit(0)
     else:
         parser.print_help()

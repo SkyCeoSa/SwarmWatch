@@ -45,6 +45,11 @@ from swarmwatch.grpc_gateway import (
     global_grpc_gateway,
     global_grpc_stats,
 )
+from swarmwatch.drift import (
+    global_drift_detector,
+    DivergenceStatus,
+    SemanticDriftProfile,
+)
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -2868,6 +2873,7 @@ def create_app(
 
         for s in spans:
             global_self_healing_controller.observe_span(s)
+            global_drift_detector.evaluate_span(s.model_dump(mode="json"))
             record_span_ingested(
                 project_id=s.project_id,
                 agent_type=getattr(s, "agent_name", "agent"),
@@ -2911,6 +2917,7 @@ def create_app(
             per_span_duration = duration / max(len(spans), 1)
 
             for s in spans:
+                global_drift_detector.evaluate_span(s.model_dump(mode="json"))
                 record_span_ingested(
                     project_id=s.project_id,
                     agent_type=getattr(s, "source_agent", "agent"),
@@ -4016,6 +4023,56 @@ def create_app(
             "error_message": err,
             "response_frames_count": len(responses),
         }
+
+    # -----------------------------------------------------------------------
+    # Embedding-Free Vector Semantic Drift & Hallucination Detector (ADR 0045)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/swarms/{swarm_id}/drift")
+    async def get_swarm_drift_endpoint(swarm_id: str):
+        """Returns aggregate drift statistics and complete turn timeline for a swarm session."""
+        stats = global_drift_detector.get_aggregate_stats(swarm_id)
+        timeline = global_drift_detector.get_timeline(swarm_id)
+        return {
+            **stats,
+            "timeline": [p.model_dump(mode="json") for p in timeline],
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/drift/anchor")
+    async def set_swarm_drift_anchor_endpoint(
+        swarm_id: str,
+        payload: Dict[str, Any] = Body(...),
+    ):
+        """Sets the root task anchor text for a swarm session."""
+        anchor_text = payload.get("anchor_text", "")
+        if not anchor_text:
+            raise HTTPException(status_code=400, detail="Missing required field 'anchor_text'")
+        global_drift_detector.set_anchor(swarm_id, anchor_text)
+        return {"status": "anchor_set", "swarm_id": swarm_id, "anchor_length": len(anchor_text)}
+
+    @app.post("/api/v1/swarms/{swarm_id}/drift/evaluate")
+    async def evaluate_turn_drift_endpoint(
+        swarm_id: str,
+        payload: Dict[str, Any] = Body(...),
+    ):
+        """Evaluates an individual turn text for semantic drift against the swarm anchor."""
+        text = payload.get("text", "")
+        agent_name = payload.get("agent_name", "agent")
+        span_id = payload.get("span_id")
+        turn_index = payload.get("turn_index")
+        profile = global_drift_detector.evaluate_turn(
+            swarm_id=swarm_id,
+            agent_name=agent_name,
+            text=text,
+            span_id=span_id,
+            turn_index=turn_index,
+        )
+        return profile.model_dump(mode="json")
+
+    @app.post("/api/v1/swarms/{swarm_id}/drift/reset")
+    async def reset_swarm_drift_endpoint(swarm_id: str):
+        """Resets the semantic drift tracker and anchor for a swarm."""
+        global_drift_detector.reset(swarm_id)
+        return {"status": "reset", "swarm_id": swarm_id}
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

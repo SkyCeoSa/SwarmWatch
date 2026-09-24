@@ -381,6 +381,14 @@ from swarmwatch.grpc_gateway import (
     global_grpc_gateway,
     GrpcStreamServer,
 )
+from swarmwatch.drift import (
+    DivergenceStatus,
+    SemanticDriftProfile,
+    MinHashSigner,
+    SemanticDriftDetector,
+    global_drift_detector,
+)
+
 
 
 

@@ -177,3 +177,9 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `GrpcMessageFramer`, `GrpcStatusCode`, `GrpcStreamClient` (`grpc.ts`), exported via `index.ts`.
     - Primitives (Console): `#grpcGatewayBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: 5-byte binary gRPC wire framing (`[compression(1B)][length(4B BE)][payload]`); zero external C-extensions or `grpcio` requirements; in-flight circuit breaking directly on binary stream chunks returning `RESOURCE_EXHAUSTED` (8); dual gateway topology (ASGI endpoint & pure asyncio TCP server on port 50051); >50,000 spans/sec throughput; 100% local deterministic offline testing; zero remote LLM token usage; dual-SDK parity.
+34. **Embedding-Free Vector Semantic Drift & Hallucination Divergence Detector Seam (ADR 0045 Dual-SDK Parity)**:
+    - Primitives (Python): `SemanticDriftDetector` (`drift.py`), `MinHashSigner`, `SemanticDriftProfile`, `DivergenceStatus`, server endpoints `GET /api/v1/swarms/{id}/drift`, `POST /api/v1/swarms/{id}/drift/evaluate` (`server.py`), CLI subcommand `swarmwatch drift` (`cli.py`).
+    - Primitives (TypeScript): `MinHashSigner`, `SemanticDriftProfile`, `SemanticDriftDetector` (`drift.ts`), exported via `index.ts`.
+    - Primitives (Console): `#driftBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: 64-bit universal MinHash LSH and lexical n-gram shingling; pairwise Jaccard similarity estimation in $<15\mu\text{s}$; vocabulary compression ratio ($VCR = |V_{\text{unique}}| / |V_{\text{total}}|$) tracking echo-chamber collapse; composite semantic drift ($\Delta_{\text{drift}} = 1.0 - (0.6 \cdot J(t, t_0) + 0.4 \cdot J(t, t-1))$); circuit breaker trip on sustained drift ($\Delta_{\text{drift}} > 0.72$); 100% deterministic local offline testing; zero external LLM token usage; dual-SDK parity.
+

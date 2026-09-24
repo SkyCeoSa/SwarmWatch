@@ -1609,6 +1609,10 @@
             <span class="status-indicator" id="grpcGatewayDot" style="background: var(--success);"></span>
             <span id="grpcGatewayText">GRPC: READY</span>
           </div>
+          <div class="fleet-badge" id="driftBadge" title="Embedding-Free Vector Semantic Drift & Hallucination Detector (ADR 0045)">
+            <span class="status-indicator" id="driftDot" style="background: var(--success);"></span>
+            <span id="driftText">DRIFT: NOMINAL</span>
+          </div>
         </div>
 
 
@@ -3939,6 +3943,37 @@
       }
       refreshGrpcStatus();
       setInterval(refreshGrpcStatus, 7500);
+
+      // -------------------------------------------------------------------
+      // Embedding-Free Vector Semantic Drift & Hallucination Detector (ADR 0045)
+      // -------------------------------------------------------------------
+      async function refreshDriftStatus() {
+        var driftDot = document.getElementById('driftDot');
+        var driftText = document.getElementById('driftText');
+        try {
+          var res = await fetch('/api/v1/swarms/swarm-live-01/drift');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.current_status || 'nominal';
+            var score = data.current_drift_score || 0.0;
+            if (st === 'tripped' || data.is_tripped) {
+              if (driftDot) driftDot.style.background = 'var(--danger)';
+              if (driftText) driftText.textContent = 'DRIFT: TRIPPED';
+            } else if (st === 'divergent') {
+              if (driftDot) driftDot.style.background = 'var(--danger)';
+              if (driftText) driftText.textContent = 'DRIFT: ' + score.toFixed(2);
+            } else if (st === 'warning') {
+              if (driftDot) driftDot.style.background = 'var(--warning)';
+              if (driftText) driftText.textContent = 'DRIFT: ' + score.toFixed(2);
+            } else {
+              if (driftDot) driftDot.style.background = 'var(--success)';
+              if (driftText) driftText.textContent = 'DRIFT: NOMINAL';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshDriftStatus();
+      setInterval(refreshDriftStatus, 8500);
 
       if (btnMfaModal) {
 

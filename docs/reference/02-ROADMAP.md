@@ -305,6 +305,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/grpc.ts`) with Node 22 type-stripping support.
   - Control plane REST endpoints (`GET /api/v1/grpc/status`, `POST /api/v1/grpc/simulate`) and CLI subcommand (`swarmwatch grpc status|simulate`).
   - Web Console integration: `#grpcGatewayBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+- **Embedding-Free Vector Semantic Drift & Hallucination Divergence Detector (Seam 34 & ADR 0045 Dual-SDK Parity)**:
+  - Deep module `SemanticDriftDetector` and `MinHashSigner` implementing 64-bit universal MinHash LSH, character/word n-gram shingling, and Type-Token Ratio vocabulary compression calculus with zero external LLM token overhead ($<50\mu\text{s}$ per turn).
+  - Quantifies composite semantic drift ($\Delta_{\text{drift}} = 1.0 - (0.6 \cdot J(t, t_0) + 0.4 \cdot J(t, t-1))$) against both root task anchor and preceding turns.
+  - Real-time in-flight circuit breaking tripping on persistent drift ($\Delta_{\text{drift}} > 0.72$) or echo-chamber collapse ($VCR < 0.20$), arresting runaway multi-agent trajectories and logging counterfactual savings.
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/drift.ts`) adhering to Node 22 type-stripping.
+  - Control plane REST endpoints (`GET /api/v1/swarms/{swarm_id}/drift`, `POST /api/v1/swarms/{swarm_id}/drift/evaluate`) and CLI subcommand (`swarmwatch drift status|analyze`).
+  - Web Console integration: `#driftBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 

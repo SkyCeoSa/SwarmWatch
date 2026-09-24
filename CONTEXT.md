@@ -424,3 +424,20 @@ _Avoid_: Hook call, function callback, middleware run
   _Avoid_: Return code, error number, HTTP status
 - **GrpcStreamSession**: An active, multiplexed bidirectional or client-streaming connection delivering telemetry spans from an agent worker pod.
   _Avoid_: Stream connection, socket channel, worker link
+
+---
+
+### Embedding-Free Vector Semantic Drift & Hallucination Divergence Detector (Seam 34 / ADR 0045)
+- **SemanticDriftDetector**: Deep module executing multi-order lexical n-gram shingling, 64-bit universal MinHash LSH, and Type-Token Ratio dispersion calculus to detect conversational topic deviation and hallucinatory echo chambers in $<50\mu\text{s}$ per turn with zero external token expenditure.
+  _Avoid_: Drift checker, semantic monitor, hallucination judge
+- **MinHashSigner**: Pure mathematical hashing engine generating 64-element universal integer signature vectors for rapid pairwise Jaccard similarity estimation without dense neural embeddings.
+  _Avoid_: Vector embedder, signature builder, hash generator
+- **SemanticDriftProfile**: An immutable turn record capturing cumulative drift score ($\Delta_{\text{drift}}$), root task anchor similarity, predecessor turn similarity, vocabulary compression ratio, divergence status, and shifting n-gram clusters.
+  _Avoid_: Drift report, deviation score, turn analysis
+- **VocabularyCompressionRatio**: The mathematical ratio of unique tokens to total token volume ($VCR = |V_{\text{unique}}| / |V_{\text{total}}|$) measuring vocabulary shrinkage and detecting echo-chamber hallucination collapse.
+  _Avoid_: Diversity ratio, word count, token fraction
+- **AnchorSimilarity**: Pairwise Jaccard similarity score between the current agent turn and the foundational task anchor prompt ($t_0$), preventing gradual mission creep.
+  _Avoid_: Baseline match, prompt score, initial similarity
+- **DivergenceStatus**: Categorical operational state of agent trajectory semantic coherence (`nominal`, `warning`, `divergent`, `tripped`).
+  _Avoid_: Drift level, warning grade, status flag
+
