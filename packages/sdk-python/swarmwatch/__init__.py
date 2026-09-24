@@ -298,6 +298,12 @@ __all__ = [
     "TopologicalClusterResult",
     "TopologicalCoalitionEngine",
     "global_coalition_engine",
+    "ShmRingHeader",
+    "ShmRingBuffer",
+    "ShmRingBufferWriter",
+    "ShmRingBufferReader",
+    "ShmIpcGateway",
+    "global_shm_gateway",
 ]
 
 from swarmwatch.redis_lock import (
@@ -419,6 +425,15 @@ from swarmwatch.coalition import (
     TopologicalCoalitionEngine,
     global_coalition_engine,
 )
+from swarmwatch.shm_ring import (
+    ShmRingHeader,
+    ShmRingBuffer,
+    ShmRingBufferWriter,
+    ShmRingBufferReader,
+    ShmIpcGateway,
+    global_shm_gateway,
+)
+
 
 
 

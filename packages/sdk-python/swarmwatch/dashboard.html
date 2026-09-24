@@ -1621,6 +1621,10 @@
             <span class="status-indicator" id="coalitionDot" style="background: var(--success);"></span>
             <span id="coalitionText">COALITIONS: OPTIMAL</span>
           </div>
+          <div class="fleet-badge" id="shmBadge" title="Zero-Copy Shared-Memory IPC Ring Buffer (ADR 0048)">
+            <span class="status-indicator" id="shmDot" style="background: var(--success);"></span>
+            <span id="shmText">SHM: ACTIVE (0 PENDING)</span>
+          </div>
         </div>
 
 
@@ -4043,6 +4047,34 @@
       }
       refreshCoalitionStatus();
       setInterval(refreshCoalitionStatus, 9500);
+
+      // -------------------------------------------------------------------
+      // Zero-Copy Shared-Memory Ring Buffer IPC Gateway (ADR 0048)
+      // -------------------------------------------------------------------
+      async function refreshShmStatus() {
+        var shmDot = document.getElementById('shmDot');
+        var shmText = document.getElementById('shmText');
+        try {
+          var res = await fetch('/api/v1/shm/status');
+          if (res.ok) {
+            var data = await res.json();
+            var pending = data.pending_records || 0;
+            var dropped = data.dropped_records || 0;
+            if (dropped > 0) {
+              if (shmDot) shmDot.style.background = 'var(--warning)';
+              if (shmText) shmText.textContent = 'SHM: OVERFLOW (' + dropped + ' DROPPED)';
+            } else if (pending > 0) {
+              if (shmDot) shmDot.style.background = 'var(--accent)';
+              if (shmText) shmText.textContent = 'SHM: STREAMING (' + pending + ' PENDING)';
+            } else {
+              if (shmDot) shmDot.style.background = 'var(--success)';
+              if (shmText) shmText.textContent = 'SHM: ACTIVE (0 PENDING)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshShmStatus();
+      setInterval(refreshShmStatus, 8000);
 
       if (btnMfaModal) {
 

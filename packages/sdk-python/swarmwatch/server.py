@@ -59,6 +59,11 @@ from swarmwatch.coalition import (
     global_coalition_engine,
     TopologicalCoalitionEngine,
 )
+from swarmwatch.shm_ring import (
+    global_shm_gateway,
+    ShmIpcGateway,
+)
+
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -2377,6 +2382,8 @@ def create_app(
         storage_adapter=active_storage,
     )
     app.state.archiver = active_archiver
+    global_shm_gateway.storage_sink = active_storage
+
 
 
     async def get_tenant_context(
@@ -4187,6 +4194,31 @@ def create_app(
         """Resets topological graph data and coalitions for a swarm."""
         global_coalition_engine.reset(swarm_id)
         return {"status": "reset", "swarm_id": swarm_id}
+
+    # -----------------------------------------------------------------------
+    # Zero-Copy Shared-Memory Ring Buffer IPC Gateway (ADR 0048)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/shm/status")
+    async def get_shm_status_endpoint():
+        """Returns shared-memory circular ring buffer health, capacity, and counters."""
+        return global_shm_gateway.get_status()
+
+    @app.post("/api/v1/shm/flush")
+    async def flush_shm_endpoint():
+        """Drains pending causal spans from the shared memory ring buffer into storage."""
+        spans = global_shm_gateway.flush()
+        return {
+            "status": "flushed",
+            "drained_count": len(spans),
+            "pending_records": global_shm_gateway.get_status()["pending_records"],
+        }
+
+    @app.post("/api/v1/shm/reset")
+    async def reset_shm_endpoint():
+        """Resets the shared memory ring buffer pointers and counters."""
+        global_shm_gateway.reset()
+        return {"status": "reset"}
+
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

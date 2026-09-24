@@ -192,6 +192,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `AgentCoalition`, `TopologicalClusterResult`, `NodeCentrality`, `TopologicalCoalitionEngine` (`coalition.ts`), exported via `index.ts`.
     - Primitives (Console): `#coalitionBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Directed causal interaction graph analysis; weighted interaction strength ($W(u, v) = \sum (1 + \ln(1 + \text{tokens}))$); degree centrality and bottleneck transit detection ($B(v)$); Newman-Girvan modularity community clustering ($Q \ge 0.30$); autonomous coalition formation ($\ge 0.50$ density) with designated Coalition Leaders; in-flight conversational deadlock decoupling; non-blocking execution ($<50\mu\text{s}$ per turn); zero external LLM token expenditure; dual-SDK parity.
+37. **Zero-Copy Shared-Memory Ring Buffer IPC Gateway Seam (ADR 0048 Dual-SDK Parity)**:
+    - Primitives (Python): `ShmRingBuffer`, `ShmRingBufferWriter`, `ShmRingBufferReader`, `ShmIpcGateway`, `ShmRingHeader` (`shm_ring.py`), server endpoints `GET /api/v1/shm/status`, `POST /api/v1/shm/flush`, `POST /api/v1/shm/reset` (`server.py`), CLI subcommand `swarmwatch shm` (`cli.py`).
+    - Primitives (TypeScript): `ShmRingBufferWriter`, `ShmRingBufferReader`, `ShmIpcGateway` (`shm_ring.ts`), exported via `index.ts`.
+    - Primitives (Console): `#shmBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Zero-copy cross-process telemetry ingestion using memory-mapped ring buffer (`mmap` / POSIX `SharedMemory`); fixed 64-byte binary header (`SWRB`), atomic write/read sequence pointers, and fixed slot framing; sub-microsecond write latency ($<1.0\mu\text{s}$) with zero kernel socket context switches; sustained throughput $>500,000$ spans/sec; ring overflow tracking without blocking caller execution; zero external dependencies; dual-SDK parity.
+
 
 
 

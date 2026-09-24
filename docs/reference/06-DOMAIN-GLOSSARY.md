@@ -756,5 +756,34 @@ _Avoid_: Team captain, head agent, group manager
 The ratio of actual weighted interactions among a coalition's member agents relative to the total possible edge capacity.
 _Avoid_: Chat volume, traffic ratio, link count
 
+---
+
+### Zero-Copy Shared-Memory Ring Buffer IPC Gateway (Seam 37 / ADR 0048)
+
+**ShmRingBuffer**:
+The low-level memory-mapped circular ring buffer with fixed 64-byte binary header (`SWRB`), atomic write/read sequence pointers, and fixed slot framing for zero-copy IPC telemetry exchange.
+_Avoid_: Shared array, memory queue, IPC pipe, temp buffer
+
+**ShmRingBufferWriter**:
+The high-throughput producer writing structured causal spans into shared memory slots in $<1.0\mu\text{s}$ per record without socket or kernel transitions.
+_Avoid_: SHM client, span sender, memory writer
+
+**ShmRingBufferReader**:
+The consumer component draining completed slots from the shared memory ring buffer into SwarmWatch storage.
+_Avoid_: SHM reader, queue pop, buffer consumer
+
+**ShmIpcGateway**:
+The background supervisory daemon managing the lifecycle, slot ingestion, and health monitoring of shared-memory IPC telemetry channels.
+_Avoid_: IPC daemon, socket gateway, memory server
+
+**RingSlotStatus**:
+The state machine flag governing individual slot lifecycle (`EMPTY`, `WRITING`, `READY`, `READING`).
+_Avoid_: Slot flag, lock byte, item status
+
+**DroppedRecordsCounter**:
+The monotonically increasing 64-bit sequence tracking discarded spans during memory buffer saturation without blocking worker execution.
+_Avoid_: Lost count, drop rate, overflow number
+
+
 
 

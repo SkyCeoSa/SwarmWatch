@@ -202,7 +202,14 @@ def main(argv=None):
     coalition_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     coalition_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch shm` subcommand (Seam 37 / ADR 0048)
+    shm_parser = subparsers.add_parser("shm", help="Inspect and drain zero-copy shared-memory ring buffer IPC")
+    shm_parser.add_argument("action", choices=["status", "flush"], default="status", nargs="?", help="SHM action (status, flush)")
+    shm_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    shm_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -1333,6 +1340,48 @@ def main(argv=None):
                 print("  No cohesive coalitions formed (low interaction density).")
             print()
         sys.exit(0)
+    elif args.subcommand == "shm":
+        from swarmwatch.shm_ring import global_shm_gateway
+        if args.action == "flush":
+            target_url = f"{args.url.rstrip('/')}/api/v1/shm/flush"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                spans = global_shm_gateway.flush()
+                data = {"status": "flushed", "drained_count": len(spans), "pending_records": global_shm_gateway.get_status()["pending_records"]}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n[SHM Flush] Drained {data.get('drained_count', 0)} spans | Pending: {data.get('pending_records', 0)}\n")
+            sys.exit(0)
+        else:
+            target_url = f"{args.url.rstrip('/')}/api/v1/shm/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_shm_gateway.get_status()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ZERO-COPY SHARED-MEMORY RING BUFFER (ADR 0048)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Buffer Name:          {data.get('name')}")
+                print(f"  Protocol Version:     v{data.get('version')}")
+                print(f"  Slot Capacity:        {data.get('capacity_slots'):,} slots ({data.get('slot_size')} bytes/slot)")
+                print(f"  Total Allocation:     {data.get('total_bytes', 0):,} bytes")
+                print(f"  Write Head:           {data.get('write_head'):,}")
+                print(f"  Read Tail:            {data.get('read_tail'):,}")
+                print(f"  Pending Records:      \033[92m{data.get('pending_records', 0):,}\033[0m")
+                print(f"  Dropped Records:      \033[91m{data.get('dropped_records', 0):,}\033[0m")
+                print(f"  Buffer Utilization:   {data.get('utilization_pct', 0.0):.2f}%")
+                print(f"  Daemon Running:       {data.get('is_running')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

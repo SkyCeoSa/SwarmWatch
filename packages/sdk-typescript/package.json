@@ -17,7 +17,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js tests/multilingual_stress.test.js tests/tenant_multitenancy.test.js tests/security_sanitizer.test.js tests/incident_report.test.js tests/policy_engine.test.js tests/webhooks.test.js tests/timemachine.test.js tests/fork_resumption_runner.test.js tests/alert_simulation.test.js tests/telemetry_benchmark.test.js tests/redis_circuit.test.js tests/redis_lock_election.test.js tests/storage_archival.test.js tests/mfa_rbac.test.js tests/otlp.test.js tests/sse_push.test.js tests/ebpf.test.js tests/raft.test.js tests/self_healing.test.js tests/causal_inference.test.js tests/grpc.test.js tests/drift.test.js tests/rebalancer.test.js tests/coalition.test.js"
+    "test": "node --experimental-strip-types --test --test-concurrency=1 tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js tests/multilingual_stress.test.js tests/tenant_multitenancy.test.js tests/security_sanitizer.test.js tests/incident_report.test.js tests/policy_engine.test.js tests/webhooks.test.js tests/timemachine.test.js tests/fork_resumption_runner.test.js tests/alert_simulation.test.js tests/telemetry_benchmark.test.js tests/redis_circuit.test.js tests/redis_lock_election.test.js tests/storage_archival.test.js tests/mfa_rbac.test.js tests/otlp.test.js tests/sse_push.test.js tests/ebpf.test.js tests/raft.test.js tests/self_healing.test.js tests/causal_inference.test.js tests/grpc.test.js tests/drift.test.js tests/rebalancer.test.js tests/coalition.test.js tests/shm_ring.test.js"
   },
   "keywords": [
     "swarmwatch",

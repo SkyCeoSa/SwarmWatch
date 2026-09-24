@@ -356,5 +356,24 @@ export {
   globalCoalitionEngine,
 } from "./coalition.ts";
 
+// Zero-Copy Shared-Memory Ring Buffer IPC Gateway (Seam 37 / ADR 0048)
+export type {
+  ShmRingHeader,
+  ShmRingStatus,
+  ShmSlotStatusType,
+} from "./shm_ring.ts";
+export {
+  SHM_MAGIC,
+  SHM_HEADER_SIZE,
+  SHM_SLOT_HEADER_SIZE,
+  ShmSlotStatus,
+  ShmRingBuffer,
+  ShmRingBufferWriter,
+  ShmRingBufferReader,
+  ShmIpcGateway,
+  globalShmGateway,
+} from "./shm_ring.ts";
+
+
 
 
