@@ -246,6 +246,15 @@ def main(argv=None):
     honey_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     honey_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch verify` subcommand (Seam 42 / ADR 0053)
+    verify_parser = subparsers.add_parser("verify", help="Formally verify multi-agent safety/liveness invariants via Bounded Model Checking")
+    verify_parser.add_argument("action", choices=["status", "check", "reset"], default="status", nargs="?", help="Verification action (status, check, reset)")
+    verify_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    verify_parser.add_argument("--bound-k", type=int, default=10, help="Maximum search depth bound k (default: 10)")
+    verify_parser.add_argument("--budget", type=int, default=10000, help="Token budget threshold (default: 10000)")
+    verify_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    verify_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -1771,6 +1780,109 @@ def main(argv=None):
                 print(f"  Sandboxed Agents:     {', '.join(data.get('active_sandboxed_agents', [])) or 'None'}")
                 print(f"  Active Honeytokens:   {len(data.get('active_honeytokens', []))}")
                 print(f"  Tripped Honeytokens:  {data.get('honeytokens_tripped')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "verify":
+        import urllib.request
+        from swarmwatch.model_checker import global_model_checker, AgentTransitionModel, AgentTransition
+
+        if args.action == "check":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/model-check/verify"
+            payload_data = json.dumps({"bound_k": args.bound_k, "max_token_budget": args.budget}).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload_data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    raw = json.loads(resp.read().decode())
+                    data = raw.get("verification", raw)
+            except Exception:
+                model = global_model_checker._models.get(args.swarm_id)
+                if model is None:
+                    model = AgentTransitionModel(
+                        initial_agent="agent-planner",
+                        final_agents={"agent-verifier"},
+                        transitions=[
+                            AgentTransition(from_agent="agent-planner", to_agent="agent-worker", action_type="DELEGATE", token_cost=150),
+                            AgentTransition(from_agent="agent-worker", to_agent="agent-verifier", action_type="REVIEW", token_cost=200),
+                        ],
+                        max_token_budget=args.budget,
+                    )
+                res = global_model_checker.verify(model, bound_k=args.bound_k, swarm_id=args.swarm_id)
+                data = res.to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                verdict_str = data.get("verdict", "VERIFIED")
+                color = "\033[92m" if verdict_str == "VERIFIED" else ("\033[91m" if verdict_str == "VIOLATED" else "\033[93m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH BOUNDED MODEL CHECKING VERIFICATION (ADR 0053)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Verdict:              {color}{verdict_str}\033[0m")
+                print(f"  Depth Bound (k):      {data.get('max_depth_bound')}")
+                print(f"  States Explored:      {data.get('total_states_explored')}")
+                print(f"  Execution Time:       {data.get('execution_time_ms')} ms")
+                print(f"  Invariants Checked:   {', '.join(data.get('invariants_checked', []))}")
+                if data.get("violated_invariant"):
+                    print(f"  Violated Invariant:   \033[91m{data.get('violated_invariant')}\033[0m")
+                    print(f"  Counterexample Steps: {len(data.get('counterexample', []))}")
+                print(f"  Summary:              {data.get('summary')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "reset":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/model-check/reset"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                global_model_checker.reset(args.swarm_id)
+                data = {"status": "reset", "swarm_id": args.swarm_id}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n\033[92m[SwarmWatch] Model checker history reset for '{args.swarm_id}'.\033[0m\n")
+            sys.exit(0)
+
+        else:
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/model-check/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                res = global_model_checker.get_latest_result(args.swarm_id)
+                if res is None:
+                    model = AgentTransitionModel(
+                        initial_agent="agent-planner",
+                        final_agents={"agent-verifier"},
+                        transitions=[
+                            AgentTransition(from_agent="agent-planner", to_agent="agent-worker", action_type="DELEGATE", token_cost=150),
+                            AgentTransition(from_agent="agent-worker", to_agent="agent-verifier", action_type="REVIEW", token_cost=200),
+                        ],
+                        max_token_budget=args.budget,
+                    )
+                    res = global_model_checker.verify(model, bound_k=args.bound_k, swarm_id=args.swarm_id)
+                data = res.to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                verdict_str = data.get("verdict", "VERIFIED")
+                color = "\033[92m" if verdict_str == "VERIFIED" else ("\033[91m" if verdict_str == "VIOLATED" else "\033[93m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH BOUNDED MODEL CHECKING STATUS (ADR 0053)           |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Verdict:              {color}{verdict_str}\033[0m")
+                print(f"  Depth Bound (k):      {data.get('max_depth_bound')}")
+                print(f"  States Explored:      {data.get('total_states_explored')}")
+                print(f"  Execution Time:       {data.get('execution_time_ms')} ms")
+                print(f"  Invariants Checked:   {', '.join(data.get('invariants_checked', []))}")
+                if data.get("violated_invariant"):
+                    print(f"  Violated Invariant:   \033[91m{data.get('violated_invariant')}\033[0m")
+                print(f"  Summary:              {data.get('summary')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

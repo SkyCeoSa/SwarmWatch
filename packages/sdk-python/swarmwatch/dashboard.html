@@ -1641,6 +1641,10 @@
             <span class="status-indicator" id="honeypotDot" style="background: var(--success);"></span>
             <span id="honeypotText">HONEYPOT: ARMED (0 TRAPPED)</span>
           </div>
+          <div class="fleet-badge" id="modelCheckBadge" title="Bounded Model Checking & Multi-Agent Invariant Verification (ADR 0053)">
+            <span class="status-indicator" id="modelCheckDot" style="background: var(--success);"></span>
+            <span id="modelCheckText">BMC: VERIFIED (k=10)</span>
+          </div>
         </div>
 
 
@@ -4211,6 +4215,37 @@
       }
       refreshHoneypotStatus();
       setInterval(refreshHoneypotStatus, 9800);
+
+      // -------------------------------------------------------------------
+      // Bounded Model Checking & Multi-Agent Invariant Verification (ADR 0053)
+      // -------------------------------------------------------------------
+      async function refreshModelCheckStatus() {
+        var modelCheckDot = document.getElementById('modelCheckDot');
+        var modelCheckText = document.getElementById('modelCheckText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/model-check/status');
+          if (res.ok) {
+            var data = await res.json();
+            var verdict = data.verdict || 'VERIFIED';
+            var boundK = data.max_depth_bound || 10;
+            var states = data.total_states_explored || 0;
+            if (verdict === 'VIOLATED') {
+              if (modelCheckDot) modelCheckDot.style.background = 'var(--danger)';
+              var viol = data.violated_invariant || 'INVARIANT';
+              if (modelCheckText) modelCheckText.textContent = 'BMC: VIOLATED (' + viol + ')';
+            } else if (verdict === 'VACUOUS') {
+              if (modelCheckDot) modelCheckDot.style.background = 'var(--text-muted)';
+              if (modelCheckText) modelCheckText.textContent = 'BMC: VACUOUS';
+            } else {
+              if (modelCheckDot) modelCheckDot.style.background = 'var(--success)';
+              if (modelCheckText) modelCheckText.textContent = 'BMC: VERIFIED (k=' + boundK + ' | ' + states + 'S)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshModelCheckStatus();
+      setInterval(refreshModelCheckStatus, 10200);
 
 
 

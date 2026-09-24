@@ -326,6 +326,14 @@ __all__ = [
     "DeceptionResponseGenerator",
     "HoneypotManager",
     "global_honeypot_manager",
+    "VerificationInvariant",
+    "VerificationVerdict",
+    "AgentTransition",
+    "AgentTransitionModel",
+    "CounterexampleStep",
+    "VerificationResult",
+    "BoundedModelChecker",
+    "global_model_checker",
 ]
 
 
@@ -485,6 +493,16 @@ from swarmwatch.honeypot import (
     DeceptionResponseGenerator,
     HoneypotManager,
     global_honeypot_manager,
+)
+from swarmwatch.model_checker import (
+    VerificationInvariant,
+    VerificationVerdict,
+    AgentTransition,
+    AgentTransitionModel,
+    CounterexampleStep,
+    VerificationResult,
+    BoundedModelChecker,
+    global_model_checker,
 )
 
 

@@ -425,3 +425,19 @@ export {
   HoneypotManager,
   globalHoneypotManager,
 } from "./honeypot.ts";
+
+// Bounded Model Checking & Multi-Agent Invariant Verification (Seam 42 / ADR 0053)
+export type {
+  VerificationInvariantType,
+  VerificationVerdictType,
+  AgentTransition,
+  AgentTransitionModel,
+  CounterexampleStep,
+  VerificationResult,
+} from "./model_checker.ts";
+export {
+  VerificationInvariant,
+  VerificationVerdict,
+  BoundedModelChecker,
+  globalModelChecker,
+} from "./model_checker.ts";

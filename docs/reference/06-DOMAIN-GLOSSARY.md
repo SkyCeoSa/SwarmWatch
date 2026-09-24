@@ -895,3 +895,31 @@ _Avoid_: Ghost DAG, fake graph, dummy trace
 **HoneypotStatus**:
 The high-level operational state (`ARMED`, `DECEIVING`, `DEFUSED`) tracking active deception engagements and sandboxed adversaries.
 _Avoid_: Trap flag, decoy state, trick status
+
+---
+
+### Bounded Model Checking & Multi-Agent Invariant Verification (Seam 42 / ADR 0053)
+
+**BoundedModelChecker**:
+The deep module exhaustively verifying multi-agent interaction state spaces up to depth bound $k$ to mathematically prove safety and deadlock-freedom.
+_Avoid_: Test script, checker bot, graph solver, math bot
+
+**AgentTransitionModel**:
+The formal state machine specification defining agent states, transitions, delegation actions, and terminal conditions.
+_Avoid_: Agent graph, workflow diagram, step plan
+
+**VerificationInvariant**:
+The mathematical safety or liveness condition (`NO_DEADLOCK`, `NO_UNBOUNDED_CYCLES`, `BOUNDED_BUDGET`, `MUTUAL_EXCLUSION`) verified across all paths.
+_Avoid_: Test rule, safety assert, check condition
+
+**CounterexampleTrace**:
+The deterministic chronological sequence of states and actions proving that an invariant is violated.
+_Avoid_: Error log, fail path, bug trace
+
+**StateSpaceExplorer**:
+The algorithmic bounded traversal engine exhaustively exploring reachable swarm states without external solver dependencies.
+_Avoid_: Tree searcher, path walker, state crawler
+
+**VerificationVerdict**:
+The formal verification outcome (`VERIFIED`, `VIOLATED`, `VACUOUS`) certifying multi-agent topology safety.
+_Avoid_: Test result, check grade, pass status

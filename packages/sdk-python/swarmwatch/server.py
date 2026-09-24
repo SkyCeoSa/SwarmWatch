@@ -89,6 +89,15 @@ from swarmwatch.honeypot import (
     HoneypotManager,
     global_honeypot_manager,
 )
+from swarmwatch.model_checker import (
+    VerificationInvariant,
+    VerificationVerdict,
+    AgentTransition,
+    AgentTransitionModel,
+    VerificationResult,
+    BoundedModelChecker,
+    global_model_checker,
+)
 
 
 
@@ -252,6 +261,16 @@ class HoneypotDivertRequest(BaseModel):
 
 class HoneytokenCreateRequest(BaseModel):
     token_type: str = "API_KEY"
+
+
+class ModelCheckVerifyRequest(BaseModel):
+    bound_k: int = 10
+    invariants: Optional[List[str]] = None
+    transitions: Optional[List[Dict[str, Any]]] = None
+    initial_agent: Optional[str] = None
+    final_agents: Optional[List[str]] = None
+    max_token_budget: Optional[int] = None
+    mutual_exclusion_pairs: Optional[List[List[str]]] = None
 
 
 
@@ -4409,6 +4428,73 @@ def create_app(
     async def reset_honeypot_endpoint(swarm_id: str):
         """Clears honeypot state, canary tokens, and sandboxed agents for the swarm."""
         global_honeypot_manager.reset(swarm_id)
+        return {"status": "reset", "swarm_id": swarm_id}
+
+    @app.get("/api/v1/swarms/{swarm_id}/model-check/status")
+    async def get_model_check_status_endpoint(swarm_id: str):
+        """Returns the latest Bounded Model Checking verification result for the swarm."""
+        res = global_model_checker.get_latest_result(swarm_id)
+        if res is None:
+            model = global_model_checker._models.get(swarm_id)
+            if model is None:
+                model = AgentTransitionModel(
+                    initial_agent="agent-planner",
+                    final_agents={"agent-verifier"},
+                    transitions=[
+                        AgentTransition(from_agent="agent-planner", to_agent="agent-worker", action_type="DELEGATE", token_cost=150),
+                        AgentTransition(from_agent="agent-worker", to_agent="agent-verifier", action_type="REVIEW", token_cost=200),
+                    ],
+                    max_token_budget=10000,
+                )
+            res = global_model_checker.verify(model, bound_k=10, swarm_id=swarm_id)
+        return res.to_dict()
+
+    @app.post("/api/v1/swarms/{swarm_id}/model-check/verify")
+    async def run_model_check_endpoint(swarm_id: str, req: ModelCheckVerifyRequest):
+        """Runs bounded model checking verification against a provided or registered transition model."""
+        transitions_list = []
+        if req.transitions:
+            for t in req.transitions:
+                transitions_list.append(
+                    AgentTransition(
+                        from_agent=t.get("from_agent", "agent-src"),
+                        to_agent=t.get("to_agent", "agent-dst"),
+                        action_type=t.get("action_type", "CALL"),
+                        token_cost=t.get("token_cost", 100),
+                        required_flags=t.get("required_flags", []),
+                        sets_flags=t.get("sets_flags", []),
+                    )
+                )
+
+        initial = req.initial_agent or "agent-planner"
+        final = set(req.final_agents) if req.final_agents else {"agent-verifier"}
+        budget = req.max_token_budget or 10000
+        mutex = [tuple(p) for p in req.mutual_exclusion_pairs] if req.mutual_exclusion_pairs else []
+
+        model = AgentTransitionModel(
+            initial_agent=initial,
+            final_agents=final,
+            transitions=transitions_list if transitions_list else None,
+            max_token_budget=budget,
+            mutual_exclusion_pairs=mutex,
+        )
+
+        result = global_model_checker.verify(
+            model=model,
+            bound_k=req.bound_k,
+            invariants=req.invariants,
+            swarm_id=swarm_id,
+        )
+        return {
+            "status": "completed",
+            "swarm_id": swarm_id,
+            "verification": result.to_dict(),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/model-check/reset")
+    async def reset_model_check_endpoint(swarm_id: str):
+        """Resets model checking history and models for the swarm."""
+        global_model_checker.reset(swarm_id)
         return {"status": "reset", "swarm_id": swarm_id}
 
 
