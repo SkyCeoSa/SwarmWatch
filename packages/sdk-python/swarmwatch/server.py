@@ -105,6 +105,14 @@ from swarmwatch.topology_healer import (
     TopologyAutoHealer,
     global_topology_healer,
 )
+from swarmwatch.multimodal import (
+    MediaModality,
+    MediaMetadata,
+    ArtifactWatermark,
+    WatermarkedArtifact,
+    MultiModalInspector,
+    global_multimodal_inspector,
+)
 
 
 
@@ -287,6 +295,27 @@ class TopologyHealApplyRequest(BaseModel):
     final_agents: Optional[List[str]] = None
     max_token_budget: Optional[int] = None
     mutual_exclusion_pairs: Optional[List[List[str]]] = None
+
+
+class ArtifactInspectRequest(BaseModel):
+    payload_base64: str
+    filename: Optional[str] = None
+
+
+class ArtifactWatermarkRequest(BaseModel):
+    payload_base64: str
+    producer_agent_id: str = "agent-producer"
+    filename: Optional[str] = None
+    artifact_id: Optional[str] = None
+    tenant_secret: str = "sw_secret_salt_default"
+    tenant_id: str = "tenant-default"
+
+
+class ArtifactVerifyRequest(BaseModel):
+    artifact_id: str
+    payload_base64: str
+    tenant_secret: str = "sw_secret_salt_default"
+
 
 
 
@@ -4581,6 +4610,82 @@ def create_app(
             "status": "reverted" if reverted else "no_active_patches",
             "swarm_id": swarm_id,
         }
+
+    @app.get("/api/v1/swarms/{swarm_id}/artifacts")
+    async def get_artifacts_endpoint(swarm_id: str):
+        """Returns inspected and watermarked artifacts for the swarm session."""
+        artifacts = [a.to_dict() for a in global_multimodal_inspector.get_artifacts(swarm_id)]
+        return {
+            "swarm_id": swarm_id,
+            "artifacts_count": len(artifacts),
+            "artifacts": artifacts,
+            "status": "SECURED" if artifacts else "EMPTY",
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/artifacts/inspect")
+    async def inspect_artifact_endpoint(swarm_id: str, req: ArtifactInspectRequest):
+        """Inspects raw payload bytes, extracts technical metadata, and computes perceptual hash."""
+        import base64
+        try:
+            raw_bytes = base64.b64decode(req.payload_base64)
+        except Exception:
+            raw_bytes = req.payload_base64.encode("utf-8")
+        metadata = global_multimodal_inspector.inspect_bytes(raw_bytes, filename=req.filename)
+        return {
+            "status": "inspected",
+            "swarm_id": swarm_id,
+            "metadata": metadata.to_dict(),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/artifacts/watermark")
+    async def watermark_artifact_endpoint(swarm_id: str, req: ArtifactWatermarkRequest):
+        """Applies cryptographic provenance watermark to payload and registers artifact."""
+        import base64
+        try:
+            raw_bytes = base64.b64decode(req.payload_base64)
+        except Exception:
+            raw_bytes = req.payload_base64.encode("utf-8")
+        watermarked = global_multimodal_inspector.inspect_and_watermark(
+            payload=raw_bytes,
+            producer_agent_id=req.producer_agent_id,
+            swarm_id=swarm_id,
+            filename=req.filename,
+            artifact_id=req.artifact_id,
+            tenant_secret=req.tenant_secret,
+            tenant_id=req.tenant_id,
+        )
+        return {
+            "status": "watermarked",
+            "swarm_id": swarm_id,
+            "artifact": watermarked.to_dict(),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/artifacts/verify")
+    async def verify_artifact_endpoint(swarm_id: str, req: ArtifactVerifyRequest):
+        """Verifies integrity and cryptographic provenance of an artifact."""
+        import base64
+        try:
+            raw_bytes = base64.b64decode(req.payload_base64)
+        except Exception:
+            raw_bytes = req.payload_base64.encode("utf-8")
+
+        artifact = global_multimodal_inspector.get_artifact(swarm_id, req.artifact_id)
+        if not artifact:
+            raise HTTPException(status_code=404, detail=f"Artifact {req.artifact_id} not found for swarm {swarm_id}")
+
+        is_valid = global_multimodal_inspector.verify_watermark(
+            watermark=artifact.watermark,
+            payload=raw_bytes,
+            tenant_secret=req.tenant_secret,
+        )
+        return {
+            "status": "verified" if is_valid else "tamper_detected",
+            "swarm_id": swarm_id,
+            "artifact_id": req.artifact_id,
+            "tamper_detected": not is_valid,
+            "verified": is_valid,
+        }
+
 
 
 

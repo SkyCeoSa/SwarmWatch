@@ -453,3 +453,17 @@ export {
   TopologyAutoHealer,
   globalTopologyHealer,
 } from "./topology_healer.ts";
+
+// Multi-Modal Audio/Visual Telemetry Inspection & Artifact Watermarking (Seam 44 / ADR 0055)
+export type {
+  MediaModalityType,
+  MediaMetadata,
+  ArtifactWatermark,
+  WatermarkedArtifact,
+} from "./multimodal.ts";
+export {
+  MediaModality,
+  MultiModalInspector,
+  globalMultiModalInspector,
+} from "./multimodal.ts";
+

@@ -1649,7 +1649,12 @@
             <span class="status-indicator" id="topologyHealDot" style="background: var(--success);"></span>
             <span id="topologyHealText">HEAL: NOMINAL</span>
           </div>
+          <div class="fleet-badge" id="artifactBadge" title="Multi-Modal Audio/Visual Telemetry Inspection & Artifact Watermarking (ADR 0055)">
+            <span class="status-indicator" id="artifactDot" style="background: var(--text-muted);"></span>
+            <span id="artifactText">ARTIFACTS: 0 RECORDED</span>
+          </div>
         </div>
+
 
 
 
@@ -4276,6 +4281,37 @@
       }
       refreshTopologyHealStatus();
       setInterval(refreshTopologyHealStatus, 10500);
+
+      // -------------------------------------------------------------------
+      // Multi-Modal Audio/Visual Telemetry Inspection & Artifact Watermarking (ADR 0055)
+      // -------------------------------------------------------------------
+      async function refreshArtifactStatus() {
+        var artifactDot = document.getElementById('artifactDot');
+        var artifactText = document.getElementById('artifactText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/artifacts');
+          if (res.ok) {
+            var data = await res.json();
+            var count = data.artifacts_count || 0;
+            var arts = data.artifacts || [];
+            var hasTampered = arts.some(function(a) { return a.watermark && a.watermark.tamper_detected; });
+            if (hasTampered) {
+              if (artifactDot) artifactDot.style.background = 'var(--danger)';
+              if (artifactText) artifactText.textContent = 'ARTIFACTS: TAMPERED';
+            } else if (count > 0) {
+              if (artifactDot) artifactDot.style.background = 'var(--success)';
+              if (artifactText) artifactText.textContent = 'ARTIFACTS: SECURED (' + count + ')';
+            } else {
+              if (artifactDot) artifactDot.style.background = 'var(--text-muted)';
+              if (artifactText) artifactText.textContent = 'ARTIFACTS: 0 RECORDED';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshArtifactStatus();
+      setInterval(refreshArtifactStatus, 10800);
+
 
 
 

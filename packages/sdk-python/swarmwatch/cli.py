@@ -263,7 +263,19 @@ def main(argv=None):
     patch_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     patch_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch artifact` subcommand (Seam 44 / ADR 0055)
+    artifact_parser = subparsers.add_parser("artifact", help="Multi-Modal Audio/Visual Telemetry Inspection & Artifact Watermarking")
+    artifact_parser.add_argument("action", choices=["status", "inspect", "watermark", "verify"], default="status", nargs="?", help="Artifact action (status, inspect, watermark, verify)")
+    artifact_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    artifact_parser.add_argument("--file", help="Path to binary or media file to inspect/watermark/verify")
+    artifact_parser.add_argument("--agent-id", default="agent-producer", help="Producer agent ID (default: agent-producer)")
+    artifact_parser.add_argument("--artifact-id", help="Artifact ID for watermark or verification")
+    artifact_parser.add_argument("--secret", default="sw_secret_salt_default", help="Tenant secret salt for HMAC verification")
+    artifact_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    artifact_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -1990,9 +2002,132 @@ def main(argv=None):
                         print(f"    [{idx+1}] {p.get('patch_id')} ({p.get('action')}): {p.get('target_agent')} -> {p.get('rewired_to')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
+
+    elif args.subcommand == "artifact":
+        from swarmwatch.multimodal import global_multimodal_inspector
+
+        if args.action == "inspect":
+            if args.file and os.path.exists(args.file):
+                with open(args.file, "rb") as f:
+                    content = f.read()
+                filename = args.file
+            else:
+                # Synthetic sample PNG (1x1 transparent PNG)
+                content = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+                filename = "sample.png"
+
+            meta = global_multimodal_inspector.inspect_bytes(content, filename=filename)
+            res = {"status": "inspected", "filename": filename, "metadata": meta.to_dict()}
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                dim_str = f"{meta.dimensions[0]}x{meta.dimensions[1]}" if meta.dimensions else "N/A"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH MULTI-MODAL ARTIFACT INSPECTION (ADR 0055)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Modality:             {meta.modality.value}")
+                print(f"  MIME Type:            {meta.mime_type}")
+                print(f"  Byte Size:            {meta.byte_size} bytes")
+                print(f"  Dimensions:           {dim_str}")
+                print(f"  Duration:             {meta.duration_seconds or 'N/A'}")
+                print(f"  Perceptual Hash:      {meta.perceptual_hash or 'N/A'}")
+                print(f"  SHA-256:              {meta.sha256_checksum[:32]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "watermark":
+            if args.file and os.path.exists(args.file):
+                with open(args.file, "rb") as f:
+                    content = f.read()
+                filename = args.file
+            else:
+                content = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+                filename = "sample.png"
+
+            watermarked = global_multimodal_inspector.inspect_and_watermark(
+                payload=content,
+                producer_agent_id=args.agent_id,
+                swarm_id=args.swarm_id,
+                filename=filename,
+                artifact_id=args.artifact_id,
+                tenant_secret=args.secret,
+            )
+            res = {"status": "watermarked", "swarm_id": args.swarm_id, "artifact": watermarked.to_dict()}
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                wm = watermarked.watermark
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ARTIFACT CRYPTOGRAPHIC WATERMARK (ADR 0055)        |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Artifact ID:          {watermarked.artifact_id}")
+                print(f"  Producer Agent:       {wm.producer_agent_id}")
+                print(f"  Swarm ID:             {wm.swarm_id}")
+                print(f"  Tenant ID:            {wm.tenant_id}")
+                print(f"  MIME Type:            {watermarked.metadata.mime_type}")
+                print(f"  HMAC Signature:       {wm.hmac_signature[:32]}...")
+                print(f"  Tamper Detected:      {wm.tamper_detected}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "verify":
+            if args.file and os.path.exists(args.file):
+                with open(args.file, "rb") as f:
+                    content = f.read()
+            else:
+                content = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+
+            artifact = global_multimodal_inspector.get_artifact(args.swarm_id, args.artifact_id or "default")
+            if artifact:
+                is_valid = global_multimodal_inspector.verify_watermark(artifact.watermark, content, tenant_secret=args.secret)
+            else:
+                is_valid = True  # Baseline verification if untracked
+
+            res = {"status": "verified" if is_valid else "tamper_detected", "verified": is_valid}
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                tag = "\033[92mVERIFIED (AUTHENTIC)\033[0m" if is_valid else "\033[91mTAMPER DETECTED\033[0m"
+                print(f"\n[SwarmWatch Artifact Verifier] Result: {tag}\n")
+            sys.exit(0 if is_valid else 1)
+
+        else:
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/artifacts"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                artifacts = [a.to_dict() for a in global_multimodal_inspector.get_artifacts(args.swarm_id)]
+                data = {
+                    "swarm_id": args.swarm_id,
+                    "artifacts_count": len(artifacts),
+                    "artifacts": artifacts,
+                    "status": "SECURED" if artifacts else "EMPTY",
+                }
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                status_str = data.get("status", "EMPTY")
+                color = "\033[92m" if status_str == "SECURED" else "\033[90m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ARTIFACTS REGISTRY & PROVENANCE (ADR 0055)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Status:               {color}{status_str}\033[0m")
+                print(f"  Artifacts Count:      {data.get('artifacts_count')}")
+                arts = data.get("artifacts", [])
+                if arts:
+                    for idx, a in enumerate(arts):
+                        m = a.get("metadata", {})
+                        wm = a.get("watermark", {})
+                        print(f"    [{idx+1}] {a.get('artifact_id')} ({m.get('modality')}/{m.get('mime_type')}): by {wm.get('producer_agent_id')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 
 

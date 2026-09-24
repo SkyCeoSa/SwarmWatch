@@ -339,6 +339,12 @@ __all__ = [
     "HealedModelReport",
     "TopologyAutoHealer",
     "global_topology_healer",
+    "MediaModality",
+    "MediaMetadata",
+    "ArtifactWatermark",
+    "WatermarkedArtifact",
+    "MultiModalInspector",
+    "global_multimodal_inspector",
 ]
 
 
@@ -516,6 +522,15 @@ from swarmwatch.topology_healer import (
     TopologyAutoHealer,
     global_topology_healer,
 )
+from swarmwatch.multimodal import (
+    MediaModality,
+    MediaMetadata,
+    ArtifactWatermark,
+    WatermarkedArtifact,
+    MultiModalInspector,
+    global_multimodal_inspector,
+)
+
 
 
 

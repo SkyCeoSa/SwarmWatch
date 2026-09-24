@@ -951,3 +951,32 @@ _Avoid_: Detour hack, error jump, skip route
 **CycleGateBreak**:
 The injection of progress counters or conditional guard flags to guarantee loop termination in cyclic agent delegations.
 _Avoid_: Loop break, cycle cut, exit hook
+
+---
+
+### Multi-Modal Audio/Visual Telemetry Inspection & Artifact Watermarking (Seam 44 / ADR 0055)
+
+**MultiModalInspector**:
+The deep module parsing binary headers, extracting multi-modal metadata, computing perceptual hashes, and verifying cryptographic provenance watermarks in $<0.1\text{ms}$ with zero LLM tokens.
+_Avoid_: Media parser, file checker, image validator, asset bot
+
+**MediaModality**:
+The categorical media classification (`IMAGE`, `AUDIO`, `VIDEO`, `DOCUMENT`, `EMBEDDING`, `UNKNOWN`) identifying multi-modal artifact types.
+_Avoid_: File type, asset kind, media category
+
+**MediaMetadata**:
+The lightweight technical descriptor capturing MIME type, dimensions (width, height), duration seconds, sample rate, channels, byte size, SHA-256 checksum, and perceptual hash.
+_Avoid_: File info, asset stats, tag bundle
+
+**PerceptualFingerprint**:
+The deterministic 16-character hexadecimal perceptual hash (pHash) capturing spatial/frequency byte distributions for instantaneous visual asset integrity matching without neural models.
+_Avoid_: Image hash, visual tag, photo fingerprint
+
+**ArtifactWatermark**:
+The cryptographic metadata signature binding artifact identifier, producer agent ID, swarm session ID, tenant ID, byte checksum, and nanosecond timestamp via HMAC-SHA256.
+_Avoid_: File tag, digital stamp, signature label
+
+**WatermarkedArtifact**:
+The immutable multi-modal asset envelope combining extracted technical metadata with cryptographic provenance watermarks for tamper-evident delegation across agent DAGs.
+_Avoid_: Signed file, tagged asset, wrapped blob
+
