@@ -345,6 +345,12 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Autonomous agent quarantine isolation (`AgentQuarantinePolicy`) blacklisting compromised agents from the causal interaction graph in $<40\mu\text{s}$ per turn without remote LLM API calls.
   - Dual-SDK parity across Python (`swarmwatch.byzantine`) and TypeScript (`@swarmwatch/sdk/src/byzantine.ts`) conforming strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/swarms/{id}/byzantine/status`, `POST /api/v1/swarms/{id}/byzantine/inject`, `POST /api/v1/swarms/{id}/byzantine/clear`), CLI subcommand (`swarmwatch byzantine status|inject|clear`), and Web Console `#byzantineBadge` widget.
+- **Multi-Agent Dynamic Honeypot & Deception Sandboxing (Seam 41 & ADR 0052 Dual-SDK Parity)**:
+  - Deep module `HoneypotManager` providing synthetic canary honeytoken generation (`sw_canary_...`) to detect credential exfiltration attempts.
+  - In-process deception sandbox (`DeceptionSandbox`) diverting compromised agents into simulated shadow graphs (`ShadowGraph`) serving realistic synthetic responses without modifying production state.
+  - Transparent diversion router (`HoneypotDiversionRouter`) rerouting in-flight causal spans seamlessly in $<50\mu\text{s}$ per turn without remote LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.honeypot`) and TypeScript (`@swarmwatch/sdk/src/honeypot.ts`) conforming strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`GET /api/v1/swarms/{id}/honeypot/status`, `POST /api/v1/swarms/{id}/honeypot/divert`, `POST /api/v1/swarms/{id}/honeypot/reset`), CLI subcommand (`swarmwatch honeypot status|divert|reset`), and Web Console `#honeypotBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

@@ -212,10 +212,8 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `ByzantineStressHarness`, `ByzantineAttackType`, `ByzantineResilienceReport` (`byzantine.ts`), exported via `index.ts`.
     - Primitives (Console): `#byzantineBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Synthetic adversarial attack injection (`PROMPT_INJECTION`, `STATE_POISONING`, `ENTROPY_JAMMING`, `SYBIL_CONTAGION`); quantitative Byzantine Fault Tolerance (BFT) resilience scoring ($B_{\text{resilience}} \in [0.0, 1.0]$); autonomous agent quarantine isolation removing compromised nodes from causal interaction graphs; in-process execution ($<40\mu\text{s}$ per turn); zero external LLM API calls; dual-SDK parity.
-
-
-
-
-
-
-
+41. **Multi-Agent Dynamic Honeypot & Deception Sandboxing Seam (ADR 0052 Dual-SDK Parity)**:
+    - Primitives (Python): `HoneypotManager`, `HoneytokenGenerator`, `DeceptionSandbox`, `HoneypotDiversionRouter`, `ShadowGraph`, `HoneypotReport` (`honeypot.py`), server endpoints `GET /api/v1/swarms/{id}/honeypot/status`, `POST /api/v1/swarms/{id}/honeypot/divert`, `POST /api/v1/swarms/{id}/honeypot/reset` (`server.py`), CLI subcommand `swarmwatch honeypot` (`cli.py`).
+    - Primitives (TypeScript): `HoneypotManager`, `DeceptionSandbox`, `HoneypotReport` (`honeypot.ts`), exported via `index.ts`.
+    - Primitives (Console): `#honeypotBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Dynamic canary honeytoken generation (`sw_canary_...`, `sw_honey_...`) for credential exfiltration tripwire detection; seamless in-flight diversion routing of compromised or adversarial agents into an isolated in-process shadow interaction graph (`ShadowGraph`); synthetic, realistic mock response synthesis preventing real production state mutation; in-process execution ($<50\mu\text{s}$ per turn); zero external LLM API calls; dual-SDK parity.

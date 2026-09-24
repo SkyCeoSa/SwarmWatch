@@ -411,3 +411,17 @@ export {
   ByzantineStressHarness,
   globalByzantineHarness,
 } from "./byzantine.ts";
+
+// Multi-Agent Dynamic Honeypot & Deception Sandboxing (Seam 41 / ADR 0052)
+export type {
+  HoneypotStatusType,
+  Honeytoken,
+  ShadowGraphSpan,
+  HoneypotReport,
+} from "./honeypot.ts";
+export {
+  HoneypotStatus,
+  DeceptionResponseGenerator,
+  HoneypotManager,
+  globalHoneypotManager,
+} from "./honeypot.ts";

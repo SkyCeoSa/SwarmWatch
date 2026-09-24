@@ -236,6 +236,16 @@ def main(argv=None):
     byz_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     byz_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch honeypot` subcommand (Seam 41 / ADR 0052)
+    honey_parser = subparsers.add_parser("honeypot", help="Manage multi-agent deception sandboxes and canary honeytokens")
+    honey_parser.add_argument("action", choices=["status", "divert", "token", "reset"], default="status", nargs="?", help="Honeypot action (status, divert, token, reset)")
+    honey_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    honey_parser.add_argument("--agent", default="agent-adversary", help="Target agent ID to divert (default: agent-adversary)")
+    honey_parser.add_argument("--token-type", default="API_KEY", help="Honeytoken type (API_KEY, DB_CONNECTION, JWT_SECRET)")
+    honey_parser.add_argument("--reason", default="adversarial_detected", help="Diversion reason")
+    honey_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    honey_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -1668,6 +1678,99 @@ def main(argv=None):
                 print(f"  Contagion Ratio:      {data.get('contagion_ratio', 0.0) * 100:.1f}%")
                 print(f"  BFT Resilience Score: {data.get('bft_resilience_score', 1.0) * 100:.1f}%")
                 print(f"  Swarm Defense Status: {color}{status_str}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "honeypot":
+        import urllib.request
+        from swarmwatch.honeypot import global_honeypot_manager
+
+        if args.action == "divert":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/honeypot/divert"
+            payload_data = json.dumps({"agent_id": args.agent, "reason": args.reason}).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload_data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                global_honeypot_manager.divert_agent(args.swarm_id, args.agent, args.reason)
+                data = {"status": "diverted", "swarm_id": args.swarm_id, "agent_id": args.agent, "reason": args.reason}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DECEPTION SANDBOX DIVERSION (ADR 0052)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {args.swarm_id}")
+                print(f"  Diverted Agent:       {args.agent}")
+                print(f"  Reason:               {args.reason}")
+                print(f"  Status:               \033[93mDIVERTED TO SHADOW SANDBOX\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "token":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/honeypot/token"
+            payload_data = json.dumps({"token_type": args.token_type}).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload_data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                token = global_honeypot_manager.generate_honeytoken(args.swarm_id, args.token_type)
+                data = {"status": "created", "honeytoken": token.to_dict()}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                htk = data.get("honeytoken", {})
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CANARY HONEYTOKEN GENERATED (ADR 0052)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {args.swarm_id}")
+                print(f"  Token ID:             {htk.get('token_id')}")
+                print(f"  Token Value:          \033[96m{htk.get('token_value')}\033[0m")
+                print(f"  Type:                 {htk.get('token_type')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "reset":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/honeypot/reset"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                global_honeypot_manager.reset(args.swarm_id)
+                data = {"status": "reset", "swarm_id": args.swarm_id}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n\033[92m[SwarmWatch] Honeypot and deception sandbox reset for '{args.swarm_id}'.\033[0m\n")
+            sys.exit(0)
+
+        else:
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/honeypot/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_honeypot_manager.get_report(args.swarm_id).to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                status_str = data.get("status", "ARMED")
+                color = "\033[92m" if status_str == "DEFUSED" else ("\033[93m" if status_str == "DECEIVING" else "\033[96m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DYNAMIC HONEYPOT & DECEPTION STATUS (ADR 0052)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Operational Status:   {color}{status_str}\033[0m")
+                print(f"  Diverted Turns:       {data.get('total_diverted_turns')}")
+                print(f"  Sandboxed Agents:     {', '.join(data.get('active_sandboxed_agents', [])) or 'None'}")
+                print(f"  Active Honeytokens:   {len(data.get('active_honeytokens', []))}")
+                print(f"  Tripped Honeytokens:  {data.get('honeytokens_tripped')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

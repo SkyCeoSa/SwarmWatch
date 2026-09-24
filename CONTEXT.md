@@ -537,9 +537,16 @@ _Avoid_: Hook call, function callback, middleware run
 - **ContagionIsolationRatio**: The proportion of downstream peer agents successfully shielded from poisoned context during an adversarial injection ($1 - C_{\text{contagion}}$).
   _Avoid_: Shield percent, infection rate, safe ratio
 
-
-
-
-
-
-
+### Multi-Agent Dynamic Honeypot & Deception Sandboxing (Seam 41 / ADR 0052)
+- **HoneypotManager**: Deep module managing deception sandboxes, canary honeytoken generation, and diversion routing for adversarial agents without remote LLM calls.
+  _Avoid_: Trap bot, fake agent, honey script, trick manager
+- **Honeytoken**: Synthetic, cryptographically identifiable credentials (`sw_canary_...`) embedded into swarm memory to detect unauthorized access or exfiltration attempts.
+  _Avoid_: Fake key, dummy secret, bait password, trap token
+- **DeceptionSandbox**: In-process shadow interaction environment returning plausible synthetic responses to trapped adversarial agents without executing real operations or mutating production state.
+  _Avoid_: Fake room, mock engine, fake runner, dummy sandbox
+- **DiversionRouting**: Seamless redirection of in-flight causal spans from compromised agents into simulated sandboxes without alerting the attacker.
+  _Avoid_: Reroute hack, traffic detour, span ditching
+- **ShadowGraph**: Isolated synthetic execution graph tracking diverted turns, trapped attack payloads, and adversary behavioral telemetry.
+  _Avoid_: Ghost DAG, fake graph, dummy trace
+- **HoneypotStatus**: High-level operational state (`ARMED`, `DECEIVING`, `DEFUSED`) tracking active deception engagements and sandboxed adversaries.
+  _Avoid_: Trap flag, decoy state, trick status

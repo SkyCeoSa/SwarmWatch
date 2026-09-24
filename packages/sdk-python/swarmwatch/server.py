@@ -82,6 +82,13 @@ from swarmwatch.byzantine import (
     ByzantineStressHarness,
     global_byzantine_harness,
 )
+from swarmwatch.honeypot import (
+    HoneypotStatus,
+    Honeytoken,
+    HoneypotReport,
+    HoneypotManager,
+    global_honeypot_manager,
+)
 
 
 
@@ -236,6 +243,15 @@ class ByzantineInjectRequest(BaseModel):
     attack_type: str = "prompt_injection"
     payload: Optional[str] = None
     turn_index: int = 1
+
+
+class HoneypotDivertRequest(BaseModel):
+    agent_id: str = "agent-adversary"
+    reason: str = "adversarial_detected"
+
+
+class HoneytokenCreateRequest(BaseModel):
+    token_type: str = "API_KEY"
 
 
 
@@ -4371,6 +4387,29 @@ def create_app(
         """Clears active attacks and lifts quarantines for the swarm."""
         global_byzantine_harness.reset(swarm_id)
         return {"status": "cleared", "swarm_id": swarm_id}
+
+    @app.get("/api/v1/swarms/{swarm_id}/honeypot/status")
+    async def get_honeypot_status_endpoint(swarm_id: str):
+        """Returns honeypot deception status, canary tokens, and sandboxed agents."""
+        return global_honeypot_manager.get_report(swarm_id).to_dict()
+
+    @app.post("/api/v1/swarms/{swarm_id}/honeypot/token")
+    async def create_honeytoken_endpoint(swarm_id: str, req: HoneytokenCreateRequest):
+        """Generates and deploys a synthetic canary honeytoken."""
+        token = global_honeypot_manager.generate_honeytoken(swarm_id, req.token_type)
+        return {"status": "created", "honeytoken": token.to_dict()}
+
+    @app.post("/api/v1/swarms/{swarm_id}/honeypot/divert")
+    async def divert_agent_endpoint(swarm_id: str, req: HoneypotDivertRequest):
+        """Diverts an agent into the deception sandbox."""
+        global_honeypot_manager.divert_agent(swarm_id, req.agent_id, req.reason)
+        return {"status": "diverted", "swarm_id": swarm_id, "agent_id": req.agent_id, "reason": req.reason}
+
+    @app.post("/api/v1/swarms/{swarm_id}/honeypot/reset")
+    async def reset_honeypot_endpoint(swarm_id: str):
+        """Clears honeypot state, canary tokens, and sandboxed agents for the swarm."""
+        global_honeypot_manager.reset(swarm_id)
+        return {"status": "reset", "swarm_id": swarm_id}
 
 
 

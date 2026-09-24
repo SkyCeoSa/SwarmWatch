@@ -1637,6 +1637,10 @@
             <span class="status-indicator" id="byzantineDot" style="background: var(--success);"></span>
             <span id="byzantineText">BYZANTINE: SHIELDED (100%)</span>
           </div>
+          <div class="fleet-badge" id="honeypotBadge" title="Multi-Agent Dynamic Honeypot & Deception Sandboxing (ADR 0052)">
+            <span class="status-indicator" id="honeypotDot" style="background: var(--success);"></span>
+            <span id="honeypotText">HONEYPOT: ARMED (0 TRAPPED)</span>
+          </div>
         </div>
 
 
@@ -4177,6 +4181,36 @@
       }
       refreshByzantineStatus();
       setInterval(refreshByzantineStatus, 9500);
+
+      // -------------------------------------------------------------------
+      // Multi-Agent Dynamic Honeypot & Deception Sandboxing (ADR 0052)
+      // -------------------------------------------------------------------
+      async function refreshHoneypotStatus() {
+        var honeypotDot = document.getElementById('honeypotDot');
+        var honeypotText = document.getElementById('honeypotText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/honeypot/status');
+          if (res.ok) {
+            var data = await res.json();
+            var status = data.status || 'DEFUSED';
+            var trapped = data.total_diverted_turns || 0;
+            var sandboxed = (data.active_sandboxed_agents || []).length;
+            if (status === 'DECEIVING' || sandboxed > 0) {
+              if (honeypotDot) honeypotDot.style.background = 'var(--warning)';
+              if (honeypotText) honeypotText.textContent = 'HONEYPOT: DECEIVING (' + trapped + ' TRAPPED | ' + sandboxed + 'S)';
+            } else if (status === 'ARMED') {
+              if (honeypotDot) honeypotDot.style.background = 'var(--success)';
+              if (honeypotText) honeypotText.textContent = 'HONEYPOT: ARMED (' + trapped + ' TRAPPED)';
+            } else {
+              if (honeypotDot) honeypotDot.style.background = 'var(--text-muted)';
+              if (honeypotText) honeypotText.textContent = 'HONEYPOT: DEFUSED';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshHoneypotStatus();
+      setInterval(refreshHoneypotStatus, 9800);
 
 
 

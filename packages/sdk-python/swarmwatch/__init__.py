@@ -319,6 +319,13 @@ __all__ = [
     "ByzantineResilienceReport",
     "ByzantineStressHarness",
     "global_byzantine_harness",
+    "HoneypotStatus",
+    "Honeytoken",
+    "ShadowGraphSpan",
+    "HoneypotReport",
+    "DeceptionResponseGenerator",
+    "HoneypotManager",
+    "global_honeypot_manager",
 ]
 
 
@@ -469,6 +476,15 @@ from swarmwatch.byzantine import (
     ByzantineResilienceReport,
     ByzantineStressHarness,
     global_byzantine_harness,
+)
+from swarmwatch.honeypot import (
+    HoneypotStatus,
+    Honeytoken,
+    ShadowGraphSpan,
+    HoneypotReport,
+    DeceptionResponseGenerator,
+    HoneypotManager,
+    global_honeypot_manager,
 )
 
 
