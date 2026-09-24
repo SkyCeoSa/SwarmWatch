@@ -75,6 +75,14 @@ from swarmwatch.forecast import (
     EntropyMartingaleForecaster,
     global_forecaster,
 )
+from swarmwatch.byzantine import (
+    ByzantineAttackType,
+    ByzantineFaultProfile,
+    ByzantineResilienceReport,
+    ByzantineStressHarness,
+    global_byzantine_harness,
+)
+
 
 
 
@@ -221,6 +229,14 @@ class ForecastEvaluateRequest(BaseModel):
     turn_index: int
     entropy: float
     agent: str = "agent-unknown"
+
+
+class ByzantineInjectRequest(BaseModel):
+    agent_id: str = "agent-rogue"
+    attack_type: str = "prompt_injection"
+    payload: Optional[str] = None
+    turn_index: int = 1
+
 
 
 
@@ -4327,6 +4343,35 @@ def create_app(
         """Resets the martingale forecast history and state for the specified swarm."""
         global_forecaster.reset(swarm_id)
         return {"status": "forecast_reset", "swarm_id": swarm_id}
+
+    @app.get("/api/v1/swarms/{swarm_id}/byzantine/status")
+    async def get_byzantine_status_endpoint(swarm_id: str):
+        """Returns BFT resilience report and quarantined agent list for the swarm."""
+        return global_byzantine_harness.get_resilience_report(swarm_id).to_dict()
+
+    @app.post("/api/v1/swarms/{swarm_id}/byzantine/inject")
+    async def inject_byzantine_attack_endpoint(swarm_id: str, req: ByzantineInjectRequest):
+        """Injects a synthetic Byzantine adversarial turn and evaluates defense response."""
+        result = global_byzantine_harness.inject_adversarial_turn(
+            swarm_id=swarm_id,
+            agent_id=req.agent_id,
+            attack_type=req.attack_type,
+            custom_payload=req.payload,
+            turn_index=req.turn_index,
+        )
+        report = global_byzantine_harness.get_resilience_report(swarm_id)
+        return {
+            "status": "injected",
+            "injection": result,
+            "resilience": report.to_dict(),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/byzantine/clear")
+    async def clear_byzantine_attacks_endpoint(swarm_id: str):
+        """Clears active attacks and lifts quarantines for the swarm."""
+        global_byzantine_harness.reset(swarm_id)
+        return {"status": "cleared", "swarm_id": swarm_id}
+
 
 
 

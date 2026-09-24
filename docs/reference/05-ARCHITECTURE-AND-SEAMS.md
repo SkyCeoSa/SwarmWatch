@@ -207,6 +207,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `EntropyMartingaleForecaster`, `ForecastRiskLevel`, `SwarmForecastReport` (`forecast.ts`), exported via `index.ts`.
     - Primitives (Console): `#forecastBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Discrete-time supermartingale convergence testing on turn-to-turn entropy delta sequences ($\Delta H_t$); centered martingale difference tracking ($M_n = \sum (D_t - \mu)$); Azuma-Hoeffding concentration inequality computing exact failure probability ($P_{\text{risk}} \in [0.0, 1.0]$) and early-warning horizon ($T_{\text{forecast}} \in [1, 5]$ turns) 2 to 4 turns before circuit breaker halts; in-process execution ($<30\mu\text{s}$ per turn); zero external LLM token expenditure; dual-SDK parity.
+40. **Multi-Agent Byzantine Attack & Prompt Injection Stress Harness Seam (ADR 0051 Dual-SDK Parity)**:
+    - Primitives (Python): `ByzantineStressHarness`, `ByzantineAttackType`, `ByzantineFaultProfile`, `ByzantineResilienceReport`, `AgentQuarantinePolicy` (`byzantine.py`), server endpoints `GET /api/v1/swarms/{id}/byzantine/status`, `POST /api/v1/swarms/{id}/byzantine/inject`, `POST /api/v1/swarms/{id}/byzantine/clear` (`server.py`), CLI subcommand `swarmwatch byzantine` (`cli.py`).
+    - Primitives (TypeScript): `ByzantineStressHarness`, `ByzantineAttackType`, `ByzantineResilienceReport` (`byzantine.ts`), exported via `index.ts`.
+    - Primitives (Console): `#byzantineBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Synthetic adversarial attack injection (`PROMPT_INJECTION`, `STATE_POISONING`, `ENTROPY_JAMMING`, `SYBIL_CONTAGION`); quantitative Byzantine Fault Tolerance (BFT) resilience scoring ($B_{\text{resilience}} \in [0.0, 1.0]$); autonomous agent quarantine isolation removing compromised nodes from causal interaction graphs; in-process execution ($<40\mu\text{s}$ per turn); zero external LLM API calls; dual-SDK parity.
+
 
 
 

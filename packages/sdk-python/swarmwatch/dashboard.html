@@ -1633,6 +1633,10 @@
             <span class="status-indicator" id="forecastDot" style="background: var(--success);"></span>
             <span id="forecastText">FORECAST: STABLE</span>
           </div>
+          <div class="fleet-badge" id="byzantineBadge" title="Multi-Agent Byzantine Attack & Prompt Injection Stress Harness (ADR 0051)">
+            <span class="status-indicator" id="byzantineDot" style="background: var(--success);"></span>
+            <span id="byzantineText">BYZANTINE: SHIELDED (100%)</span>
+          </div>
         </div>
 
 
@@ -4143,6 +4147,36 @@
       }
       refreshForecastStatus();
       setInterval(refreshForecastStatus, 9000);
+
+      // -------------------------------------------------------------------
+      // Multi-Agent Byzantine Attack & Prompt Injection Stress Harness (ADR 0051)
+      // -------------------------------------------------------------------
+      async function refreshByzantineStatus() {
+        var byzantineDot = document.getElementById('byzantineDot');
+        var byzantineText = document.getElementById('byzantineText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/byzantine/status');
+          if (res.ok) {
+            var data = await res.json();
+            var status = data.status || 'SHIELDED';
+            var score = Math.round((data.bft_resilience_score !== undefined ? data.bft_resilience_score : 1.0) * 100);
+            var isolated = data.total_agents_isolated || 0;
+            if (status === 'COMPROMISED') {
+              if (byzantineDot) byzantineDot.style.background = 'var(--danger)';
+              if (byzantineText) byzantineText.textContent = 'BYZANTINE: COMPROMISED (' + score + '%)';
+            } else if (status === 'ISOLATING' || isolated > 0) {
+              if (byzantineDot) byzantineDot.style.background = 'var(--warning)';
+              if (byzantineText) byzantineText.textContent = 'BYZANTINE: ISOLATING (' + score + '% | ' + isolated + 'Q)';
+            } else {
+              if (byzantineDot) byzantineDot.style.background = 'var(--success)';
+              if (byzantineText) byzantineText.textContent = 'BYZANTINE: SHIELDED (' + score + '%)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshByzantineStatus();
+      setInterval(refreshByzantineStatus, 9500);
 
 
 

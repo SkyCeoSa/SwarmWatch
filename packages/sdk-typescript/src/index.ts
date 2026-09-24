@@ -397,8 +397,17 @@ export {
   globalForecaster,
 } from "./forecast.ts";
 
-
-
-
-
-
+// Multi-Agent Byzantine Attack & Prompt Injection Stress Harness (Seam 40 / ADR 0051)
+export type {
+  ByzantineAttackTypeValue,
+  ByzantineFaultProfile,
+  ByzantineAttackEvent,
+  ByzantineResilienceReport,
+} from "./byzantine.ts";
+export {
+  ByzantineAttackType,
+  PROMPT_INJECTION_PATTERNS,
+  STATE_POISONING_PATTERNS,
+  ByzantineStressHarness,
+  globalByzantineHarness,
+} from "./byzantine.ts";

@@ -225,8 +225,19 @@ def main(argv=None):
     forecast_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     forecast_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch byzantine` subcommand (Seam 40 / ADR 0051)
+    byz_parser = subparsers.add_parser("byzantine", help="Execute synthetic Byzantine adversarial attacks and measure multi-agent swarm BFT resilience")
+    byz_parser.add_argument("action", choices=["status", "inject", "clear"], default="status", nargs="?", help="Byzantine action (status, inject, clear)")
+    byz_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    byz_parser.add_argument("--agent", default="agent-rogue", help="Target or adversary agent ID (default: agent-rogue)")
+    byz_parser.add_argument("--type", choices=["prompt_injection", "state_poisoning", "entropy_jamming", "sybil_contagion"], default="prompt_injection", help="Adversarial attack type")
+    byz_parser.add_argument("--payload", default=None, help="Custom adversarial attack payload text")
+    byz_parser.add_argument("--turn", type=int, default=1, help="Turn index (default: 1)")
+    byz_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    byz_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
     args = parser.parse_args(argv)
+
 
 
 
@@ -1571,7 +1582,94 @@ def main(argv=None):
                 print(f"  Justification:        {data.get('justification')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
+    elif args.subcommand == "byzantine":
+        import urllib.request
+        from swarmwatch.byzantine import global_byzantine_harness
 
+        if args.action == "inject":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/byzantine/inject"
+            payload_data = json.dumps({
+                "agent_id": args.agent,
+                "attack_type": args.type,
+                "payload": args.payload,
+                "turn_index": args.turn,
+            }).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload_data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                res = global_byzantine_harness.inject_adversarial_turn(
+                    swarm_id=args.swarm_id,
+                    agent_id=args.agent,
+                    attack_type=args.type,
+                    custom_payload=args.payload,
+                    turn_index=args.turn,
+                )
+                rep = global_byzantine_harness.get_resilience_report(args.swarm_id)
+                data = {"status": "injected", "injection": res, "resilience": rep.to_dict()}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                inj = data.get("injection", {})
+                res = data.get("resilience", {})
+                status_str = res.get("status", "NOMINAL")
+                color = "\033[92m" if status_str == "SHIELDED" else ("\033[93m" if status_str == "ISOLATING" else "\033[91m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH BYZANTINE ATTACK INJECTION HARNESS (ADR 0051)      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {args.swarm_id}")
+                print(f"  Adversary Agent:      {inj.get('agent_id')}")
+                print(f"  Attack Type:          {inj.get('attack_type')}")
+                print(f"  Intercepted:          {inj.get('intercepted')}")
+                print(f"  Defense Mechanism:    {inj.get('defense_mechanism')}")
+                print(f"  Agent Quarantined:    {inj.get('isolated')}")
+                print(f"  BFT Resilience Score: {res.get('bft_resilience_score', 1.0) * 100:.1f}%")
+                print(f"  Swarm Shield Status:  {color}{status_str}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "clear":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/byzantine/clear"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                global_byzantine_harness.reset(args.swarm_id)
+                data = {"status": "cleared", "swarm_id": args.swarm_id}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n\033[92m[SwarmWatch] Byzantine attacks and quarantines cleared for '{args.swarm_id}'.\033[0m\n")
+            sys.exit(0)
+        else:
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/byzantine/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_byzantine_harness.get_resilience_report(args.swarm_id).to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                status_str = data.get("status", "NOMINAL")
+                color = "\033[92m" if status_str == "SHIELDED" else ("\033[93m" if status_str == "ISOLATING" else "\033[91m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH BYZANTINE FAULT TOLERANCE (BFT) STATUS (ADR 0051)  |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Total Attacks:        {data.get('total_attacks_injected')}")
+                print(f"  Total Intercepted:    {data.get('total_attacks_intercepted')}")
+                print(f"  Quarantined Agents:   {len(data.get('quarantined_agents', []))}")
+                print(f"  Quarantine Roster:    {', '.join(data.get('quarantined_agents', [])) or 'None'}")
+                print(f"  Contagion Ratio:      {data.get('contagion_ratio', 0.0) * 100:.1f}%")
+                print(f"  BFT Resilience Score: {data.get('bft_resilience_score', 1.0) * 100:.1f}%")
+                print(f"  Swarm Defense Status: {color}{status_str}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

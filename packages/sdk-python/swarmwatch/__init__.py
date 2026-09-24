@@ -313,7 +313,14 @@ __all__ = [
     "SwarmForecastReport",
     "EntropyMartingaleForecaster",
     "global_forecaster",
+    "ByzantineAttackType",
+    "ByzantineFaultProfile",
+    "ByzantineAttackEvent",
+    "ByzantineResilienceReport",
+    "ByzantineStressHarness",
+    "global_byzantine_harness",
 ]
+
 
 from swarmwatch.redis_lock import (
     RedisDistributedLock,
@@ -455,6 +462,15 @@ from swarmwatch.forecast import (
     EntropyMartingaleForecaster,
     global_forecaster,
 )
+from swarmwatch.byzantine import (
+    ByzantineAttackType,
+    ByzantineFaultProfile,
+    ByzantineAttackEvent,
+    ByzantineResilienceReport,
+    ByzantineStressHarness,
+    global_byzantine_harness,
+)
+
 
 
 

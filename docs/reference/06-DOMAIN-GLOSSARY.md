@@ -840,6 +840,35 @@ _Avoid_: Danger state, threat level, alert color
 The proactive automated adjustment (e.g. self-healing prompt perturbation, fallback routing) triggered prior to a hard circuit breaker trip.
 _Avoid_: Early kill, proactive stop, pre-halt
 
+---
+
+### Multi-Agent Byzantine Attack & Prompt Injection Stress Harness (Seam 40 / ADR 0051)
+
+**ByzantineStressHarness**:
+The deep module coordinating synthetic adversarial injections, measuring multi-agent defense posture, and computing quantitative Byzantine Fault Tolerance (BFT) resilience scores.
+_Avoid_: Hack script, attack bot, fuzzer tool, chaos injector
+
+**ByzantineAttackType**:
+The categorical attack vectors (`PROMPT_INJECTION`, `STATE_POISONING`, `ENTROPY_JAMMING`, `SYBIL_CONTAGION`) defining adversarial payload patterns and intent.
+_Avoid_: Hack type, exploit kind, attack name
+
+**BftResilienceScore**:
+The quantitative metric $B_{\text{resilience}} \in [0.0, 1.0]$ quantifying the proportion of successfully intercepted attacks, isolated rogue agents, and contained context contagion.
+_Avoid_: Safety grade, health rating, defense percent
+
+**ByzantineFaultProfile**:
+The configuration specifying attack vector, injection probability, payload pattern, and target agent for stress testing.
+_Avoid_: Exploit profile, attack recipe, test config
+
+**AgentQuarantinePolicy**:
+The automated isolation rule blacklisting adversarial or compromised agents from active causal interaction topologies to prevent contagion.
+_Avoid_: Ban list, blacklist rule, agent kick
+
+**ContagionIsolationRatio**:
+The proportion of downstream peer agents successfully shielded from poisoned context during an adversarial injection ($1 - C_{\text{contagion}}$).
+_Avoid_: Shield percent, infection rate, safe ratio
+
+
 
 
 

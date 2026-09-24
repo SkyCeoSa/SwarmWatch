@@ -339,8 +339,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Azuma-Hoeffding concentration inequality computing exact failure probability ($P_{\text{risk}} \in [0.0, 1.0]$) and early-warning horizon ($T_{\text{forecast}} \in [1, 5]$ turns) 2 to 4 turns before circuit breaker halts.
   - Dual-SDK parity across Python (`swarmwatch.forecast`) and TypeScript (`@swarmwatch/sdk/src/forecast.ts`) conforming strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/swarms/{id}/forecast`, `POST /api/v1/swarms/{id}/forecast/evaluate`), CLI subcommand (`swarmwatch forecast status|predict`), and Web Console `#forecastBadge` widget.
+- **Multi-Agent Byzantine Attack & Prompt Injection Stress Harness (Seam 40 & ADR 0051 Dual-SDK Parity)**:
+  - Deep module `ByzantineStressHarness` orchestrating synthetic adversarial injections (prompt injections, state poisoning, entropy jamming, Sybil contagion) and measuring swarm resilience.
+  - Quantitative Byzantine Fault Tolerance (BFT) resilience metric calculating interception and isolation rates alongside context contagion mitigation ($B_{\text{resilience}} \in [0.0, 1.0]$).
+  - Autonomous agent quarantine isolation (`AgentQuarantinePolicy`) blacklisting compromised agents from the causal interaction graph in $<40\mu\text{s}$ per turn without remote LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.byzantine`) and TypeScript (`@swarmwatch/sdk/src/byzantine.ts`) conforming strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`GET /api/v1/swarms/{id}/byzantine/status`, `POST /api/v1/swarms/{id}/byzantine/inject`, `POST /api/v1/swarms/{id}/byzantine/clear`), CLI subcommand (`swarmwatch byzantine status|inject|clear`), and Web Console `#byzantineBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 
