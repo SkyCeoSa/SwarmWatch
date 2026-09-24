@@ -215,6 +215,17 @@ def main(argv=None):
     privacy_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     privacy_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch forecast` subcommand (Seam 39 / ADR 0050)
+    forecast_parser = subparsers.add_parser("forecast", help="Inspect and evaluate predictive martingale failure forecasting and early-warning alerts")
+    forecast_parser.add_argument("action", choices=["status", "predict", "reset"], default="status", nargs="?", help="Forecast action (status, predict, reset)")
+    forecast_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    forecast_parser.add_argument("--entropy", type=float, default=None, help="Turn entropy score to evaluate")
+    forecast_parser.add_argument("--turn", type=int, default=1, help="Turn index (default: 1)")
+    forecast_parser.add_argument("--agent", default="agent-cli", help="Agent identifier (default: agent-cli)")
+    forecast_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    forecast_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
+
     args = parser.parse_args(argv)
 
 
@@ -1472,6 +1483,95 @@ def main(argv=None):
                 print(f"  Anonymize Payloads:  {data.get('anonymize_payloads')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
+    elif args.subcommand == "forecast":
+        import urllib.request
+        from swarmwatch.forecast import global_forecaster
+
+        if args.action == "predict":
+            ent_val = args.entropy if args.entropy is not None else 0.42
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/forecast/evaluate"
+            payload_data = json.dumps({
+                "turn_index": args.turn,
+                "entropy": ent_val,
+                "agent": args.agent,
+            }).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload_data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+                    report = data.get("report", {})
+            except Exception:
+                rep = global_forecaster.observe_turn(
+                    swarm_id=args.swarm_id,
+                    turn_index=args.turn,
+                    entropy=ent_val,
+                    agent=args.agent,
+                )
+                report = rep.to_dict()
+
+            if args.format == "json":
+                print(json.dumps(report, indent=2))
+            else:
+                risk_lvl = report.get("risk_level", "nominal")
+                color = "\033[92m" if risk_lvl == "nominal" else ("\033[93m" if risk_lvl == "early_warning" else "\033[91m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ENTROPY MARTINGALE FAILURE FORECAST (ADR 0050)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {report.get('swarm_id')}")
+                print(f"  Observed Turns:       {report.get('total_turns')}")
+                print(f"  Current Entropy:      {report.get('current_entropy'):.4f} bits")
+                print(f"  Critical Threshold:   {report.get('threshold'):.4f} bits")
+                print(f"  Drift Rate:           {report.get('drift_rate'):.4f} bits/turn")
+                print(f"  Estimated Turns Left: {report.get('turns_to_trip')}")
+                print(f"  Risk Level:           {color}{risk_lvl.upper()}\033[0m")
+                print(f"  Failure Probability:  {report.get('risk_probability', 0.0) * 100:.1f}%")
+                print(f"  Preemptive Intervene: {report.get('preemptive_recommended')}")
+                print(f"  Justification:        {report.get('justification')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "reset":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/forecast/reset"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                global_forecaster.reset(args.swarm_id)
+                data = {"status": "forecast_reset", "swarm_id": args.swarm_id}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n\033[92m[SwarmWatch] Forecast state reset for swarm '{args.swarm_id}'.\033[0m\n")
+            sys.exit(0)
+        else:
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/forecast"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_forecaster.get_forecast(args.swarm_id).to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                risk_lvl = data.get("risk_level", "nominal")
+                color = "\033[92m" if risk_lvl == "nominal" else ("\033[93m" if risk_lvl == "early_warning" else "\033[91m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ENTROPY MARTINGALE FAILURE FORECAST (ADR 0050)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Observed Turns:       {data.get('total_turns')}")
+                print(f"  Current Entropy:      {data.get('current_entropy'):.4f} bits")
+                print(f"  Critical Threshold:   {data.get('threshold'):.4f} bits")
+                print(f"  Drift Rate:           {data.get('drift_rate'):.4f} bits/turn")
+                print(f"  Estimated Turns Left: {data.get('turns_to_trip')}")
+                print(f"  Risk Level:           {color}{risk_lvl.upper()}\033[0m")
+                print(f"  Failure Probability:  {data.get('risk_probability', 0.0) * 100:.1f}%")
+                print(f"  Preemptive Intervene: {data.get('preemptive_recommended')}")
+                print(f"  Justification:        {data.get('justification')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
     else:
         parser.print_help()
         sys.exit(1)

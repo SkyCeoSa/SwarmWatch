@@ -385,6 +385,19 @@ export {
   globalPrivacyEngine,
 } from "./diff_privacy.ts";
 
+// Predictive Multi-Agent Failure Forecasting & Early-Warning Entropy Martingales (Seam 39 / ADR 0050)
+export type {
+  ForecastRiskLevelType,
+  MartingaleStep,
+  SwarmForecastReport,
+} from "./forecast.ts";
+export {
+  ForecastRiskLevel,
+  EntropyMartingaleForecaster,
+  globalForecaster,
+} from "./forecast.ts";
+
+
 
 
 

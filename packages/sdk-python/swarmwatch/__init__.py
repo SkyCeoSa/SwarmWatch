@@ -308,6 +308,11 @@ __all__ = [
     "LaplaceMechanism",
     "DifferentialPrivacyEngine",
     "global_privacy_engine",
+    "ForecastRiskLevel",
+    "MartingaleStep",
+    "SwarmForecastReport",
+    "EntropyMartingaleForecaster",
+    "global_forecaster",
 ]
 
 from swarmwatch.redis_lock import (
@@ -443,6 +448,14 @@ from swarmwatch.diff_privacy import (
     DifferentialPrivacyEngine,
     global_privacy_engine,
 )
+from swarmwatch.forecast import (
+    ForecastRiskLevel,
+    MartingaleStep,
+    SwarmForecastReport,
+    EntropyMartingaleForecaster,
+    global_forecaster,
+)
+
 
 
 

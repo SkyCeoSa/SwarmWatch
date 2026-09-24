@@ -1629,7 +1629,12 @@
             <span class="status-indicator" id="dpDot" style="background: var(--success);"></span>
             <span id="dpText">DP: PROTECTED (ε=1.0)</span>
           </div>
+          <div class="fleet-badge" id="forecastBadge" title="Predictive Multi-Agent Failure Forecasting & Early-Warning Entropy Martingales (ADR 0050)">
+            <span class="status-indicator" id="forecastDot" style="background: var(--success);"></span>
+            <span id="forecastText">FORECAST: STABLE</span>
+          </div>
         </div>
+
 
 
 
@@ -4108,6 +4113,37 @@
       }
       refreshPrivacyStatus();
       setInterval(refreshPrivacyStatus, 8500);
+
+      // -------------------------------------------------------------------
+      // Predictive Multi-Agent Failure Forecasting & Early-Warning Martingales (ADR 0050)
+      // -------------------------------------------------------------------
+      async function refreshForecastStatus() {
+        var forecastDot = document.getElementById('forecastDot');
+        var forecastText = document.getElementById('forecastText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/forecast');
+          if (res.ok) {
+            var data = await res.json();
+            var lvl = data.risk_level || 'nominal';
+            var turnsLeft = data.turns_to_trip;
+            var prob = (data.risk_probability || 0) * 100;
+            if (lvl === 'critical_collapse') {
+              if (forecastDot) forecastDot.style.background = 'var(--danger)';
+              if (forecastText) forecastText.textContent = 'FORECAST: CRITICAL (' + prob.toFixed(0) + '%)';
+            } else if (lvl === 'early_warning') {
+              if (forecastDot) forecastDot.style.background = 'var(--warning)';
+              if (forecastText) forecastText.textContent = 'FORECAST: WARNING (' + (turnsLeft !== null ? turnsLeft + 'T' : prob.toFixed(0) + '%') + ')';
+            } else {
+              if (forecastDot) forecastDot.style.background = 'var(--success)';
+              if (forecastText) forecastText.textContent = 'FORECAST: STABLE';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshForecastStatus();
+      setInterval(refreshForecastStatus, 9000);
+
 
 
       if (btnMfaModal) {

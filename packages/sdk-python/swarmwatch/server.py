@@ -68,6 +68,14 @@ from swarmwatch.diff_privacy import (
     DifferentialPrivacyEngine,
     global_privacy_engine,
 )
+from swarmwatch.forecast import (
+    ForecastRiskLevel,
+    MartingaleStep,
+    SwarmForecastReport,
+    EntropyMartingaleForecaster,
+    global_forecaster,
+)
+
 
 
 
@@ -207,6 +215,14 @@ class PrivacyPolicyRequest(BaseModel):
     anonymize_identities: Optional[bool] = None
     anonymize_metrics: Optional[bool] = None
     anonymize_payloads: Optional[bool] = None
+
+
+class ForecastEvaluateRequest(BaseModel):
+    turn_index: int
+    entropy: float
+    agent: str = "agent-unknown"
+
+
 
 
 
@@ -4285,6 +4301,33 @@ def create_app(
         """Resets the spent privacy budget back to zero."""
         global_privacy_engine.reset_budget()
         return {"status": "budget_reset", "status_info": global_privacy_engine.get_status()}
+
+    @app.get("/api/v1/swarms/{swarm_id}/forecast")
+    async def get_swarm_forecast_endpoint(swarm_id: str):
+        """Retrieves predictive martingale failure forecast report for the specified swarm."""
+        return global_forecaster.get_forecast(swarm_id).to_dict()
+
+    @app.post("/api/v1/swarms/{swarm_id}/forecast/evaluate")
+    async def evaluate_swarm_forecast_endpoint(swarm_id: str, req: ForecastEvaluateRequest):
+        """Observes a turn and evaluates discrete-time entropy martingale risk."""
+        report = global_forecaster.observe_turn(
+            swarm_id=swarm_id,
+            turn_index=req.turn_index,
+            entropy=req.entropy,
+            agent=req.agent,
+        )
+
+        return {
+            "status": "evaluated",
+            "report": report.to_dict(),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/forecast/reset")
+    async def reset_swarm_forecast_endpoint(swarm_id: str):
+        """Resets the martingale forecast history and state for the specified swarm."""
+        global_forecaster.reset(swarm_id)
+        return {"status": "forecast_reset", "swarm_id": swarm_id}
+
 
 
     @app.websocket("/ws/swarm/{swarm_id}")

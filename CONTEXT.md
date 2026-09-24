@@ -505,6 +505,23 @@ _Avoid_: Hook call, function callback, middleware run
 - **DifferentialPrivacyPolicy**: Configuration defining $\epsilon$, sensitivity bounds, target fields, and tenant salt keys for privacy enforcement.
   _Avoid_: Privacy rules, mask settings, DP config
 
+---
+
+### Predictive Multi-Agent Failure Forecasting & Early-Warning Entropy Martingales (Seam 39 / ADR 0050)
+- **EntropyMartingaleForecaster**: Deep module calculating conditional entropy drift, supermartingale sequences, and Azuma-Hoeffding risk bounds to predict multi-agent conversational failure 2 to 4 turns in advance without remote LLM calls.
+  _Avoid_: Failure predictor, crash watcher, forecast bot, error guesser
+- **MartingaleDriftSequence**: The centered stochastic process $M_n = \sum (D_t - \mu)$ tracking persistent structural entropy degradation distinct from random conversational variance.
+  _Avoid_: Trend line, drift array, diff sequence
+- **EarlyWarningHorizon**: The estimated number of discrete execution turns remaining before an agent swarm crosses critical circuit breaker halt thresholds ($T_{\text{forecast}}$).
+  _Avoid_: Countdown, time to crash, turn estimate
+- **AzumaHoeffdingBound**: Concentration inequality computing the mathematical probability $P_{\text{risk}}$ of critical collapse within $h$ turns given bounded filtration differences.
+  _Avoid_: Risk math, failure odds, chance calculation
+- **ForecastRiskLevel**: Categorical classification of impending swarm risk (`NOMINAL`, `EARLY_WARNING`, `CRITICAL_COLLAPSE`).
+  _Avoid_: Danger state, threat level, alert color
+- **PreemptiveIntervention**: Proactive automated adjustment (e.g. self-healing prompt perturbation, fallback routing) triggered prior to a hard circuit breaker trip.
+  _Avoid_: Early kill, proactive stop, pre-halt
+
+
 
 
 

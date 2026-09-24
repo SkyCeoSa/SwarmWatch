@@ -334,8 +334,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Deep module `DifferentialPrivacyEngine` implementing calibrated Laplace mechanism noise injection ($\eta \sim \text{Laplace}(0, \Delta f / \epsilon)$) on sensitive numeric metrics (token usage, duration, cost, Shannon entropy) with bounded clipping.
   - Deterministic cryptographic HMAC-SHA256 pseudonymization for agent identities and roles, preserving causal graph topology without leaking proprietary organizational structure.
   - Privacy budget management ($\epsilon$-budget tracking), control plane REST endpoints (`GET /api/v1/privacy/status`, `POST /api/v1/privacy/anonymize`), CLI subcommand (`swarmwatch privacy status|test`), and Web Console `#dpBadge` widget.
+- **Predictive Failure Forecasting & Early-Warning Entropy Martingales (Seam 39 & ADR 0050 Dual-SDK Parity)**:
+  - Deep module `EntropyMartingaleForecaster` analyzing turn-to-turn entropy delta sequences ($\Delta H_t$) and tracking centered martingale processes ($M_n = \sum (D_t - \mu)$).
+  - Azuma-Hoeffding concentration inequality computing exact failure probability ($P_{\text{risk}} \in [0.0, 1.0]$) and early-warning horizon ($T_{\text{forecast}} \in [1, 5]$ turns) 2 to 4 turns before circuit breaker halts.
+  - Dual-SDK parity across Python (`swarmwatch.forecast`) and TypeScript (`@swarmwatch/sdk/src/forecast.ts`) conforming strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`GET /api/v1/swarms/{id}/forecast`, `POST /api/v1/swarms/{id}/forecast/evaluate`), CLI subcommand (`swarmwatch forecast status|predict`), and Web Console `#forecastBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 

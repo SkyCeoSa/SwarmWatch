@@ -202,6 +202,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `DifferentialPrivacyEngine`, `LaplaceMechanism`, `DifferentialPrivacyPolicy` (`diff_privacy.ts`), exported via `index.ts`.
     - Primitives (Console): `#dpBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Calibrated Laplace noise injection ($\eta \sim \text{Laplace}(0, \Delta f / \epsilon)$) on numeric telemetry (tokens, duration, cost, Shannon entropy) with bounded clamping; deterministic cryptographic HMAC-SHA256 pseudonymization for agent identities and roles preserving causal topology; privacy budget accounting with exhaustion protection; non-blocking execution ($<50\mu\text{s}$ per turn); zero external LLM token expenditure; dual-SDK parity.
+39. **Predictive Multi-Agent Failure Forecasting & Early-Warning Entropy Martingales Seam (ADR 0050 Dual-SDK Parity)**:
+    - Primitives (Python): `EntropyMartingaleForecaster`, `MartingaleDriftSequence`, `EarlyWarningHorizon`, `ForecastRiskLevel`, `SwarmForecastReport` (`forecast.py`), server endpoints `GET /api/v1/swarms/{id}/forecast`, `POST /api/v1/swarms/{id}/forecast/evaluate`, `POST /api/v1/swarms/{id}/forecast/reset` (`server.py`), CLI subcommand `swarmwatch forecast` (`cli.py`).
+    - Primitives (TypeScript): `EntropyMartingaleForecaster`, `ForecastRiskLevel`, `SwarmForecastReport` (`forecast.ts`), exported via `index.ts`.
+    - Primitives (Console): `#forecastBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Discrete-time supermartingale convergence testing on turn-to-turn entropy delta sequences ($\Delta H_t$); centered martingale difference tracking ($M_n = \sum (D_t - \mu)$); Azuma-Hoeffding concentration inequality computing exact failure probability ($P_{\text{risk}} \in [0.0, 1.0]$) and early-warning horizon ($T_{\text{forecast}} \in [1, 5]$ turns) 2 to 4 turns before circuit breaker halts; in-process execution ($<30\mu\text{s}$ per turn); zero external LLM token expenditure; dual-SDK parity.
+
 
 
 
