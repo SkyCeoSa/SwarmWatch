@@ -330,8 +330,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-microsecond span publication ($<1.0\mu\text{s}$) directly into shared physical memory without socket or kernel transitions, exceeding 500,000 spans/sec throughput.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/shm_ring.ts`) adhering to Node 22 type-stripping.
   - Background ingestion gateway (`ShmIpcGateway`), control plane REST endpoints (`GET /api/v1/shm/status`, `POST /api/v1/shm/flush`), CLI subcommand (`swarmwatch shm status|flush`), and Web Console `#shmBadge` widget.
+- **Differential Privacy & Cryptographic State Anonymization (Seam 38 & ADR 0049 Dual-SDK Parity)**:
+  - Deep module `DifferentialPrivacyEngine` implementing calibrated Laplace mechanism noise injection ($\eta \sim \text{Laplace}(0, \Delta f / \epsilon)$) on sensitive numeric metrics (token usage, duration, cost, Shannon entropy) with bounded clipping.
+  - Deterministic cryptographic HMAC-SHA256 pseudonymization for agent identities and roles, preserving causal graph topology without leaking proprietary organizational structure.
+  - Privacy budget management ($\epsilon$-budget tracking), control plane REST endpoints (`GET /api/v1/privacy/status`, `POST /api/v1/privacy/anonymize`), CLI subcommand (`swarmwatch privacy status|test`), and Web Console `#dpBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 

@@ -208,7 +208,15 @@ def main(argv=None):
     shm_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     shm_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch privacy` subcommand (Seam 38 / ADR 0049)
+    privacy_parser = subparsers.add_parser("privacy", help="Inspect and test differential privacy noise injection and pseudonymization")
+    privacy_parser.add_argument("action", choices=["status", "test", "reset"], default="status", nargs="?", help="Privacy action (status, test, reset)")
+    privacy_parser.add_argument("--epsilon", type=float, default=1.0, help="Differential privacy epsilon scale parameter")
+    privacy_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    privacy_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -1380,6 +1388,88 @@ def main(argv=None):
                 print(f"  Dropped Records:      \033[91m{data.get('dropped_records', 0):,}\033[0m")
                 print(f"  Buffer Utilization:   {data.get('utilization_pct', 0.0):.2f}%")
                 print(f"  Daemon Running:       {data.get('is_running')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "privacy":
+        import urllib.request
+        from swarmwatch.diff_privacy import global_privacy_engine
+        if args.action == "test":
+            sample_span = {
+                "id": "span_sample_01",
+                "swarm_id": "swarm-live-01",
+                "agent": "SecurityAuditor",
+                "role": "Lead Auditor",
+                "tokens": 1540,
+                "duration": 390.0,
+                "cost": 0.042,
+                "entropy": 1.68,
+                "payload": "Sensitive database connection string postgresql://user:pass@host/db",
+            }
+            target_url = f"{args.url.rstrip('/')}/api/v1/privacy/anonymize"
+            payload_data = json.dumps({"spans": [sample_span], "epsilon": args.epsilon}).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload_data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                anonymized = global_privacy_engine.anonymize_batch([sample_span], epsilon=args.epsilon)
+                data = {"status": "anonymized", "count": len(anonymized), "spans": anonymized, "budget": global_privacy_engine.get_status()}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                s = data["spans"][0]
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DIFFERENTIAL PRIVACY ANONYMIZATION TEST (ADR 0049) |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Original Agent:    SecurityAuditor -> \033[96m{s.get('agent')}\033[0m")
+                print(f"  Original Role:     Lead Auditor    -> \033[96m{s.get('role')}\033[0m")
+                print(f"  Tokens:            1540            -> \033[93m{s.get('tokens')}\033[0m (Laplace perturbed)")
+                print(f"  Duration (ms):     390.0           -> \033[93m{s.get('duration')}\033[0m (Laplace perturbed)")
+                print(f"  Cost ($):          0.042           -> \033[93m${s.get('cost')}\033[0m (Laplace perturbed)")
+                print(f"  Shannon Entropy:   1.6800          -> \033[93m{s.get('entropy')}\033[0m (Laplace perturbed)")
+                print(f"  Payload:           {s.get('payload')}")
+                print(f"  Privacy Budget:    {data.get('budget', {}).get('spent_budget', 0.0)} / {data.get('budget', {}).get('total_budget', 100.0)} eps spent")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "reset":
+            target_url = f"{args.url.rstrip('/')}/api/v1/privacy/reset"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                global_privacy_engine.reset_budget()
+                data = {"status": "budget_reset", "status_info": global_privacy_engine.get_status()}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n\033[92m[SwarmWatch] Privacy budget reset to 0.0 spent.\033[0m\n")
+            sys.exit(0)
+        else:
+            target_url = f"{args.url.rstrip('/')}/api/v1/privacy/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_privacy_engine.get_status()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DIFFERENTIAL PRIVACY STATUS (ADR 0049)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Active Epsilon (eps): {data.get('epsilon')}")
+                print(f"  Total Budget:         {data.get('total_budget')} eps")
+                print(f"  Spent Budget:         {data.get('spent_budget')} eps ({data.get('budget_spent_pct')}%)")
+                print(f"  Remaining Budget:     {data.get('remaining_budget')} eps")
+                ex_str = "\033[91mYES\033[0m" if data.get('is_exhausted') else "\033[92mNO\033[0m"
+                print(f"  Budget Exhausted:     {ex_str}")
+                print(f"  Total Anonymized:     {data.get('total_anonymized'):,} spans")
+                print(f"  Anonymize Identities:{data.get('anonymize_identities')}")
+                print(f"  Anonymize Metrics:   {data.get('anonymize_metrics')}")
+                print(f"  Anonymize Payloads:  {data.get('anonymize_payloads')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

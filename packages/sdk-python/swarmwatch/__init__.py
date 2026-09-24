@@ -304,6 +304,10 @@ __all__ = [
     "ShmRingBufferReader",
     "ShmIpcGateway",
     "global_shm_gateway",
+    "DifferentialPrivacyPolicy",
+    "LaplaceMechanism",
+    "DifferentialPrivacyEngine",
+    "global_privacy_engine",
 ]
 
 from swarmwatch.redis_lock import (
@@ -433,6 +437,13 @@ from swarmwatch.shm_ring import (
     ShmIpcGateway,
     global_shm_gateway,
 )
+from swarmwatch.diff_privacy import (
+    DifferentialPrivacyPolicy,
+    LaplaceMechanism,
+    DifferentialPrivacyEngine,
+    global_privacy_engine,
+)
+
 
 
 

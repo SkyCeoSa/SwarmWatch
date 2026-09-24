@@ -1625,6 +1625,10 @@
             <span class="status-indicator" id="shmDot" style="background: var(--success);"></span>
             <span id="shmText">SHM: ACTIVE (0 PENDING)</span>
           </div>
+          <div class="fleet-badge" id="dpBadge" title="Differential Privacy & Cryptographic State Anonymization (ADR 0049)">
+            <span class="status-indicator" id="dpDot" style="background: var(--success);"></span>
+            <span id="dpText">DP: PROTECTED (ε=1.0)</span>
+          </div>
         </div>
 
 
@@ -4075,6 +4079,36 @@
       }
       refreshShmStatus();
       setInterval(refreshShmStatus, 8000);
+
+      // -------------------------------------------------------------------
+      // Differential Privacy & Cryptographic State Anonymization (ADR 0049)
+      // -------------------------------------------------------------------
+      async function refreshPrivacyStatus() {
+        var dpDot = document.getElementById('dpDot');
+        var dpText = document.getElementById('dpText');
+        try {
+          var res = await fetch('/api/v1/privacy/status');
+          if (res.ok) {
+            var data = await res.json();
+            var eps = data.epsilon !== undefined ? data.epsilon : 1.0;
+            var isExhausted = data.is_exhausted || false;
+            var spentPct = data.budget_spent_pct || 0;
+            if (isExhausted) {
+              if (dpDot) dpDot.style.background = 'var(--danger)';
+              if (dpText) dpText.textContent = 'DP: BUDGET EXHAUSTED';
+            } else if (spentPct > 75) {
+              if (dpDot) dpDot.style.background = 'var(--warning)';
+              if (dpText) dpText.textContent = 'DP: BUDGET LOW (' + spentPct + '%)';
+            } else {
+              if (dpDot) dpDot.style.background = 'var(--success)';
+              if (dpText) dpText.textContent = 'DP: PROTECTED (ε=' + eps + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshPrivacyStatus();
+      setInterval(refreshPrivacyStatus, 8500);
+
 
       if (btnMfaModal) {
 

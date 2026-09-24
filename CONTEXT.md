@@ -489,6 +489,23 @@ _Avoid_: Hook call, function callback, middleware run
 - **DroppedRecordsCounter**: Monotonically increasing 64-bit sequence tracking discarded spans during memory buffer saturation without blocking worker execution.
   _Avoid_: Lost count, drop rate, overflow number
 
+---
+
+### Differential Privacy & Cryptographic State Anonymization (Seam 38 / ADR 0049)
+- **DifferentialPrivacyEngine**: Deep module applying formal Laplace perturbation to numeric telemetry and HMAC pseudonymization to agent identifiers in $<50\mu\text{s}$ per turn without remote LLM calls.
+  _Avoid_: Noise maker, data scrambler, obfuscator script, anonymizer bot
+- **LaplaceMechanism**: Mathematical perturbation mechanism injecting calibrated noise $\eta \sim \text{Laplace}(0, \Delta f / \epsilon)$ to achieve $\epsilon$-differential privacy.
+  _Avoid_: Random noise, gaussian blur, jitter generator
+- **PrivacyBudget**: The cumulative $\epsilon$ allocation tracking total allowed information leakage across federated queries and export pipelines.
+  _Avoid_: Privacy limit, query count, token budget
+- **CryptographicPseudonym**: A deterministic, irreversible token generated via HMAC-SHA256 replacing raw agent identifiers while preserving topology linkage.
+  _Avoid_: Fake name, random ID, alias, hashed string
+- **SensitivityBound**: The maximum possible change in a numeric metric between adjacent database states ($\Delta f = U - L$).
+  _Avoid_: Max range, variance scale, bound delta
+- **DifferentialPrivacyPolicy**: Configuration defining $\epsilon$, sensitivity bounds, target fields, and tenant salt keys for privacy enforcement.
+  _Avoid_: Privacy rules, mask settings, DP config
+
+
 
 
 

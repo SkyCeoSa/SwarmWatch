@@ -63,6 +63,12 @@ from swarmwatch.shm_ring import (
     global_shm_gateway,
     ShmIpcGateway,
 )
+from swarmwatch.diff_privacy import (
+    DifferentialPrivacyPolicy,
+    DifferentialPrivacyEngine,
+    global_privacy_engine,
+)
+
 
 
 from swarmwatch.circuit import (
@@ -187,6 +193,21 @@ class SelfHealingRemediateRequest(BaseModel):
     action_type: str
     target: str
     reason: Optional[str] = None
+
+
+class AnonymizeRequest(BaseModel):
+    spans: List[Dict[str, Any]]
+    epsilon: Optional[float] = None
+
+
+class PrivacyPolicyRequest(BaseModel):
+    epsilon: Optional[float] = None
+    total_epsilon_budget: Optional[float] = None
+    tenant_salt: Optional[str] = None
+    anonymize_identities: Optional[bool] = None
+    anonymize_metrics: Optional[bool] = None
+    anonymize_payloads: Optional[bool] = None
+
 
 
 
@@ -4218,6 +4239,52 @@ def create_app(
         """Resets the shared memory ring buffer pointers and counters."""
         global_shm_gateway.reset()
         return {"status": "reset"}
+
+    # -----------------------------------------------------------------------
+    # Differential Privacy & Cryptographic State Anonymization (ADR 0049)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/privacy/status")
+    async def get_privacy_status_endpoint():
+        """Returns active differential privacy metrics and budget accounting."""
+        return global_privacy_engine.get_status()
+
+    @app.post("/api/v1/privacy/anonymize")
+    async def anonymize_spans_endpoint(req: AnonymizeRequest):
+        """Applies Laplace perturbation and HMAC pseudonymization to spans."""
+        anonymized = global_privacy_engine.anonymize_batch(req.spans, epsilon=req.epsilon)
+        return {
+            "status": "anonymized",
+            "count": len(anonymized),
+            "spans": anonymized,
+            "budget": global_privacy_engine.get_status(),
+        }
+
+    @app.post("/api/v1/privacy/policy")
+    async def update_privacy_policy_endpoint(req: PrivacyPolicyRequest):
+        """Updates privacy policy bounds and configuration parameters."""
+        curr = global_privacy_engine.policy
+        if req.epsilon is not None:
+            curr.epsilon = req.epsilon
+        if req.total_epsilon_budget is not None:
+            curr.total_epsilon_budget = req.total_epsilon_budget
+        if req.tenant_salt is not None:
+            curr.tenant_salt = req.tenant_salt
+        if req.anonymize_identities is not None:
+            curr.anonymize_identities = req.anonymize_identities
+        if req.anonymize_metrics is not None:
+            curr.anonymize_metrics = req.anonymize_metrics
+        if req.anonymize_payloads is not None:
+            curr.anonymize_payloads = req.anonymize_payloads
+        return {
+            "status": "policy_updated",
+            "policy": curr.to_dict(),
+        }
+
+    @app.post("/api/v1/privacy/reset")
+    async def reset_privacy_budget_endpoint():
+        """Resets the spent privacy budget back to zero."""
+        global_privacy_engine.reset_budget()
+        return {"status": "budget_reset", "status_info": global_privacy_engine.get_status()}
 
 
     @app.websocket("/ws/swarm/{swarm_id}")

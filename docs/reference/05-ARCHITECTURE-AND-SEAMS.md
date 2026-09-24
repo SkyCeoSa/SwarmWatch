@@ -197,6 +197,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `ShmRingBufferWriter`, `ShmRingBufferReader`, `ShmIpcGateway` (`shm_ring.ts`), exported via `index.ts`.
     - Primitives (Console): `#shmBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Zero-copy cross-process telemetry ingestion using memory-mapped ring buffer (`mmap` / POSIX `SharedMemory`); fixed 64-byte binary header (`SWRB`), atomic write/read sequence pointers, and fixed slot framing; sub-microsecond write latency ($<1.0\mu\text{s}$) with zero kernel socket context switches; sustained throughput $>500,000$ spans/sec; ring overflow tracking without blocking caller execution; zero external dependencies; dual-SDK parity.
+38. **Differential Privacy & Cryptographic State Anonymization Seam (ADR 0049 Dual-SDK Parity)**:
+    - Primitives (Python): `DifferentialPrivacyEngine`, `LaplaceMechanism`, `DifferentialPrivacyPolicy`, `AnonymizedSpanRecord` (`diff_privacy.py`), server endpoints `GET /api/v1/privacy/status`, `POST /api/v1/privacy/anonymize`, `POST /api/v1/privacy/policy` (`server.py`), CLI subcommand `swarmwatch privacy` (`cli.py`).
+    - Primitives (TypeScript): `DifferentialPrivacyEngine`, `LaplaceMechanism`, `DifferentialPrivacyPolicy` (`diff_privacy.ts`), exported via `index.ts`.
+    - Primitives (Console): `#dpBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Calibrated Laplace noise injection ($\eta \sim \text{Laplace}(0, \Delta f / \epsilon)$) on numeric telemetry (tokens, duration, cost, Shannon entropy) with bounded clamping; deterministic cryptographic HMAC-SHA256 pseudonymization for agent identities and roles preserving causal topology; privacy budget accounting with exhaustion protection; non-blocking execution ($<50\mu\text{s}$ per turn); zero external LLM token expenditure; dual-SDK parity.
+
 
 
 

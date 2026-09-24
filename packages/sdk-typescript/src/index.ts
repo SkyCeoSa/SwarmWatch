@@ -374,6 +374,18 @@ export {
   globalShmGateway,
 } from "./shm_ring.ts";
 
+// Differential Privacy & Cryptographic State Anonymization (Seam 38 / ADR 0049)
+export type {
+  DifferentialPrivacyPolicy,
+  DifferentialPrivacyStatus,
+} from "./diff_privacy.ts";
+export {
+  LaplaceMechanism,
+  DifferentialPrivacyEngine,
+  globalPrivacyEngine,
+} from "./diff_privacy.ts";
+
+
 
 
 
