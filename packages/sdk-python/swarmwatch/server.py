@@ -50,6 +50,11 @@ from swarmwatch.drift import (
     DivergenceStatus,
     SemanticDriftProfile,
 )
+from swarmwatch.rebalancer import (
+    global_rebalancer,
+    AgentTier,
+    RebalancePolicy,
+)
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -2874,6 +2879,15 @@ def create_app(
         for s in spans:
             global_self_healing_controller.observe_span(s)
             global_drift_detector.evaluate_span(s.model_dump(mode="json"))
+            src_agent = getattr(s, "source_agent", getattr(s, "agent_name", "agent"))
+            toks = getattr(s, "token_count", 0) or 0
+            entropy = getattr(s, "entropy_score", 0.75) or 0.75
+            global_rebalancer.record_turn(
+                swarm_id=s.swarm_id,
+                agent_id=src_agent,
+                tokens=toks,
+                entropy=entropy,
+            )
             record_span_ingested(
                 project_id=s.project_id,
                 agent_type=getattr(s, "agent_name", "agent"),
@@ -2918,6 +2932,15 @@ def create_app(
 
             for s in spans:
                 global_drift_detector.evaluate_span(s.model_dump(mode="json"))
+                src_agent = getattr(s, "source_agent", getattr(s, "agent_name", "agent"))
+                toks = getattr(s, "token_count", 0) or 0
+                entropy = getattr(s, "entropy_score", 0.75) or 0.75
+                global_rebalancer.record_turn(
+                    swarm_id=s.swarm_id,
+                    agent_id=src_agent,
+                    tokens=toks,
+                    entropy=entropy,
+                )
                 record_span_ingested(
                     project_id=s.project_id,
                     agent_type=getattr(s, "source_agent", "agent"),
@@ -4072,6 +4095,58 @@ def create_app(
     async def reset_swarm_drift_endpoint(swarm_id: str):
         """Resets the semantic drift tracker and anchor for a swarm."""
         global_drift_detector.reset(swarm_id)
+        return {"status": "reset", "swarm_id": swarm_id}
+
+    # -----------------------------------------------------------------------
+    # Adaptive Dynamic Quota Re-balancing (Seam 35 / ADR 0046)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/swarms/{swarm_id}/rebalancer")
+    async def get_swarm_rebalancer_endpoint(swarm_id: str):
+        """Returns aggregate rebalancer statistics, active allocations, and latest plan."""
+        stats = global_rebalancer.get_aggregate_stats(swarm_id)
+        allocations = global_rebalancer.get_allocations(swarm_id)
+        plan = global_rebalancer.get_plan(swarm_id)
+        return {
+            **stats,
+            "allocations": {aid: alloc.model_dump(mode="json") for aid, alloc in allocations.items()},
+            "latest_plan": plan.model_dump(mode="json") if plan else None,
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/rebalancer/rebalance")
+    async def trigger_swarm_rebalance_endpoint(
+        swarm_id: str,
+        payload: Optional[Dict[str, Any]] = Body(None),
+    ):
+        """Triggers an immediate dynamic quota rebalancing epoch for a swarm."""
+        justification = (payload or {}).get("justification") if payload else None
+        plan = global_rebalancer.compute_rebalance(swarm_id, justification=justification)
+        return plan.model_dump(mode="json")
+
+    @app.post("/api/v1/swarms/{swarm_id}/rebalancer/quota")
+    async def set_swarm_fleet_quota_endpoint(
+        swarm_id: str,
+        payload: Dict[str, Any] = Body(...),
+    ):
+        """Sets the global baseline token quota for a swarm."""
+        total_tokens = int(payload.get("total_tokens", 100_000))
+        global_rebalancer.set_fleet_quota(swarm_id, total_tokens)
+        return {"status": "ok", "swarm_id": swarm_id, "fleet_quota_tokens": total_tokens}
+
+    @app.post("/api/v1/swarms/{swarm_id}/rebalancer/policy")
+    async def update_swarm_rebalancer_policy_endpoint(
+        swarm_id: str,
+        payload: Dict[str, Any] = Body(...),
+    ):
+        """Updates rebalancer policy configuration."""
+        policy_dict = payload.get("policy", payload)
+        new_policy = RebalancePolicy(**policy_dict)
+        global_rebalancer.policy = new_policy
+        return {"status": "policy_updated", "policy": new_policy.model_dump(mode="json")}
+
+    @app.post("/api/v1/swarms/{swarm_id}/rebalancer/reset")
+    async def reset_swarm_rebalancer_endpoint(swarm_id: str):
+        """Resets the rebalancer state for a swarm."""
+        global_rebalancer.reset(swarm_id)
         return {"status": "reset", "swarm_id": swarm_id}
 
     @app.websocket("/ws/swarm/{swarm_id}")

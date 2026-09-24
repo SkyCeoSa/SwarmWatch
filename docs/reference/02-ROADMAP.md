@@ -312,7 +312,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/drift.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/swarms/{swarm_id}/drift`, `POST /api/v1/swarms/{swarm_id}/drift/evaluate`) and CLI subcommand (`swarmwatch drift status|analyze`).
   - Web Console integration: `#driftBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+- **Adaptive Dynamic Quota Re-balancing across Distributed Fleets (Seam 35 & ADR 0046 Dual-SDK Parity)**:
+  - Deep module `AdaptiveQuotaRebalancer` implementing real-time composite utility evaluation ($U_a \in [0.0, 1.0]$) combining semantic drift, vocabulary compression ratio, Shannon entropy stability, and fault resilience.
+  - 4-Tier Agent Classification (`BOOSTED`, `NOMINAL`, `THROTTLED`, `QUARANTINED`): dynamically re-allocates token/turn quotas, reclaiming buffer from rogue/idle agents and granting surge slices to converging agents.
+  - In-flight non-blocking quota enforcement with zero LLM API costs ($<50\mu\text{s}$ per turn).
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/rebalancer.ts`) adhering to Node 22 type-stripping.
+  - Control plane REST endpoints (`GET /api/v1/swarms/{id}/rebalancer`, `POST /api/v1/swarms/{id}/rebalancer/rebalance`) and CLI subcommand (`swarmwatch rebalance status|run`).
+  - Web Console integration: `#rebalancerBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 

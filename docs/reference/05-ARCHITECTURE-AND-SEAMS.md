@@ -182,4 +182,10 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `MinHashSigner`, `SemanticDriftProfile`, `SemanticDriftDetector` (`drift.ts`), exported via `index.ts`.
     - Primitives (Console): `#driftBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: 64-bit universal MinHash LSH and lexical n-gram shingling; pairwise Jaccard similarity estimation in $<15\mu\text{s}$; vocabulary compression ratio ($VCR = |V_{\text{unique}}| / |V_{\text{total}}|$) tracking echo-chamber collapse; composite semantic drift ($\Delta_{\text{drift}} = 1.0 - (0.6 \cdot J(t, t_0) + 0.4 \cdot J(t, t-1))$); circuit breaker trip on sustained drift ($\Delta_{\text{drift}} > 0.72$); 100% deterministic local offline testing; zero external LLM token usage; dual-SDK parity.
+35. **Adaptive Dynamic Quota Re-balancing across Distributed Fleets Seam (ADR 0046 Dual-SDK Parity)**:
+    - Primitives (Python): `AdaptiveQuotaRebalancer` (`rebalancer.py`), `AgentTier`, `AgentAllocation`, `RebalancePlan`, `RebalancePolicy`, server endpoints `GET /api/v1/swarms/{id}/rebalancer`, `POST /api/v1/swarms/{id}/rebalancer/rebalance`, `POST /api/v1/swarms/{id}/rebalancer/policy` (`server.py`), CLI subcommand `swarmwatch rebalance` (`cli.py`).
+    - Primitives (TypeScript): `AgentTier`, `AgentAllocation`, `RebalancePlan`, `RebalancePolicy`, `AdaptiveQuotaRebalancer` (`rebalancer.ts`), exported via `index.ts`.
+    - Primitives (Console): `#rebalancerBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Composite agent utility calculation ($U_a \in [0.0, 1.0]$) unifying semantic convergence, lexical diversity (VCR), Shannon entropy stability, and fault resilience; dynamic 4-tier classification (`BOOSTED`, `NOMINAL`, `THROTTLED`, `QUARANTINED`); non-linear sensitivity exponent re-allocation ($\kappa = 1.5$); reclaimed reserve buffer pooling with surge slice grants to converging workers; non-blocking in-process execution ($<50\mu\text{s}$ per turn); zero external LLM token expenditure; dual-SDK parity.
+
 

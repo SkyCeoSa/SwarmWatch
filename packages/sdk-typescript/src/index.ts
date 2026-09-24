@@ -332,3 +332,17 @@ export {
   globalDriftDetector,
 } from "./drift.ts";
 
+// Adaptive Dynamic Quota Re-balancing across Distributed Fleets (Seam 35 / ADR 0046)
+export type {
+  AgentTierType,
+  RebalancePolicy,
+  AgentAllocation,
+  RebalancePlan,
+} from "./rebalancer.ts";
+export {
+  AgentTier,
+  DEFAULT_REBALANCE_POLICY,
+  AdaptiveQuotaRebalancer,
+} from "./rebalancer.ts";
+
+

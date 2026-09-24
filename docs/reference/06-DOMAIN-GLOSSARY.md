@@ -700,3 +700,32 @@ _Avoid_: Baseline match, prompt score, initial similarity
 The categorical operational state of agent trajectory semantic coherence (`nominal`, `warning`, `divergent`, `tripped`).
 _Avoid_: Drift level, warning grade, status flag
 
+---
+
+### Adaptive Dynamic Quota Re-balancing across Distributed Fleets (Seam 35 / ADR 0046)
+
+**AdaptiveQuotaRebalancer**:
+The deep module calculating real-time composite agent utility, managing quota tier transitions, and executing non-blocking dynamic quota re-allocation across multi-agent fleets in $<50\mu\text{s}$ per turn without remote LLM judge calls.
+_Avoid_: Quota manager, rate limiter, load balancer, token allocator
+
+**AgentUtilityScore**:
+The normalized composite score $U_a \in [0.0, 1.0]$ quantifying real-time agent convergence, lexical richness (VCR), Shannon entropy stability, and fault resilience.
+_Avoid_: Performance score, agent rank, quality grade
+
+**AgentTier**:
+The categorical operational allocation tier governing quota eligibility (`BOOSTED`, `NOMINAL`, `THROTTLED`, `QUARANTINED`).
+_Avoid_: Agent status, priority level, quota band
+
+**RebalancePlan**:
+An immutable allocation specification detailing assigned agent quotas, surge slices, reclaimed reserve pool, and mathematical justification per rebalancing epoch.
+_Avoid_: Quota split, budget plan, distribution log
+
+**RebalancePolicy**:
+The configurable parameter set defining utility weights, sensitivity exponent ($\kappa$), minimum safety floor, and epoch trigger conditions.
+_Avoid_: Quota rules, limiter settings, allocation config
+
+**SurgeQuotaGrant**:
+A dynamic quota slice granted from the reclaimed buffer to a converging agent nearing its budget limit without expanding the global fleet ceiling.
+_Avoid_: Extra tokens, bonus budget, overdraft
+
+

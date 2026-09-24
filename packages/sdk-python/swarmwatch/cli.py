@@ -187,6 +187,14 @@ def main(argv=None):
     drift_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     drift_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch rebalance` subcommand (Seam 35 / ADR 0046)
+    rebalance_parser = subparsers.add_parser("rebalance", help="Inspect and execute adaptive dynamic quota re-balancing")
+    rebalance_parser.add_argument("action", choices=["status", "run", "quota"], default="status", nargs="?", help="Rebalance action (status, run, quota)")
+    rebalance_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    rebalance_parser.add_argument("--tokens", type=int, default=100000, help="Total fleet token quota")
+    rebalance_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    rebalance_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -1214,6 +1222,73 @@ def main(argv=None):
                 if data.get('is_circuit_broken'):
                     print(f"  Circuit Trip:         \033[91m{data.get('trip_reason')}\033[0m")
                 print()
+            sys.exit(0)
+    elif args.subcommand == "rebalance":
+        from swarmwatch.rebalancer import global_rebalancer, AgentTier
+        if args.action == "status":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/rebalancer"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                stats = global_rebalancer.get_aggregate_stats(args.swarm_id)
+                allocs = global_rebalancer.get_allocations(args.swarm_id)
+                plan = global_rebalancer.get_plan(args.swarm_id)
+                data = {
+                    **stats,
+                    "allocations": {aid: a.model_dump(mode="json") for aid, a in allocs.items()},
+                    "latest_plan": plan.model_dump(mode="json") if plan else None,
+                }
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ADAPTIVE DYNAMIC QUOTA REBALANCER (ADR 0046)       |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Total Agents:         {data.get('total_agents')}")
+                print(f"  Fleet Token Quota:    {data.get('fleet_quota_tokens', 0):,}")
+                print(f"  Consumed Tokens:      {data.get('total_consumed_tokens', 0):,}")
+                print(f"  Reclaimed Buffer:     {data.get('reclaimed_buffer_tokens', 0):,} tokens")
+                td = data.get('tier_distribution', {})
+                print(f"  Tiers:                Boosted={td.get('boosted', 0)} | Nominal={td.get('nominal', 0)} | Throttled={td.get('throttled', 0)} | Quarantined={td.get('quarantined', 0)}")
+                print("+---------------------------------------------------------------+")
+                allocs = data.get("allocations", {})
+                if allocs:
+                    print(f"  {'AGENT':<20} {'TIER':<12} {'UTILITY':<8} {'ALLOCATED':<10} {'CONSUMED':<10} {'REMAINING':<10}")
+                    print(f"  {'-'*20} {'-'*12} {'-'*8} {'-'*10} {'-'*10} {'-'*10}")
+                    for aid, a in allocs.items():
+                        tier = a.get("tier", "nominal").upper()
+                        color = "\033[92m" if tier == "BOOSTED" else ("\033[96m" if tier == "NOMINAL" else ("\033[93m" if tier == "THROTTLED" else "\033[91m"))
+                        u = f"{a.get('utility_score', 0.0):.2f}"
+                        alloc_tok = f"{a.get('allocated_tokens', 0):,}"
+                        cons_tok = f"{a.get('consumed_tokens', 0):,}"
+                        rem_tok = f"{a.get('remaining_tokens', 0):,}"
+                        print(f"  {aid:<20} {color}{tier:<12}\033[0m {u:<8} {alloc_tok:<10} {cons_tok:<10} {rem_tok:<10}")
+                else:
+                    print("  No registered agents in active swarm.")
+                print()
+            sys.exit(0)
+
+        elif args.action == "run":
+            plan = global_rebalancer.compute_rebalance(args.swarm_id, justification="CLI triggered rebalance")
+            data = plan.model_dump(mode="json")
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n[Rebalance Epoch Completed] Swarm: {args.swarm_id}")
+                print(f"  Epoch ID:         {data.get('epoch_id')}")
+                print(f"  Reclaimed Buffer: {data.get('reclaimed_buffer_tokens', 0):,} tokens")
+                print(f"  Agents Evaluated: {len(data.get('allocations', {}))}\n")
+            sys.exit(0)
+
+        elif args.action == "quota":
+            global_rebalancer.set_fleet_quota(args.swarm_id, args.tokens)
+            if args.format == "json":
+                print(json.dumps({"status": "quota_set", "swarm_id": args.swarm_id, "fleet_quota_tokens": args.tokens}))
+            else:
+                print(f"\n[Fleet Quota Set] Swarm: {args.swarm_id} -> {args.tokens:,} tokens\n")
             sys.exit(0)
     else:
         parser.print_help()

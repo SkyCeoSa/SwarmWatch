@@ -1613,6 +1613,10 @@
             <span class="status-indicator" id="driftDot" style="background: var(--success);"></span>
             <span id="driftText">DRIFT: NOMINAL</span>
           </div>
+          <div class="fleet-badge" id="rebalancerBadge" title="Adaptive Dynamic Quota Re-balancing (ADR 0046)">
+            <span class="status-indicator" id="rebalancerDot" style="background: var(--success);"></span>
+            <span id="rebalancerText">QUOTA: BALANCED</span>
+          </div>
         </div>
 
 
@@ -3974,6 +3978,35 @@
       }
       refreshDriftStatus();
       setInterval(refreshDriftStatus, 8500);
+
+      // -------------------------------------------------------------------
+      // Adaptive Dynamic Quota Re-balancing (ADR 0046)
+      // -------------------------------------------------------------------
+      async function refreshRebalancerStatus() {
+        var rebalancerDot = document.getElementById('rebalancerDot');
+        var rebalancerText = document.getElementById('rebalancerText');
+        try {
+          var res = await fetch('/api/v1/swarms/swarm-live-01/rebalancer');
+          if (res.ok) {
+            var data = await res.json();
+            var td = data.tier_distribution || {};
+            var throttled = (td.throttled || 0) + (td.quarantined || 0);
+            var boosted = td.boosted || 0;
+            if (throttled > 0) {
+              if (rebalancerDot) rebalancerDot.style.background = 'var(--warning)';
+              if (rebalancerText) rebalancerText.textContent = 'QUOTA: THROTTLED (' + throttled + ')';
+            } else if (boosted > 0) {
+              if (rebalancerDot) rebalancerDot.style.background = 'var(--accent)';
+              if (rebalancerText) rebalancerText.textContent = 'QUOTA: BOOSTED (' + boosted + ')';
+            } else {
+              if (rebalancerDot) rebalancerDot.style.background = 'var(--success)';
+              if (rebalancerText) rebalancerText.textContent = 'QUOTA: BALANCED';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRebalancerStatus();
+      setInterval(refreshRebalancerStatus, 9000);
 
       if (btnMfaModal) {
 

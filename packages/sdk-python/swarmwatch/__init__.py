@@ -282,6 +282,17 @@ __all__ = [
     "GrpcStreamingGateway",
     "global_grpc_gateway",
     "GrpcStreamServer",
+    "DivergenceStatus",
+    "SemanticDriftProfile",
+    "MinHashSigner",
+    "SemanticDriftDetector",
+    "global_drift_detector",
+    "AgentTier",
+    "RebalancePolicy",
+    "AgentAllocation",
+    "RebalancePlan",
+    "AdaptiveQuotaRebalancer",
+    "global_rebalancer",
 ]
 
 from swarmwatch.redis_lock import (
@@ -387,6 +398,14 @@ from swarmwatch.drift import (
     MinHashSigner,
     SemanticDriftDetector,
     global_drift_detector,
+)
+from swarmwatch.rebalancer import (
+    AgentTier,
+    RebalancePolicy,
+    AgentAllocation,
+    RebalancePlan,
+    AdaptiveQuotaRebalancer,
+    global_rebalancer,
 )
 
 
