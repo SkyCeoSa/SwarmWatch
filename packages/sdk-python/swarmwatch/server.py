@@ -55,6 +55,10 @@ from swarmwatch.rebalancer import (
     AgentTier,
     RebalancePolicy,
 )
+from swarmwatch.coalition import (
+    global_coalition_engine,
+    TopologicalCoalitionEngine,
+)
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -2880,8 +2884,15 @@ def create_app(
             global_self_healing_controller.observe_span(s)
             global_drift_detector.evaluate_span(s.model_dump(mode="json"))
             src_agent = getattr(s, "source_agent", getattr(s, "agent_name", "agent"))
+            tgt_agent = getattr(s, "target_agent", getattr(s, "target", "environment"))
             toks = getattr(s, "token_count", 0) or 0
             entropy = getattr(s, "entropy_score", 0.75) or 0.75
+            global_coalition_engine.record_interaction(
+                swarm_id=s.swarm_id,
+                source_agent=src_agent,
+                target_agent=tgt_agent,
+                tokens=toks,
+            )
             global_rebalancer.record_turn(
                 swarm_id=s.swarm_id,
                 agent_id=src_agent,
@@ -2933,8 +2944,15 @@ def create_app(
             for s in spans:
                 global_drift_detector.evaluate_span(s.model_dump(mode="json"))
                 src_agent = getattr(s, "source_agent", getattr(s, "agent_name", "agent"))
+                tgt_agent = getattr(s, "target_agent", getattr(s, "target", "environment"))
                 toks = getattr(s, "token_count", 0) or 0
                 entropy = getattr(s, "entropy_score", 0.75) or 0.75
+                global_coalition_engine.record_interaction(
+                    swarm_id=s.swarm_id,
+                    source_agent=src_agent,
+                    target_agent=tgt_agent,
+                    tokens=toks,
+                )
                 global_rebalancer.record_turn(
                     swarm_id=s.swarm_id,
                     agent_id=src_agent,
@@ -4147,6 +4165,27 @@ def create_app(
     async def reset_swarm_rebalancer_endpoint(swarm_id: str):
         """Resets the rebalancer state for a swarm."""
         global_rebalancer.reset(swarm_id)
+        return {"status": "reset", "swarm_id": swarm_id}
+
+    # -----------------------------------------------------------------------
+    # Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (ADR 0047)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/swarms/{swarm_id}/coalitions")
+    async def get_swarm_coalitions_endpoint(swarm_id: str):
+        """Returns topological clustering result, active coalitions, and node centralities."""
+        result = global_coalition_engine.compute_clusters(swarm_id)
+        return result.model_dump(mode="json")
+
+    @app.post("/api/v1/swarms/{swarm_id}/coalitions/cluster")
+    async def trigger_swarm_clustering_endpoint(swarm_id: str):
+        """Forces an immediate topological clustering epoch and coalition formation."""
+        result = global_coalition_engine.compute_clusters(swarm_id)
+        return result.model_dump(mode="json")
+
+    @app.post("/api/v1/swarms/{swarm_id}/coalitions/reset")
+    async def reset_swarm_coalitions_endpoint(swarm_id: str):
+        """Resets topological graph data and coalitions for a swarm."""
+        global_coalition_engine.reset(swarm_id)
         return {"status": "reset", "swarm_id": swarm_id}
 
     @app.websocket("/ws/swarm/{swarm_id}")

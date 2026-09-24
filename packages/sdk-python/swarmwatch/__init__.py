@@ -293,6 +293,11 @@ __all__ = [
     "RebalancePlan",
     "AdaptiveQuotaRebalancer",
     "global_rebalancer",
+    "NodeCentrality",
+    "AgentCoalition",
+    "TopologicalClusterResult",
+    "TopologicalCoalitionEngine",
+    "global_coalition_engine",
 ]
 
 from swarmwatch.redis_lock import (
@@ -406,6 +411,13 @@ from swarmwatch.rebalancer import (
     RebalancePlan,
     AdaptiveQuotaRebalancer,
     global_rebalancer,
+)
+from swarmwatch.coalition import (
+    NodeCentrality,
+    AgentCoalition,
+    TopologicalClusterResult,
+    TopologicalCoalitionEngine,
+    global_coalition_engine,
 )
 
 

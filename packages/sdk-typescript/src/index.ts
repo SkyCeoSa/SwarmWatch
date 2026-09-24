@@ -345,4 +345,16 @@ export {
   AdaptiveQuotaRebalancer,
 } from "./rebalancer.ts";
 
+// Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (Seam 36 / ADR 0047)
+export type {
+  NodeCentrality,
+  AgentCoalition,
+  TopologicalClusterResult,
+} from "./coalition.ts";
+export {
+  TopologicalCoalitionEngine,
+  globalCoalitionEngine,
+} from "./coalition.ts";
+
+
 

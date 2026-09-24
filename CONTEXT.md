@@ -457,4 +457,21 @@ _Avoid_: Hook call, function callback, middleware run
 - **SurgeQuotaGrant**: A dynamic quota slice granted from the reclaimed buffer to a converging agent nearing its budget limit without expanding the global fleet ceiling.
   _Avoid_: Extra tokens, bonus budget, overdraft
 
+---
+
+### Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (Seam 36 / ADR 0047)
+- **TopologicalCoalitionEngine**: Deep module analyzing causal span interaction graphs, calculating degree and bottleneck centrality, performing modularity-based community clustering, and forming dynamic agent coalitions in $<50\mu\text{s}$ per turn without remote LLM calls.
+  _Avoid_: Graph analyzer, agent grouper, cluster bot, network visualizer
+- **AgentCoalition**: An autonomous, tightly-coupled sub-collective of swarm agents grouped by topological interaction density, possessing an elected Coalition Leader and isolated conversational context.
+  _Avoid_: Agent team, sub-group, swarm squad, cluster cell
+- **ClusterModularity**: The Newman-Girvan modularity metric $Q \in [-0.5, 1.0]$ quantifying the structural strength of community partitioning in the multi-agent interaction graph.
+  _Avoid_: Graph score, grouping quality, cluster index
+- **BottleneckCentrality**: Quantitative score measuring whether an agent acts as a congested bridge or transit bottleneck between disparate agent clusters.
+  _Avoid_: Traffic choke, slow agent, bridge metric
+- **CoalitionLeader**: The agent within an `AgentCoalition` exhibiting the highest internal degree centrality, designated to orchestrate sub-task completion and external communication.
+  _Avoid_: Team captain, head agent, group manager
+- **InteractionDensity**: The ratio of actual weighted interactions among a coalition's member agents relative to the total possible edge capacity.
+  _Avoid_: Chat volume, traffic ratio, link count
+
+
 

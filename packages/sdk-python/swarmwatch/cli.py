@@ -195,6 +195,13 @@ def main(argv=None):
     rebalance_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     rebalance_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch coalition` subcommand (Seam 36 / ADR 0047)
+    coalition_parser = subparsers.add_parser("coalition", help="Analyze interaction graph topology, centrality, and dynamic agent coalitions")
+    coalition_parser.add_argument("action", choices=["status", "cluster"], default="status", nargs="?", help="Coalition action (status, cluster)")
+    coalition_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    coalition_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    coalition_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -1290,6 +1297,42 @@ def main(argv=None):
             else:
                 print(f"\n[Fleet Quota Set] Swarm: {args.swarm_id} -> {args.tokens:,} tokens\n")
             sys.exit(0)
+    elif args.subcommand == "coalition":
+        from swarmwatch.coalition import global_coalition_engine
+        target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/coalitions"
+        try:
+            with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                data = json.loads(resp.read().decode())
+        except Exception:
+            res = global_coalition_engine.compute_clusters(args.swarm_id)
+            data = res.model_dump(mode="json")
+
+        if args.format == "json":
+            print(json.dumps(data, indent=2))
+        else:
+            print("\n+---------------------------------------------------------------+")
+            print("| SWARMWATCH TOPOLOGICAL GRAPH & DYNAMIC COALITIONS (ADR 0047)  |")
+            print("+---------------------------------------------------------------+")
+            print(f"  Swarm ID:             {data.get('swarm_id')}")
+            print(f"  Total Agents:         {data.get('total_agents')}")
+            print(f"  Total Interactions:   {data.get('total_interactions')}")
+            print(f"  Graph Modularity (Q): {data.get('modularity_score', 0.0):.4f}")
+            btn_agents = data.get('bottleneck_agents', [])
+            btn_str = ", ".join(btn_agents) if btn_agents else "None (Traffic Uniform)"
+            print(f"  Bottleneck Nodes:     \033[93m{btn_str}\033[0m")
+            print("+---------------------------------------------------------------+")
+            coalitions = data.get("coalitions", [])
+            if coalitions:
+                print(f"  DYNAMIC COALITIONS ({len(coalitions)} formed):")
+                for c in coalitions:
+                    deadlock_flag = " \033[91m[DEADLOCKED]\033[0m" if c.get("is_deadlocked") else ""
+                    print(f"    - ID: {c.get('coalition_id')} | Leader: \033[92m{c.get('leader_agent')}\033[0m{deadlock_flag}")
+                    print(f"      Members: {', '.join(c.get('member_agents', []))}")
+                    print(f"      Density: {c.get('interaction_density', 0.0):.2f} | Tokens: {c.get('total_tokens', 0):,}")
+            else:
+                print("  No cohesive coalitions formed (low interaction density).")
+            print()
+        sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)

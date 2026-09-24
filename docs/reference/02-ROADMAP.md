@@ -319,8 +319,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/rebalancer.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/swarms/{id}/rebalancer`, `POST /api/v1/swarms/{id}/rebalancer/rebalance`) and CLI subcommand (`swarmwatch rebalance status|run`).
   - Web Console integration: `#rebalancerBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+- **Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (Seam 36 & ADR 0047 Dual-SDK Parity)**:
+  - Deep module `TopologicalCoalitionEngine` implementing in-process directed causal interaction graph analysis, degree centrality, bottleneck transit detection ($B(v)$), and modularity-based community clustering ($Q \ge 0.30$) with zero LLM token overhead ($<50\mu\text{s}$ per turn).
+  - Autonomous dynamic coalition formation (`AgentCoalition`) partitioning densely interacting agents ($\ge 0.50$ density) into isolated sub-collectives with designated Coalition Leaders to alleviate conversational deadlocks and traffic bottlenecks.
+  - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/coalition.ts`) adhering to Node 22 type-stripping.
+  - Control plane REST endpoints (`GET /api/v1/swarms/{id}/coalitions`, `POST /api/v1/swarms/{id}/coalitions/cluster`) and CLI subcommand (`swarmwatch coalition status|cluster`).
+  - Web Console integration: `#coalitionBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 

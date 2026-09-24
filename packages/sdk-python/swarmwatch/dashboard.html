@@ -1617,6 +1617,10 @@
             <span class="status-indicator" id="rebalancerDot" style="background: var(--success);"></span>
             <span id="rebalancerText">QUOTA: BALANCED</span>
           </div>
+          <div class="fleet-badge" id="coalitionBadge" title="Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (ADR 0047)">
+            <span class="status-indicator" id="coalitionDot" style="background: var(--success);"></span>
+            <span id="coalitionText">COALITIONS: OPTIMAL</span>
+          </div>
         </div>
 
 
@@ -4007,6 +4011,38 @@
       }
       refreshRebalancerStatus();
       setInterval(refreshRebalancerStatus, 9000);
+
+      // -------------------------------------------------------------------
+      // Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (ADR 0047)
+      // -------------------------------------------------------------------
+      async function refreshCoalitionStatus() {
+        var coalitionDot = document.getElementById('coalitionDot');
+        var coalitionText = document.getElementById('coalitionText');
+        try {
+          var res = await fetch('/api/v1/swarms/swarm-live-01/coalitions');
+          if (res.ok) {
+            var data = await res.json();
+            var coalitions = data.coalitions || [];
+            var deadlocks = coalitions.filter(function(c) { return c.is_deadlocked; }).length;
+            var bottlenecks = (data.bottleneck_agents || []).length;
+            if (deadlocks > 0) {
+              if (coalitionDot) coalitionDot.style.background = 'var(--danger)';
+              if (coalitionText) coalitionText.textContent = 'COALITIONS: DEADLOCK (' + deadlocks + ')';
+            } else if (bottlenecks > 0) {
+              if (coalitionDot) coalitionDot.style.background = 'var(--warning)';
+              if (coalitionText) coalitionText.textContent = 'COALITIONS: BOTTLENECK (' + bottlenecks + ')';
+            } else if (coalitions.length > 0) {
+              if (coalitionDot) coalitionDot.style.background = 'var(--accent)';
+              if (coalitionText) coalitionText.textContent = 'COALITIONS: ' + coalitions.length + ' ACTIVE';
+            } else {
+              if (coalitionDot) coalitionDot.style.background = 'var(--success)';
+              if (coalitionText) coalitionText.textContent = 'COALITIONS: OPTIMAL';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshCoalitionStatus();
+      setInterval(refreshCoalitionStatus, 9500);
 
       if (btnMfaModal) {
 

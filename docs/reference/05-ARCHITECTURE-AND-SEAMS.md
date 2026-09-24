@@ -187,5 +187,11 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `AgentTier`, `AgentAllocation`, `RebalancePlan`, `RebalancePolicy`, `AdaptiveQuotaRebalancer` (`rebalancer.ts`), exported via `index.ts`.
     - Primitives (Console): `#rebalancerBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Composite agent utility calculation ($U_a \in [0.0, 1.0]$) unifying semantic convergence, lexical diversity (VCR), Shannon entropy stability, and fault resilience; dynamic 4-tier classification (`BOOSTED`, `NOMINAL`, `THROTTLED`, `QUARANTINED`); non-linear sensitivity exponent re-allocation ($\kappa = 1.5$); reclaimed reserve buffer pooling with surge slice grants to converging workers; non-blocking in-process execution ($<50\mu\text{s}$ per turn); zero external LLM token expenditure; dual-SDK parity.
+36. **Real-Time Topological Graph Clustering & Dynamic Agent Coalitions Seam (ADR 0047 Dual-SDK Parity)**:
+    - Primitives (Python): `TopologicalCoalitionEngine` (`coalition.py`), `AgentCoalition`, `TopologicalClusterResult`, `NodeCentrality`, server endpoints `GET /api/v1/swarms/{id}/coalitions`, `POST /api/v1/swarms/{id}/coalitions/cluster` (`server.py`), CLI subcommand `swarmwatch coalition` (`cli.py`).
+    - Primitives (TypeScript): `AgentCoalition`, `TopologicalClusterResult`, `NodeCentrality`, `TopologicalCoalitionEngine` (`coalition.ts`), exported via `index.ts`.
+    - Primitives (Console): `#coalitionBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Directed causal interaction graph analysis; weighted interaction strength ($W(u, v) = \sum (1 + \ln(1 + \text{tokens}))$); degree centrality and bottleneck transit detection ($B(v)$); Newman-Girvan modularity community clustering ($Q \ge 0.30$); autonomous coalition formation ($\ge 0.50$ density) with designated Coalition Leaders; in-flight conversational deadlock decoupling; non-blocking execution ($<50\mu\text{s}$ per turn); zero external LLM token expenditure; dual-SDK parity.
+
 
 
