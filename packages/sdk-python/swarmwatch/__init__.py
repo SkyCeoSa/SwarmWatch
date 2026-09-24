@@ -334,6 +334,11 @@ __all__ = [
     "VerificationResult",
     "BoundedModelChecker",
     "global_model_checker",
+    "PatchAction",
+    "TopologyPatch",
+    "HealedModelReport",
+    "TopologyAutoHealer",
+    "global_topology_healer",
 ]
 
 
@@ -503,6 +508,13 @@ from swarmwatch.model_checker import (
     VerificationResult,
     BoundedModelChecker,
     global_model_checker,
+)
+from swarmwatch.topology_healer import (
+    PatchAction,
+    TopologyPatch,
+    HealedModelReport,
+    TopologyAutoHealer,
+    global_topology_healer,
 )
 
 

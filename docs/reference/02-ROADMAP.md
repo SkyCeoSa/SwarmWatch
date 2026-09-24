@@ -357,6 +357,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-millisecond execution ($<1.0\text{ms}$) with zero external SAT/SMT solver or LLM dependencies.
   - Dual-SDK parity across Python (`swarmwatch.model_checker`) and TypeScript (`@swarmwatch/sdk/src/model_checker.ts`) conforming strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/swarms/{id}/model-check/status`, `POST /api/v1/swarms/{id}/model-check/verify`), CLI subcommand (`swarmwatch verify status|check`), and Web Console `#modelCheckBadge` widget.
+- **Autonomous Dynamic Topology Healing & Auto-Patching (Seam 43 & ADR 0054 Dual-SDK Parity)**:
+  - Deep module `TopologyAutoHealer` synthesizing, applying, and reverifying graph-theoretic patches (`TopologyPatch`) to resolve invariant breaches found by BMC or runtime spans.
+  - 4 canonical repair strategies: `FALLBACK_REDIRECT` (for deadlocked nodes), `CYCLE_GATE_BREAK` (for unbounded delegation loops), `BUDGET_REWIRE` (for quota exhaustion), and `MUTEX_MEDIATE` (for conflicting agent roles).
+  - Immediate secondary BMC verification proving that the patched model achieves verdict `VERIFIED` with zero counterexamples.
+  - In-process deterministic execution in $<2.0\text{ms}$ with zero remote LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.topology_healer`) and TypeScript (`@swarmwatch/sdk/src/topology_healer.ts`) conforming strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`GET /api/v1/swarms/{id}/topology-heal/status`, `POST /api/v1/swarms/{id}/topology-heal/apply`, `POST /api/v1/swarms/{id}/topology-heal/revert`), CLI subcommand (`swarmwatch heal status|apply|revert`), and Web Console `#topologyHealBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

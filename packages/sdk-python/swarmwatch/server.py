@@ -98,6 +98,13 @@ from swarmwatch.model_checker import (
     BoundedModelChecker,
     global_model_checker,
 )
+from swarmwatch.topology_healer import (
+    PatchAction,
+    TopologyPatch,
+    HealedModelReport,
+    TopologyAutoHealer,
+    global_topology_healer,
+)
 
 
 
@@ -266,6 +273,15 @@ class HoneytokenCreateRequest(BaseModel):
 class ModelCheckVerifyRequest(BaseModel):
     bound_k: int = 10
     invariants: Optional[List[str]] = None
+    transitions: Optional[List[Dict[str, Any]]] = None
+    initial_agent: Optional[str] = None
+    final_agents: Optional[List[str]] = None
+    max_token_budget: Optional[int] = None
+    mutual_exclusion_pairs: Optional[List[List[str]]] = None
+
+
+class TopologyHealApplyRequest(BaseModel):
+    bound_k: int = 10
     transitions: Optional[List[Dict[str, Any]]] = None
     initial_agent: Optional[str] = None
     final_agents: Optional[List[str]] = None
@@ -4496,6 +4512,75 @@ def create_app(
         """Resets model checking history and models for the swarm."""
         global_model_checker.reset(swarm_id)
         return {"status": "reset", "swarm_id": swarm_id}
+
+    @app.get("/api/v1/swarms/{swarm_id}/topology-heal/status")
+    async def get_topology_heal_status_endpoint(swarm_id: str):
+        """Returns active graph patches and auto-healing status for the swarm."""
+        active_patches = [p.to_dict() for p in global_topology_healer.get_active_patches(swarm_id)]
+        latest_rep = global_topology_healer.get_latest_report(swarm_id)
+        return {
+            "swarm_id": swarm_id,
+            "active_patches_count": len(active_patches),
+            "active_patches": active_patches,
+            "latest_report": latest_rep.to_dict() if latest_rep else None,
+            "status": "PATCHED" if active_patches else "NOMINAL",
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/topology-heal/apply")
+    async def apply_topology_heal_endpoint(swarm_id: str, req: TopologyHealApplyRequest):
+        """Synthesizes, applies, and reverifies an automated graph patch for the swarm."""
+        model = None
+        if req.transitions:
+            transitions_list = []
+            for t in req.transitions:
+                transitions_list.append(
+                    AgentTransition(
+                        from_agent=t.get("from_agent", "agent-src"),
+                        to_agent=t.get("to_agent", "agent-dst"),
+                        action_type=t.get("action_type", "CALL"),
+                        token_cost=t.get("token_cost", 100),
+                        required_flags=t.get("required_flags", []),
+                        sets_flags=t.get("sets_flags", []),
+                    )
+                )
+            initial = req.initial_agent or "agent-planner"
+            final = set(req.final_agents) if req.final_agents else {"agent-verifier"}
+            budget = req.max_token_budget or 10000
+            mutex = [tuple(p) for p in req.mutual_exclusion_pairs] if req.mutual_exclusion_pairs else []
+            model = AgentTransitionModel(
+                initial_agent=initial,
+                final_agents=final,
+                transitions=transitions_list,
+                max_token_budget=budget,
+                mutual_exclusion_pairs=mutex,
+            )
+        else:
+            model = global_model_checker._models.get(swarm_id)
+            if model is None:
+                model = AgentTransitionModel(
+                    initial_agent="agent-planner",
+                    final_agents={"agent-verifier"},
+                    transitions=[
+                        AgentTransition(from_agent="agent-planner", to_agent="agent-deadlock", action_type="CALL", token_cost=100),
+                    ],
+                    max_token_budget=10000,
+                )
+
+        report = global_topology_healer.heal_and_verify(model, bound_k=req.bound_k, swarm_id=swarm_id)
+        return {
+            "status": "applied",
+            "swarm_id": swarm_id,
+            "report": report.to_dict(),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/topology-heal/revert")
+    async def revert_topology_heal_endpoint(swarm_id: str):
+        """Reverts active topology patches for the swarm."""
+        reverted = global_topology_healer.revert_patch(swarm_id)
+        return {
+            "status": "reverted" if reverted else "no_active_patches",
+            "swarm_id": swarm_id,
+        }
 
 
 

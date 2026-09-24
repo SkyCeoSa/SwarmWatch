@@ -441,3 +441,15 @@ export {
   BoundedModelChecker,
   globalModelChecker,
 } from "./model_checker.ts";
+
+// Autonomous Dynamic Topology Healing & Auto-Patching (Seam 43 / ADR 0054)
+export type {
+  PatchActionType,
+  TopologyPatch,
+  HealedModelReport,
+} from "./topology_healer.ts";
+export {
+  PatchAction,
+  TopologyAutoHealer,
+  globalTopologyHealer,
+} from "./topology_healer.ts";

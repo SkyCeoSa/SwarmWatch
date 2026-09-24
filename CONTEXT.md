@@ -564,3 +564,17 @@ _Avoid_: Hook call, function callback, middleware run
   _Avoid_: Tree searcher, path walker, state crawler
 - **VerificationVerdict**: Formal verification outcome (`VERIFIED`, `VIOLATED`, `VACUOUS`) certifying multi-agent topology safety.
   _Avoid_: Test result, check grade, pass status
+
+### Autonomous Dynamic Topology Healing & Auto-Patching (Seam 43 / ADR 0054)
+- **TopologyAutoHealer**: Deep module synthesizing, applying, and reverifying graph-theoretic patches to heal multi-agent topology failures discovered by BMC or runtime telemetry.
+  _Avoid_: Fixer script, patch bot, graph doctor, auto-repairer
+- **TopologyPatch**: Formal graph mutation specification defining target agent, repair action (`FALLBACK_REDIRECT`, `CYCLE_GATE_BREAK`, `BUDGET_REWIRE`, `MUTEX_MEDIATE`), and synthetic transitions.
+  _Avoid_: Graph fix, edge hack, hot patch
+- **PatchAction**: Canonical repair mechanism (`FALLBACK_REDIRECT`, `CYCLE_GATE_BREAK`, `BUDGET_REWIRE`, `MUTEX_MEDIATE`) resolving specific invariant breaches.
+  _Avoid_: Fix type, repair mode, patch kind
+- **HealedModelReport**: Audit record containing original violation, synthesized patch, resulting transition model, and mathematical reverification certification via BMC.
+  _Avoid_: Fix log, patch report, repair summary
+- **FallbackRedirection**: Automated insertion of recovery transitions from deadlocked non-terminal agents to authorized supervisor or fallback agents.
+  _Avoid_: Detour hack, error jump, skip route
+- **CycleGateBreak**: Injection of progress counters or conditional guard flags to guarantee loop termination in cyclic agent delegations.
+  _Avoid_: Loop break, cycle cut, exit hook

@@ -1645,6 +1645,10 @@
             <span class="status-indicator" id="modelCheckDot" style="background: var(--success);"></span>
             <span id="modelCheckText">BMC: VERIFIED (k=10)</span>
           </div>
+          <div class="fleet-badge" id="topologyHealBadge" title="Autonomous Dynamic Topology Healing & Auto-Patching (ADR 0054)">
+            <span class="status-indicator" id="topologyHealDot" style="background: var(--success);"></span>
+            <span id="topologyHealText">HEAL: NOMINAL</span>
+          </div>
         </div>
 
 
@@ -4246,6 +4250,32 @@
       }
       refreshModelCheckStatus();
       setInterval(refreshModelCheckStatus, 10200);
+
+      // -------------------------------------------------------------------
+      // Autonomous Dynamic Topology Healing & Auto-Patching (ADR 0054)
+      // -------------------------------------------------------------------
+      async function refreshTopologyHealStatus() {
+        var topologyHealDot = document.getElementById('topologyHealDot');
+        var topologyHealText = document.getElementById('topologyHealText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/topology-heal/status');
+          if (res.ok) {
+            var data = await res.json();
+            var status = data.status || 'NOMINAL';
+            var count = data.active_patches_count || 0;
+            if (status === 'PATCHED' && count > 0) {
+              if (topologyHealDot) topologyHealDot.style.background = 'var(--accent)';
+              if (topologyHealText) topologyHealText.textContent = 'HEAL: PATCHED (' + count + ' ACTIVE)';
+            } else {
+              if (topologyHealDot) topologyHealDot.style.background = 'var(--success)';
+              if (topologyHealText) topologyHealText.textContent = 'HEAL: NOMINAL';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshTopologyHealStatus();
+      setInterval(refreshTopologyHealStatus, 10500);
 
 
 

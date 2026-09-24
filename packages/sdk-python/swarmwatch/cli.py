@@ -255,6 +255,14 @@ def main(argv=None):
     verify_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     verify_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch patch` subcommand (Seam 43 / ADR 0054)
+    patch_parser = subparsers.add_parser("patch", help="Autonomous Dynamic Topology Healing & Auto-Patching")
+    patch_parser.add_argument("action", choices=["status", "apply", "revert"], default="status", nargs="?", help="Patching action (status, apply, revert)")
+    patch_parser.add_argument("--swarm-id", default="swarm-live-01", help="Target swarm session ID (default: swarm-live-01)")
+    patch_parser.add_argument("--bound-k", type=int, default=10, help="Maximum search depth bound k (default: 10)")
+    patch_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    patch_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -1883,6 +1891,103 @@ def main(argv=None):
                 if data.get("violated_invariant"):
                     print(f"  Violated Invariant:   \033[91m{data.get('violated_invariant')}\033[0m")
                 print(f"  Summary:              {data.get('summary')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "patch":
+        import urllib.request
+        from swarmwatch.topology_healer import global_topology_healer
+        from swarmwatch.model_checker import global_model_checker, AgentTransitionModel, AgentTransition
+
+        if args.action == "apply":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/topology-heal/apply"
+            payload_data = json.dumps({"bound_k": args.bound_k}).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload_data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    raw = json.loads(resp.read().decode())
+                    data = raw.get("report", raw)
+            except Exception:
+                model = global_model_checker._models.get(args.swarm_id)
+                if model is None:
+                    model = AgentTransitionModel(
+                        initial_agent="agent-planner",
+                        final_agents={"agent-verifier"},
+                        transitions=[
+                            AgentTransition(from_agent="agent-planner", to_agent="agent-deadlock", action_type="CALL", token_cost=100),
+                        ],
+                        max_token_budget=10000,
+                    )
+                report = global_topology_healer.heal_and_verify(model, bound_k=args.bound_k, swarm_id=args.swarm_id)
+                data = report.to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                verdict_str = data.get("healed_verdict", "VERIFIED")
+                color = "\033[92m" if verdict_str == "VERIFIED" else "\033[91m"
+                patch_info = data.get("applied_patch") or {}
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH TOPOLOGY AUTO-HEAL REPORT (ADR 0054)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Original Verdict:     \033[91m{data.get('original_verdict')}\033[0m")
+                print(f"  Violated Invariant:   {data.get('violated_invariant')}")
+                print(f"  Patch Action:         \033[96m{patch_info.get('action', 'NONE')}\033[0m")
+                print(f"  Rewired Target:       {patch_info.get('target_agent')} -> {patch_info.get('rewired_to')}")
+                print(f"  Healed Verdict:       {color}{verdict_str}\033[0m")
+                print(f"  Execution Time:       {data.get('execution_time_ms')} ms")
+                print(f"  Summary:              {data.get('summary')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "revert":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/topology-heal/revert"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                reverted = global_topology_healer.revert_patch(args.swarm_id)
+                data = {"status": "reverted" if reverted else "no_active_patches", "swarm_id": args.swarm_id}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                status_str = data.get("status", "reverted")
+                print(f"\n\033[92m[SwarmWatch] Topology patches {status_str} for '{args.swarm_id}'.\033[0m\n")
+            sys.exit(0)
+
+        else:
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{args.swarm_id}/topology-heal/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                active_patches = [p.to_dict() for p in global_topology_healer.get_active_patches(args.swarm_id)]
+                latest_rep = global_topology_healer.get_latest_report(args.swarm_id)
+                data = {
+                    "swarm_id": args.swarm_id,
+                    "active_patches_count": len(active_patches),
+                    "active_patches": active_patches,
+                    "latest_report": latest_rep.to_dict() if latest_rep else None,
+                    "status": "PATCHED" if active_patches else "NOMINAL",
+                }
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                status_str = data.get("status", "NOMINAL")
+                color = "\033[92m" if status_str == "NOMINAL" else "\033[93m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH TOPOLOGY AUTO-HEAL STATUS (ADR 0054)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Status:               {color}{status_str}\033[0m")
+                print(f"  Active Patches:       {data.get('active_patches_count')}")
+                patches = data.get("active_patches", [])
+                if patches:
+                    for idx, p in enumerate(patches):
+                        print(f"    [{idx+1}] {p.get('patch_id')} ({p.get('action')}): {p.get('target_agent')} -> {p.get('rewired_to')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:
