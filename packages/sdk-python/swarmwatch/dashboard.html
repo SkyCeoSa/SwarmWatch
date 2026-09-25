@@ -1665,6 +1665,10 @@
             <span class="status-indicator" id="schemaDot" style="background: var(--success);"></span>
             <span id="schemaText">SCHEMA: V2.0.0 (3 VERSIONS)</span>
           </div>
+          <div class="fleet-badge" id="epistemicBadge" title="Dynamic Multi-Agent Epistemic Logic & Knowledge Base State Synchronization (ADR 0059)">
+            <span class="status-indicator" id="epistemicDot" style="background: var(--success);"></span>
+            <span id="epistemicText">EPISTEMIC: OK (0 claims)</span>
+          </div>
         </div>
 
 
@@ -4408,6 +4412,34 @@
       }
       refreshSchemaStatus();
       setInterval(refreshSchemaStatus, 12000);
+
+      // -------------------------------------------------------------------
+      // ADR 0059: Dynamic Multi-Agent Epistemic Logic Status Polling
+      // -------------------------------------------------------------------
+      async function refreshEpistemicStatus() {
+        var epistemicDot = document.getElementById('epistemicDot');
+        var epistemicText = document.getElementById('epistemicText');
+        var sId = currentSwarmId || 'swarm-live-01';
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(sId) + '/epistemic/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'CONSISTENT';
+            var claimsCount = data.total_claims || 0;
+            var disson = data.dissonance_score || 0.0;
+            var confs = data.unresolved_conflicts || 0;
+            if (st === 'CONSISTENT') {
+              if (epistemicDot) epistemicDot.style.background = 'var(--success)';
+              if (epistemicText) epistemicText.textContent = 'EPISTEMIC: OK (' + claimsCount + ' claims)';
+            } else {
+              if (epistemicDot) epistemicDot.style.background = 'var(--danger)';
+              if (epistemicText) epistemicText.textContent = 'EPISTEMIC: DISSONANT (' + confs + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEpistemicStatus();
+      setInterval(refreshEpistemicStatus, 10500);
 
 
 

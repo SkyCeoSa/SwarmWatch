@@ -392,6 +392,12 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Guarantees backward and forward compatibility during Time-Machine step-backs and cross-cluster gossip telemetry sync.
   - Dual-SDK parity across Python (`swarmwatch.schema_migration`) and TypeScript (`@swarmwatch/sdk/src/schema_migration.ts`) conforming strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/schemas/status`, `GET /api/v1/schemas/versions`, `POST /api/v1/schemas/register-migration`, `POST /api/v1/schemas/migrate`, `POST /api/v1/schemas/validate`), CLI subcommand (`swarmwatch schema status|versions|migrate|validate`), and Web Console `#schemaBadge` widget.
+- **Dynamic Multi-Agent Epistemic Logic & Knowledge Base State Synchronization Engine (Seam 48 & ADR 0059 Dual-SDK Parity)**:
+  - Deep module `EpistemicEngine` implementing modal epistemic logic ($S5 / KD45$) tracking for individual assertions ($K_i \phi$), mutual knowledge ($E_G \phi$), and common knowledge ($C_G \phi$).
+  - In-process contradiction detection ($<50\mu\text{s}$) identifying conflicting premises ($K_i \phi \land K_j \neg\phi$) and calculating the swarm Epistemic Dissonance Score ($D \in [0.0, 1.0]$).
+  - Deterministic AGM-style belief revision primitives (expansion, contraction, revision) resolving conflicts via epistemic entrenchment without external LLM judges.
+  - Dual-SDK parity across Python (`swarmwatch.epistemic`) and TypeScript (`@swarmwatch/sdk/src/epistemic.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`GET/POST /api/v1/swarms/{id}/epistemic/*`), CLI subcommand (`swarmwatch epistemic status|propositions|assert|reconcile`), and Web Console `#epistemicBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

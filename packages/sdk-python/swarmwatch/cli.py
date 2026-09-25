@@ -304,6 +304,19 @@ def main(argv=None):
     schema_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     schema_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch epistemic` subcommand (Seam 48 / ADR 0059)
+    epistemic_parser = subparsers.add_parser("epistemic", help="Dynamic Multi-Agent Epistemic Logic & Knowledge Base Synchronization")
+    epistemic_parser.add_argument("action", choices=["status", "propositions", "conflicts", "mutual-knowledge", "assert", "reconcile", "reset"], default="status", nargs="?", help="Epistemic action (status, propositions, conflicts, mutual-knowledge, assert, reconcile, reset)")
+    epistemic_parser.add_argument("--swarm-id", "-s", default="swarm-live-01", help="Target swarm session ID (default: 'swarm-live-01')")
+    epistemic_parser.add_argument("--agent", "-a", default="agent-primary", help="Agent identifier for assertion")
+    epistemic_parser.add_argument("--topic", "-t", default="database.read_replica", help="Propositional domain topic")
+    epistemic_parser.add_argument("--predicate", "-p", default="is_ready", help="Propositional predicate property")
+    epistemic_parser.add_argument("--truth-value", choices=["TRUE", "FALSE", "UNKNOWN"], default="TRUE", help="Asserted epistemic truth value (default: TRUE)")
+    epistemic_parser.add_argument("--confidence", "-c", type=float, default=1.0, help="Confidence value in [0.0, 1.0] (default: 1.0)")
+    epistemic_parser.add_argument("--strategy", choices=["CONFIDENCE_ENTRENCHMENT", "TEMPORAL_RECENCY"], default="CONFIDENCE_ENTRENCHMENT", help="AGM belief revision resolution strategy")
+    epistemic_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    epistemic_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -2513,6 +2526,203 @@ def main(argv=None):
                     print("  Configured Migration Steps:")
                     for s in steps:
                         print(f"    - [{s.get('source')} <-> {s.get('target')}]: {s.get('description')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "epistemic":
+        import urllib.request
+        from swarmwatch.epistemic import (
+            global_epistemic_engine,
+            EpistemicTruthValue,
+        )
+
+        swarm_id = args.swarm_id
+
+        if args.action == "assert":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/epistemic/assert"
+            body = json.dumps({
+                "agent_id": args.agent,
+                "topic": args.topic,
+                "predicate": args.predicate,
+                "truth_value": args.truth_value,
+                "confidence": args.confidence,
+            }).encode()
+            try:
+                req = urllib.request.Request(target_url, data=body, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                tv = EpistemicTruthValue(args.truth_value)
+                claim, is_cons, conf = global_epistemic_engine.assert_proposition(
+                    swarm_id=swarm_id,
+                    agent_id=args.agent,
+                    topic=args.topic,
+                    predicate=args.predicate,
+                    truth_value=tv,
+                    confidence=args.confidence,
+                )
+                data = {
+                    "status": "asserted",
+                    "is_consistent": is_cons,
+                    "claim": claim.to_dict(),
+                    "conflict": conf.to_dict() if conf else None,
+                }
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                col = "\033[92mCONSISTENT\033[0m" if data.get("is_consistent") else "\033[91mCONTRADICTION DETECTED\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EPISTEMIC ASSERTION (ADR 0059)                     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Agent:                {args.agent}")
+                print(f"  Proposition:          K_{args.agent}({args.topic}.{args.predicate} == {args.truth_value})")
+                print(f"  Confidence:           {args.confidence:.2f}")
+                print(f"  Epistemic State:      {col}")
+                if data.get("conflict"):
+                    c = data["conflict"]
+                    print(f"  Conflict With:        Agent '{c.get('prior_agent_id')}' (Claim: {c.get('prior_truth_value')})")
+                    print(f"  Severity:             {c.get('severity', 0.0):.2f}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "propositions":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/epistemic/propositions"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                props = global_epistemic_engine.get_propositions(swarm_id)
+                data = {"swarm_id": swarm_id, "propositions_count": len(props), "propositions": props}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EPISTEMIC KNOWLEDGE BASE (ADR 0059)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Total Propositions:   {data.get('propositions_count', 0)}")
+                props = data.get("propositions", [])
+                for p in props:
+                    print(f"    - K_{p.get('agent_id')} ({p.get('topic')}.{p.get('predicate')} = {p.get('truth_value')}) [conf={p.get('confidence'):.2f}]")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "conflicts":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/epistemic/conflicts"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                confs = global_epistemic_engine.get_conflicts(swarm_id)
+                data = {"swarm_id": swarm_id, "conflicts_count": len(confs), "conflicts": confs}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EPISTEMIC CONTRADICTIONS (ADR 0059)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Active Conflicts:     {data.get('conflicts_count', 0)}")
+                for c in data.get("conflicts", []):
+                    print(f"    - [{c.get('topic')}.{c.get('predicate')}]: {c.get('prior_agent_id')} ({c.get('prior_truth_value')}) vs {c.get('conflicting_agent_id')} ({c.get('conflicting_truth_value')}) [severity={c.get('severity', 0.0):.2f}]")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "mutual-knowledge":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/epistemic/mutual-knowledge"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                kb = global_epistemic_engine.get_knowledge_base(swarm_id)
+                data = {"swarm_id": swarm_id, "mutual_knowledge": kb.get_mutual_knowledge()}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                mk = data.get("mutual_knowledge", [])
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH MUTUAL KNOWLEDGE (E_G phi) (ADR 0059)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Mutual Knowledge Items:{len(mk)}")
+                for item in mk:
+                    print(f"    - E_G({item.get('topic')}.{item.get('predicate')} = {item.get('truth_value')}) [affirming agents: {', '.join(item.get('affirming_agents', []))}]")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "reconcile":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/epistemic/reconcile"
+            body = json.dumps({"strategy": args.strategy}).encode()
+            try:
+                req = urllib.request.Request(target_url, data=body, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_epistemic_engine.reconcile(swarm_id, strategy=args.strategy)
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH AGM BELIEF REVISION RECONCILIATION (ADR 0059)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Strategy Applied:     {data.get('strategy')}")
+                print(f"  Contradictions Resolved:{data.get('reconciled_conflicts_count', 0)}")
+                print(f"  Claims Retracted:     {data.get('retracted_claims_count', 0)}")
+                print(f"  Post-Dissonance Score:{data.get('post_reconciliation_dissonance', 0.0):.4f}")
+                print(f"  Final Epistemic Status:{data.get('epistemic_status')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "reset":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/epistemic/reset"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                global_epistemic_engine.reset(swarm_id)
+                data = {"status": "reset", "swarm_id": swarm_id}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\033[92m[SwarmWatch] Epistemic knowledge base reset for swarm: {swarm_id}\033[0m")
+            sys.exit(0)
+
+        else:  # status
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/epistemic/status"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_epistemic_engine.get_status(swarm_id)
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                st = data.get("status", "CONSISTENT")
+                st_col = "\033[92mCONSISTENT\033[0m" if st == "CONSISTENT" else "\033[91mDISSONANT\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EPISTEMIC LOGIC ENGINE STATUS (ADR 0059)          |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Epistemic Status:     {st_col}")
+                print(f"  Dissonance Score:     {data.get('dissonance_score', 0.0):.4f}")
+                print(f"  Total Propositions:   {data.get('total_propositions', 0)}")
+                print(f"  Active Agents:        {data.get('active_agents_count', 0)}")
+                print(f"  Unresolved Conflicts: {data.get('unresolved_conflicts_count', 0)}")
+                print(f"  Mutual Knowledge Items:{data.get('mutual_knowledge_count', 0)}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

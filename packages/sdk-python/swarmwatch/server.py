@@ -146,6 +146,16 @@ from swarmwatch.schema_migration import (
     SchemaMigrationEngine,
     global_schema_migration_engine,
 )
+from swarmwatch.epistemic import (
+    EpistemicTruthValue,
+    EpistemicStatus,
+    PropositionalClaim,
+    EpistemicConflict,
+    EpistemicKnowledgeBase,
+    EpistemicEngine,
+    global_epistemic_engine,
+)
+
 
 
 
@@ -403,6 +413,21 @@ class SchemaRegisterStepRequest(BaseModel):
     forward_rules: List[Dict[str, Any]]
     backward_rules: Optional[List[Dict[str, Any]]] = None
     description: Optional[str] = ""
+
+
+class EpistemicAssertRequest(BaseModel):
+    agent_id: str
+    topic: str
+    predicate: str
+    truth_value: str = "TRUE"
+    confidence: float = 1.0
+    evidence_span_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class EpistemicReconcileRequest(BaseModel):
+    strategy: Optional[str] = "CONFIDENCE_ENTRENCHMENT"
+
 
 
 
@@ -4960,6 +4985,86 @@ def create_app(
             "status": "registered",
             "step": step.to_dict(),
         }
+
+    # -----------------------------------------------------------------------
+    # Dynamic Multi-Agent Epistemic Logic & Knowledge Sync (Seam 48 / ADR 0059)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/swarms/{swarm_id}/epistemic/status")
+    async def get_epistemic_status_endpoint(swarm_id: str):
+        """Returns consolidated epistemic status report, dissonance score, and conflict summary."""
+        return global_epistemic_engine.get_status(swarm_id)
+
+    @app.get("/api/v1/swarms/{swarm_id}/epistemic/propositions")
+    async def get_epistemic_propositions_endpoint(
+        swarm_id: str,
+        topic: Optional[str] = Query(None),
+        agent_id: Optional[str] = Query(None),
+    ):
+        """Returns active propositional knowledge assertions for designated swarm."""
+        props = global_epistemic_engine.get_propositions(swarm_id, topic=topic, agent_id=agent_id)
+        return {
+            "swarm_id": swarm_id,
+            "propositions_count": len(props),
+            "propositions": props,
+        }
+
+    @app.get("/api/v1/swarms/{swarm_id}/epistemic/conflicts")
+    async def get_epistemic_conflicts_endpoint(
+        swarm_id: str,
+        unresolved_only: bool = Query(True),
+    ):
+        """Returns active or resolved contradiction pairs across agent assertions."""
+        conflicts = global_epistemic_engine.get_conflicts(swarm_id, unresolved_only=unresolved_only)
+        return {
+            "swarm_id": swarm_id,
+            "conflicts_count": len(conflicts),
+            "conflicts": conflicts,
+        }
+
+    @app.get("/api/v1/swarms/{swarm_id}/epistemic/mutual-knowledge")
+    async def get_mutual_knowledge_endpoint(swarm_id: str):
+        """Returns mutual knowledge propositions affirmed by multiple agents with matching truth values."""
+        kb = global_epistemic_engine.get_knowledge_base(swarm_id)
+        return {
+            "swarm_id": swarm_id,
+            "mutual_knowledge": kb.get_mutual_knowledge(),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/epistemic/assert")
+    async def assert_epistemic_proposition_endpoint(swarm_id: str, req: EpistemicAssertRequest):
+        """Ingests propositional claim Ki phi and detects potential contradictions in <50 microseconds."""
+        claim, is_consistent, conflict = global_epistemic_engine.assert_proposition(
+            swarm_id=swarm_id,
+            agent_id=req.agent_id,
+            topic=req.topic,
+            predicate=req.predicate,
+            truth_value=req.truth_value,
+            confidence=req.confidence,
+            evidence_span_id=req.evidence_span_id,
+            metadata=req.metadata,
+        )
+        return {
+            "status": "asserted",
+            "is_consistent": is_consistent,
+            "claim": claim.to_dict(),
+            "conflict": conflict.to_dict() if conflict else None,
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/epistemic/reconcile")
+    async def reconcile_epistemic_beliefs_endpoint(
+        swarm_id: str,
+        req: Optional[EpistemicReconcileRequest] = None,
+    ):
+        """Executes AGM-style belief revision across active propositional contradictions."""
+        strategy = req.strategy if req and req.strategy else "CONFIDENCE_ENTRENCHMENT"
+        result = global_epistemic_engine.reconcile(swarm_id, strategy=strategy)
+        return result
+
+    @app.post("/api/v1/swarms/{swarm_id}/epistemic/reset")
+    async def reset_epistemic_knowledge_endpoint(swarm_id: str):
+        """Clears all propositional claims and conflicts for designated swarm."""
+        global_epistemic_engine.reset(swarm_id)
+        return {"status": "reset", "swarm_id": swarm_id}
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

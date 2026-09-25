@@ -251,6 +251,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#schemaBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: In-process shortest-path migration DAG resolution; deterministic directional field transformations (`RENAME`, `CAST_TYPE`, `ADD_DEFAULT`, `REMOVE_DEPRECATED`, `NEST_FIELDS`, `FLATTEN_FIELDS`, `COMPUTE_DERIVED`); bidirectional reversibility with automatic rollback; guaranteed backward compatibility across Time-Machine step-back and cross-cluster gossip sync; sub-30 microsecond execution ($<30\mu\text{s}$); zero remote LLM API calls; dual-SDK parity.
 
+48. **Dynamic Multi-Agent Epistemic Logic & Knowledge Base State Synchronization Seam (ADR 0059 Dual-SDK Parity)**:
+    - Primitives (Python): `EpistemicTruthValue`, `EpistemicStatus`, `PropositionalClaim`, `EpistemicConflict`, `EpistemicKnowledgeBase`, `EpistemicEngine`, `global_epistemic_engine` (`epistemic.py`), server endpoints `GET /api/v1/swarms/{id}/epistemic/status`, `GET /api/v1/swarms/{id}/epistemic/propositions`, `GET /api/v1/swarms/{id}/epistemic/conflicts`, `POST /api/v1/swarms/{id}/epistemic/assert`, `POST /api/v1/swarms/{id}/epistemic/reconcile` (`server.py`), CLI subcommand `swarmwatch epistemic` (`cli.py`).
+    - Primitives (TypeScript): `EpistemicTruthValue`, `EpistemicStatus`, `PropositionalClaim`, `EpistemicConflict`, `EpistemicKnowledgeBase`, `EpistemicEngine`, `globalEpistemicEngine` (`epistemic.ts`), exported via `index.ts`.
+    - Primitives (Console): `#epistemicBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Formal modal epistemic logic ($S5/KD45$) tracking individual knowledge assertions ($K_i \phi$), mutual knowledge ($E_G \phi$), and common knowledge ($C_G \phi$); in-process contradiction detection ($<50\mu\text{s}$) identifying conflicting premises ($K_i \phi \land K_j \neg\phi$) and calculating Epistemic Dissonance Score ($D \in [0.0, 1.0]$); deterministic AGM-style belief revision primitives (expansion, contraction, revision) resolving conflicts without external LLM judges; sub-50 microsecond execution; zero remote LLM API calls; dual-SDK parity.
+
 
 
 

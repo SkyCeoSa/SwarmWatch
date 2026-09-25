@@ -1068,5 +1068,38 @@ _Avoid_: Migration route, step sequence, version path
 The immutable output envelope containing transformed payload, applied version hops, schema validation status, and execution latency nanoseconds.
 _Avoid_: Migration response, output json, translated data
 
+---
+
+### Dynamic Multi-Agent Epistemic Logic & Knowledge Base State Synchronization Engine (Seam 48 / ADR 0059)
+
+**EpistemicEngine**:
+The deep module providing in-process modal epistemic logic ($S5/KD45$) tracking, fast contradiction detection ($<50\mu\text{s}$), and AGM-style belief revision with zero external LLM calls.
+_Avoid_: Fact checker, logic bot, truth validator, debate judge
+
+**EpistemicTruthValue**:
+The discrete truth assignment (`TRUE`, `FALSE`, `UNKNOWN`, `CONTRADICTORY`) bound to a propositional claim.
+_Avoid_: Boolean flag, truth rating, validity stat
+
+**EpistemicStatus**:
+The categorical coherence state (`CONSISTENT`, `DISSONANT`, `STALE`, `UNVERIFIED`) representing the convergence of knowledge assertions across the agent swarm.
+_Avoid_: Agreement score, belief flag, sync health
+
+**PropositionalClaim**:
+The immutable modal knowledge assertion $K_i \phi$ capturing source agent, topic, predicate, truth value, confidence score, and causal evidence linkage.
+_Avoid_: Fact record, assertion statement, agent claim, state sentence
+
+**EpistemicConflict**:
+The direct formal contradiction between two or more propositional claims asserted by different agents regarding the same predicate ($K_i \phi \land K_j \neg\phi$).
+_Avoid_: Disagreement, argument, collision, logic error
+
+**EpistemicKnowledgeBase**:
+The isolated, thread-safe in-memory store indexing agent belief spaces, mutual knowledge ($E_G \phi$), and active contradiction pairs for a swarm.
+_Avoid_: Fact DB, belief map, truth store, agent memory
+
+**EpistemicDissonanceScore**:
+The normalized scalar metric $D \in [0.0, 1.0]$ quantifying the total cognitive disagreement and contested propositions across an agent swarm.
+_Avoid_: Conflict rate, error percent, divergence index
+
+
 
 

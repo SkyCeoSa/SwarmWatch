@@ -520,5 +520,22 @@ export {
   globalSchemaMigrationEngine,
 } from "./schema_migration.ts";
 
+// Dynamic Multi-Agent Epistemic Logic & Knowledge Base State Synchronization (Seam 48 / ADR 0059)
+export type {
+  EpistemicTruthValueType,
+  EpistemicStatusType,
+  PropositionalClaimOptions,
+} from "./epistemic.ts";
+export {
+  EpistemicTruthValue,
+  EpistemicStatus,
+  PropositionalClaim,
+  EpistemicConflict,
+  EpistemicKnowledgeBase,
+  EpistemicEngine,
+  globalEpistemicEngine,
+} from "./epistemic.ts";
+
+
 
 

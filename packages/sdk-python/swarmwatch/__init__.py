@@ -374,6 +374,13 @@ __all__ = [
     "MigrationResult",
     "SchemaMigrationEngine",
     "global_schema_migration_engine",
+    "EpistemicTruthValue",
+    "EpistemicStatus",
+    "PropositionalClaim",
+    "EpistemicConflict",
+    "EpistemicKnowledgeBase",
+    "EpistemicEngine",
+    "global_epistemic_engine",
 ]
 
 
@@ -594,6 +601,16 @@ from swarmwatch.schema_migration import (
     SchemaMigrationEngine,
     global_schema_migration_engine,
 )
+from swarmwatch.epistemic import (
+    EpistemicTruthValue,
+    EpistemicStatus,
+    PropositionalClaim,
+    EpistemicConflict,
+    EpistemicKnowledgeBase,
+    EpistemicEngine,
+    global_epistemic_engine,
+)
+
 
 
 
