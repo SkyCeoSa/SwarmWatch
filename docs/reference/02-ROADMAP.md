@@ -412,6 +412,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Fail-closed validation rejecting circular references and non-finite numbers.
   - Dual-SDK parity across Python (`swarmwatch.canonical`) and TypeScript (`@swarmwatch/sdk/src/canonical.ts`) strictly conforming to Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/codec/canonicalize`, `POST /api/v1/codec/hash`), CLI subcommand (`swarmwatch codec canonicalize|hash`), and Web Console `#codecBadge` widget.
+- **Unified Safety Authority & Linearizable Execution Permit Engine (Seam 51 & ADR 0062 Dual-SDK Parity)**:
+  - Deep module `SafetyAuthority` enforcing linearizable execution permit state machine (`reserve → commit/release → trip`) across distributed workers.
+  - Eliminates conflicting trip decisions, split-brain race conditions, and uncoordinated budget consumption during network partitions.
+  - Fail-closed execution barrier: no agent action or tool invocation begins without an unexpired tenant-scoped permit from the authoritative epoch.
+  - Monotonic fencing epoch counter invalidating previous permits immediately upon trip.
+  - Cryptographically verifiable permit certificates signed using `CanonicalCodec` with domain separation tag `sw:pmt:v1`.
+  - Dual-SDK parity across Python (`swarmwatch.safety_authority`) and TypeScript (`@swarmwatch/sdk/src/safety_authority.ts`) conforming strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/safety/reserve`, `POST /api/v1/safety/commit`, `POST /api/v1/safety/release`, `POST /api/v1/safety/trip`, `POST /api/v1/safety/rearm`, `GET /api/v1/safety/status`), CLI subcommand (`swarmwatch safety reserve|commit|release|trip|status`), and Web Console `#safetyBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

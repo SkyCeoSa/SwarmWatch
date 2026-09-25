@@ -1144,6 +1144,31 @@ _Avoid_: Hash salt, prefix label, tag type, domain name
 The fail-closed exception raised when an input object contains non-finite numbers (`NaN`, `Infinity`), circular references, or unrepresentable types.
 _Avoid_: JSON error, serialize exception, dump failure
 
+---
+
+### Unified Safety Authority & Linearizable Execution Permit Engine (Seam 51 / ADR 0062)
+
+**SafetyAuthority**:
+The deep module and linearizable state machine acting as the single authoritative decision plane across distributed workers, issuing, committing, and tripping execution permits.
+_Avoid_: Guard manager, trip service, auth controller, budget master
+
+**SafetyPermit**:
+A cryptographically verifiable, unexpired token authorizing an agent execution turn or tool invocation under a tenant budget and authoritative fencing epoch.
+_Avoid_: Token ticket, pass json, lease dict, access permit
+
+**PermitStatus**:
+The explicit categorical decision status (`ACCEPTED`, `REJECTED`, `INDETERMINATE`) returned by the authority for any execution request.
+_Avoid_: Check code, result string, verdict flag
+
+**AuthorityState**:
+The global or tenant operating condition of the SafetyAuthority (`NOMINAL`, `TRIPPED`, `DRAINING`).
+_Avoid_: Status mode, health state, circuit condition
+
+**FencingEpoch**:
+A monotonically increasing integer counter incremented upon every circuit trip or re-arm, permanently and atomically obsoleting all execution permits issued under previous epochs.
+_Avoid_: Version number, lease counter, timestamp tag
+
+
 
 
 

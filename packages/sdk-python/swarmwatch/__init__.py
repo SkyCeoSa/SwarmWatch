@@ -392,6 +392,12 @@ __all__ = [
     "CanonicalDomainTag",
     "CanonicalEncodingError",
     "global_canonical_codec",
+    "PermitStatus",
+    "AuthorityState",
+    "SafetyPermit",
+    "TenantQuota",
+    "SafetyAuthority",
+    "global_safety_authority",
 ]
 
 
@@ -636,6 +642,15 @@ from swarmwatch.canonical import (
     CanonicalEncodingError,
     global_canonical_codec,
 )
+from swarmwatch.safety_authority import (
+    PermitStatus,
+    AuthorityState,
+    SafetyPermit,
+    TenantQuota,
+    SafetyAuthority,
+    global_safety_authority,
+)
+
 
 
 

@@ -1677,6 +1677,10 @@
             <span class="status-indicator" id="codecDot" style="background: var(--success);"></span>
             <span id="codecText">CODEC: RFC-8785 JCS</span>
           </div>
+          <div class="fleet-badge" id="safetyBadge" title="Unified Safety Authority & Linearizable Execution Permits (ADR 0062)">
+            <span class="status-indicator" id="safetyDot" style="background: var(--success);"></span>
+            <span id="safetyText">SAFETY: AUTHORITATIVE (E1)</span>
+          </div>
         </div>
 
 
@@ -4489,6 +4493,36 @@
       }
       refreshCodecStatus();
       setInterval(refreshCodecStatus, 12000);
+
+      // -------------------------------------------------------------------
+      // ADR 0062: Unified Safety Authority & Linearizable Execution Permits
+      // -------------------------------------------------------------------
+      async function refreshSafetyStatus() {
+        var safetyDot = document.getElementById('safetyDot');
+        var safetyText = document.getElementById('safetyText');
+        try {
+          var res = await fetch('/api/v1/safety/status');
+          if (res.ok) {
+            var data = await res.json();
+            if (safetyDot) {
+              if (data.global_state === 'TRIPPED') {
+                safetyDot.style.background = 'var(--danger)';
+              } else if (data.global_state === 'DRAINING') {
+                safetyDot.style.background = 'var(--warning)';
+              } else {
+                safetyDot.style.background = 'var(--success)';
+              }
+            }
+            if (safetyText) {
+              var ep = data.epoch !== undefined ? data.epoch : 1;
+              var st = data.global_state === 'TRIPPED' ? 'TRIPPED' : 'AUTHORITATIVE';
+              safetyText.textContent = 'SAFETY: ' + st + ' (E' + ep + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSafetyStatus();
+      setInterval(refreshSafetyStatus, 10000);
 
       if (btnMfaModal) {
 

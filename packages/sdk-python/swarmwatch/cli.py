@@ -339,6 +339,18 @@ def main(argv=None):
     codec_parser.add_argument("--version", "-v", type=int, default=1, help="Canonical encoding version (default: 1)")
     codec_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch safety` subcommand (Seam 51 / ADR 0062)
+    safety_parser = subparsers.add_parser("safety", help="Unified Safety Authority & Linearizable Execution Permit Engine")
+    safety_parser.add_argument("action", choices=["reserve", "commit", "release", "trip", "rearm", "status"], default="status", nargs="?", help="Safety action (reserve, commit, release, trip, rearm, status)")
+    safety_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
+    safety_parser.add_argument("--action-name", default="agent_turn", help="Action name to reserve permit for (default: 'agent_turn')")
+    safety_parser.add_argument("--cost", type=float, default=0.0, help="Estimated or actual cost in dollars (default: 0.0)")
+    safety_parser.add_argument("--tokens", type=int, default=0, help="Estimated or actual tokens (default: 0)")
+    safety_parser.add_argument("--permit-id", default=None, help="Target permit ID for commit or release")
+    safety_parser.add_argument("--reason", default="manual_trip", help="Reason for circuit trip or release")
+    safety_parser.add_argument("--timeout", type=float, default=5000.0, help="Permit timeout in milliseconds (default: 5000.0)")
+    safety_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -3018,6 +3030,104 @@ def main(argv=None):
                 print(f"  SHA-256 Digest:       {digest}")
                 print(f"  Canonical Length:     {len(canonical_bytes)} bytes")
                 print(f"  Encoding Version:     {args.version} (RFC-8785 JCS)")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "safety":
+        from swarmwatch.safety_authority import global_safety_authority, PermitStatus, AuthorityState
+        tenant_id = args.tenant or "default"
+
+        if args.action == "reserve":
+            permit = global_safety_authority.reserve(
+                tenant_id=tenant_id,
+                action=args.action_name,
+                cost_estimate=args.cost,
+                tokens_estimate=args.tokens,
+                timeout_ms=args.timeout,
+            )
+            data = permit.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                col = "\033[92mACCEPTED\033[0m" if permit.status == PermitStatus.ACCEPTED else "\033[91mREJECTED\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EXECUTION PERMIT RESERVED (ADR 0062)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Permit ID:            {permit.permit_id}")
+                print(f"  Status:               {col}")
+                print(f"  Tenant ID:            {permit.tenant_id}")
+                print(f"  Fencing Epoch:        {permit.epoch}")
+                print(f"  Action Name:          {permit.action}")
+                print(f"  Cost Reserved:        ${permit.cost_estimate:.4f}")
+                print(f"  Tokens Reserved:      {permit.tokens_estimate}")
+                print(f"  Permit Hash:          {permit.permit_hash}")
+                if permit.rejection_reason:
+                    print(f"  Rejection Reason:     {permit.rejection_reason}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if permit.status == PermitStatus.ACCEPTED else 1)
+
+        elif args.action == "commit":
+            if not args.permit_id:
+                print("\033[91mError: --permit-id is required for commit.\033[0m")
+                sys.exit(1)
+            ok, msg = global_safety_authority.commit(
+                permit_id=args.permit_id,
+                actual_cost=args.cost,
+                actual_tokens=args.tokens,
+            )
+            data = {"status": "committed" if ok else "failed", "message": msg, "permit_id": args.permit_id}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"[{'SUCCESS' if ok else 'FAILURE'}] {msg}")
+            sys.exit(0 if ok else 1)
+
+        elif args.action == "release":
+            if not args.permit_id:
+                print("\033[91mError: --permit-id is required for release.\033[0m")
+                sys.exit(1)
+            ok, msg = global_safety_authority.release(permit_id=args.permit_id, reason=args.reason)
+            data = {"status": "released" if ok else "failed", "message": msg, "permit_id": args.permit_id}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"[{'SUCCESS' if ok else 'FAILURE'}] {msg}")
+            sys.exit(0 if ok else 1)
+
+        elif args.action == "trip":
+            new_epoch = global_safety_authority.trip(reason=args.reason, tenant_id=None if args.tenant == "default" else args.tenant)
+            data = {"status": "tripped", "new_epoch": new_epoch, "reason": args.reason, "tenant_id": args.tenant}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\033[91m[SwarmWatch] Safety Authority TRIPPED. Monotonic Fencing Epoch bumped to: {new_epoch}\033[0m")
+            sys.exit(0)
+
+        elif args.action == "rearm":
+            new_epoch = global_safety_authority.rearm(tenant_id=None if args.tenant == "default" else args.tenant)
+            data = {"status": "rearmed", "new_epoch": new_epoch, "tenant_id": args.tenant}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\033[92m[SwarmWatch] Safety Authority RE-ARMED. Monotonic Fencing Epoch bumped to: {new_epoch}\033[0m")
+            sys.exit(0)
+
+        elif args.action == "status":
+            data = global_safety_authority.status(tenant_id=tenant_id)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                t = data.get("tenant", {})
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SAFETY AUTHORITY STATUS (ADR 0062)                 |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Fencing Epoch:        {data.get('epoch')}")
+                print(f"  Global State:         {data.get('global_state')}")
+                print(f"  Active Permits:       {data.get('active_permits_count')}")
+                print(f"  Tenant ID:            {t.get('tenant_id')}")
+                print(f"  Available Budget:     ${t.get('available_cost', 0):.4f} / ${t.get('max_cost', 0):.4f}")
+                print(f"  Available Tokens:     {t.get('available_tokens', 0)} / {t.get('max_tokens', 0)}")
+                print(f"  Spent Turns:          {t.get('spent_turns', 0)} / {t.get('max_turns', 0)}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

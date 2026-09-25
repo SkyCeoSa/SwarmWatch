@@ -269,6 +269,13 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#codecBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: RFC 8785 (JCS) aligned canonical serialization guaranteeing byte-for-byte cross-runtime equality between Python and TypeScript; deterministic lexicographical key sorting, strict float and negative-zero normalization, whitespace stripping, and unescaped UTF-8 preservation; domain-separated cryptographic hashing ($H_v(\text{domain\_tag}, x) = \text{SHA256}(\text{domain\_tag} \parallel \text{0x00} \parallel C_v(x))$); fail-closed validation rejecting circular references and non-finite numbers; sub-5 microsecond execution ($<5\mu\text{s}$); zero remote LLM API calls; dual-SDK parity.
 
+51. **Unified Safety Authority & Linearizable Execution Permit Engine Seam (ADR 0062 Dual-SDK Parity)**:
+    - Primitives (Python): `PermitStatus`, `AuthorityState`, `SafetyPermit`, `SafetyAuthority`, `global_safety_authority` (`safety_authority.py`), server endpoints `POST /api/v1/safety/reserve`, `POST /api/v1/safety/commit`, `POST /api/v1/safety/release`, `POST /api/v1/safety/trip`, `POST /api/v1/safety/rearm`, `GET /api/v1/safety/status` (`server.py`), CLI subcommand `swarmwatch safety` (`cli.py`).
+    - Primitives (TypeScript): `PermitStatus`, `AuthorityState`, `SafetyPermit`, `SafetyAuthority`, `globalSafetyAuthority` (`safety_authority.ts`), exported via `index.ts`.
+    - Primitives (Console): `#safetyBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Single authoritative execution permit engine enforcing linearizable `reserve → commit/release → trip` transitions across all distributed workers and subsystems; guaranteed fail-closed execution where no agent turn or tool invocation starts without an unexpired tenant-scoped permit from the current epoch; monotonic fencing epoch counter invalidating previous permits immediately upon trip; canonical permit hashing (`sw:pmt:v1`); sub-10 microsecond execution ($<10\mu\text{s}$); zero external LLM calls; dual-SDK parity.
+
+
 
 
 

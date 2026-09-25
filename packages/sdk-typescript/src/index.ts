@@ -566,3 +566,18 @@ export {
   globalCanonicalCodec,
 } from "./canonical.ts";
 
+// Unified Safety Authority & Linearizable Execution Permit Engine (Seam 51 / ADR 0062)
+export type {
+  PermitStatusEnum,
+  AuthorityStateEnum,
+  SafetyPermitOptions,
+} from "./safety_authority.ts";
+export {
+  PermitStatus,
+  AuthorityState,
+  SafetyPermit,
+  TenantQuota,
+  SafetyAuthority,
+  globalSafetyAuthority,
+} from "./safety_authority.ts";
+

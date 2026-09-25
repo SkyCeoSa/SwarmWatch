@@ -170,6 +170,13 @@ from swarmwatch.canonical import (
     CanonicalEncodingError,
     global_canonical_codec,
 )
+from swarmwatch.safety_authority import (
+    PermitStatus,
+    AuthorityState,
+    SafetyPermit,
+    SafetyAuthority,
+    global_safety_authority,
+)
 
 
 
@@ -475,6 +482,35 @@ class CanonicalHashRequest(BaseModel):
     payload: Any
     domain_tag: str = ""
     version: int = 1
+
+
+class SafetyReserveRequest(BaseModel):
+    tenant_id: str = "default"
+    action: str = "agent_turn"
+    cost_estimate: float = 0.0
+    tokens_estimate: int = 0
+    timeout_ms: float = 5000.0
+
+
+class SafetyCommitRequest(BaseModel):
+    permit_id: str
+    actual_cost: float = 0.0
+    actual_tokens: int = 0
+
+
+class SafetyReleaseRequest(BaseModel):
+    permit_id: str
+    reason: str = "aborted"
+
+
+class SafetyTripRequest(BaseModel):
+    reason: str = "manual_circuit_trip"
+    tenant_id: Optional[str] = None
+
+
+class SafetyRearmRequest(BaseModel):
+    tenant_id: Optional[str] = None
+
 
 
 
@@ -5223,6 +5259,68 @@ def create_app(
             }
         except CanonicalEncodingError as e:
             raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/safety/reserve")
+    async def safety_reserve_endpoint(req: SafetyReserveRequest):
+        """Atomically requests and reserves an execution permit under the current epoch."""
+        permit = global_safety_authority.reserve(
+            tenant_id=req.tenant_id,
+            action=req.action,
+            cost_estimate=req.cost_estimate,
+            tokens_estimate=req.tokens_estimate,
+            timeout_ms=req.timeout_ms,
+        )
+        return {
+            "status": permit.status,
+            "permit": permit.to_dict(),
+            "epoch": permit.epoch,
+        }
+
+    @app.post("/api/v1/safety/commit")
+    async def safety_commit_endpoint(req: SafetyCommitRequest):
+        """Commits an executed permit, settling reserved budget and recording permanent spend."""
+        ok, msg = global_safety_authority.commit(
+            permit_id=req.permit_id,
+            actual_cost=req.actual_cost,
+            actual_tokens=req.actual_tokens,
+        )
+        if not ok:
+            raise HTTPException(status_code=400, detail=msg)
+        return {"status": "committed", "message": msg, "permit_id": req.permit_id}
+
+    @app.post("/api/v1/safety/release")
+    async def safety_release_endpoint(req: SafetyReleaseRequest):
+        """Releases reserved budget back to the pool without debiting spend."""
+        ok, msg = global_safety_authority.release(permit_id=req.permit_id, reason=req.reason)
+        if not ok:
+            raise HTTPException(status_code=404, detail=msg)
+        return {"status": "released", "message": msg, "permit_id": req.permit_id}
+
+    @app.post("/api/v1/safety/trip")
+    async def safety_trip_endpoint(req: SafetyTripRequest):
+        """Trips the safety authority, monotonically increments fencing epoch, and revokes permits."""
+        new_epoch = global_safety_authority.trip(reason=req.reason, tenant_id=req.tenant_id)
+        return {
+            "status": "tripped",
+            "new_epoch": new_epoch,
+            "reason": req.reason,
+            "tenant_id": req.tenant_id,
+        }
+
+    @app.post("/api/v1/safety/rearm")
+    async def safety_rearm_endpoint(req: SafetyRearmRequest):
+        """Re-arms the safety authority back to NOMINAL, incrementing fencing epoch."""
+        new_epoch = global_safety_authority.rearm(tenant_id=req.tenant_id)
+        return {
+            "status": "rearmed",
+            "new_epoch": new_epoch,
+            "tenant_id": req.tenant_id,
+        }
+
+    @app.get("/api/v1/safety/status")
+    async def safety_status_endpoint(tenant_id: str = "default"):
+        """Returns comprehensive authoritative status and active permit counts."""
+        return global_safety_authority.status(tenant_id=tenant_id)
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):
