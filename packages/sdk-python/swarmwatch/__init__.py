@@ -354,6 +354,18 @@ __all__ = [
     "MeshStatusReport",
     "GossipMeshManager",
     "global_gossip_manager",
+    "NodeHealthTier",
+    "NodeComputeMetrics",
+    "compute_capacity_score",
+    "get_health_tier",
+    "hash_token_32",
+    "VirtualNode",
+    "ShardRoutingKey",
+    "ShardRouteResult",
+    "ConsistentHashRing",
+    "ShardingStatusReport",
+    "ComputeAwareBalancer",
+    "global_compute_balancer",
 ]
 
 
@@ -550,6 +562,21 @@ from swarmwatch.gossip import (
     GossipMeshManager,
     global_gossip_manager,
 )
+from swarmwatch.sharding import (
+    NodeHealthTier,
+    NodeComputeMetrics,
+    compute_capacity_score,
+    get_health_tier,
+    hash_token_32,
+    VirtualNode,
+    ShardRoutingKey,
+    ShardRouteResult,
+    ConsistentHashRing,
+    ShardingStatusReport,
+    ComputeAwareBalancer,
+    global_compute_balancer,
+)
+
 
 
 

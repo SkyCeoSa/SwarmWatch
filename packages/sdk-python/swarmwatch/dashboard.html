@@ -1657,6 +1657,10 @@
             <span class="status-indicator" id="meshDot" style="background: var(--success);"></span>
             <span id="meshText">MESH: CONVERGED (0 PEERS)</span>
           </div>
+          <div class="fleet-badge" id="shardBadge" title="Autonomous Dynamic Workload Sharding & Compute-Aware Load Balancer (ADR 0057)">
+            <span class="status-indicator" id="shardDot" style="background: var(--success);"></span>
+            <span id="shardText">SHARDING: BALANCED (1 NODE)</span>
+          </div>
         </div>
 
 
@@ -4343,6 +4347,41 @@
       }
       refreshMeshStatus();
       setInterval(refreshMeshStatus, 11200);
+
+      // -------------------------------------------------------------------
+      // ADR 0057: Autonomous Dynamic Workload Sharding Status Polling
+      // -------------------------------------------------------------------
+      async function refreshShardStatus() {
+        var shardDot = document.getElementById('shardDot');
+        var shardText = document.getElementById('shardText');
+        try {
+          var res = await fetch('/api/v1/sharding/status');
+          if (res.ok) {
+            var data = await res.json();
+            var nodes = data.nodes || {};
+            var totalNodes = data.total_physical_nodes || Object.keys(nodes).length || 1;
+            var hasOverloaded = false;
+            var hasCongested = false;
+            for (var nid in nodes) {
+              if (nodes[nid].health_tier === 'overloaded') hasOverloaded = true;
+              if (nodes[nid].health_tier === 'congested') hasCongested = true;
+            }
+            if (hasOverloaded) {
+              if (shardDot) shardDot.style.background = 'var(--warning)';
+              if (shardText) shardText.textContent = 'SHARDING: SPILLOVER (' + totalNodes + ' NODES)';
+            } else if (hasCongested) {
+              if (shardDot) shardDot.style.background = 'var(--warning)';
+              if (shardText) shardText.textContent = 'SHARDING: CONGESTED (' + totalNodes + ' NODES)';
+            } else {
+              if (shardDot) shardDot.style.background = 'var(--success)';
+              var nodeLabel = totalNodes === 1 ? '1 NODE' : totalNodes + ' NODES';
+              if (shardText) shardText.textContent = 'SHARDING: BALANCED (' + nodeLabel + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshShardStatus();
+      setInterval(refreshShardStatus, 11500);
 
 
 

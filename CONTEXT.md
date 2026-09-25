@@ -611,4 +611,21 @@ _Avoid_: Hook call, function callback, middleware run
 - **MeshConvergenceHealth**: Categorical evaluation of mesh state coherence (`CONVERGED`, `SYNCING`, `PARTITIONED`) measuring cluster-wide telemetry consistency.
   _Avoid_: Mesh grade, sync status, network health
 
+---
+
+### Autonomous Dynamic Workload Sharding & Compute-Aware Load Balancer (Seam 46 / ADR 0057)
+- **ComputeAwareBalancer**: Deep module calculating live compute capacity scores, maintaining a capacity-weighted consistent hash ring, and dispatching multi-agent tasks to optimal nodes in $<25\mu\text{s}$ per decision without external LLM calls.
+  _Avoid_: Load proxy, balancer bot, traffic director, round robin script
+- **ComputeCapacityScore**: Normalized composite scalar metric $C_i \in [0.0, 1.0]$ quantifying available compute bandwidth based on CPU headroom, memory occupancy, and queue depth.
+  _Avoid_: Server score, speed rating, node weight, cpu stat
+- **ConsistentHashRing**: Deterministic circular coordinate space $[0, 2^{32}-1]$ populated by virtual nodes weighted proportionally by physical node compute capacity, guaranteeing $O(\log N)$ resolution with minimal key re-mapping.
+  _Avoid_: Hash map, shard table, bucket list, router ring
+- **ShardRoutingKey**: The deterministic hash seed (e.g. `swarm_id` or `coalition_id`) binding causal multi-agent turns to specific primary and replica nodes for cache locality.
+  _Avoid_: Route tag, hash key, balance id
+- **NodeHealthTier**: Categorical node compute capacity classification (`OPTIMAL`, `NOMINAL`, `CONGESTED`, `OVERLOADED`) dictating task admission and spillover triggers.
+  _Avoid_: Server level, health flag, node state
+- **ShardRouteResult**: The structured routing determination capturing primary node ID, endpoint, replica spillover node ID, capacity score, and route mode (`PRIMARY` vs `SPILLOVER`).
+  _Avoid_: Route packet, dispatch info, balance decision
+
+
 

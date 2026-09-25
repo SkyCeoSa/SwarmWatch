@@ -378,6 +378,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - In-process deterministic execution in $<50\mu\text{s}$ per turn with zero external LLM API calls or heavy messaging middleware.
   - Dual-SDK parity across Python (`swarmwatch.gossip`) and TypeScript (`@swarmwatch/sdk/src/gossip.ts`) conforming strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/mesh/status`, `GET /api/v1/mesh/peers`, `POST /api/v1/mesh/peers/register`, `POST /api/v1/mesh/gossip/round`, `POST /api/v1/mesh/gossip/sync`), CLI subcommand (`swarmwatch mesh status|peers|join|sync`), and Web Console `#meshBadge` widget.
+- **Autonomous Dynamic Workload Sharding & Compute-Aware Load Balancer (Seam 46 & ADR 0057 Dual-SDK Parity)**:
+  - Deep module `ComputeAwareBalancer` maintaining a dynamic consistent hash ring with virtual nodes weighted by real-time compute capacity scores ($C_i$).
+  - Continuous compute metrics evaluation (CPU headroom, memory occupancy, pending queue depth) categorizing node tiers (`OPTIMAL`, `NOMINAL`, `CONGESTED`, `OVERLOADED`).
+  - Causal session affinity: pins swarm turns and DAG state to primary nodes for maximum cache hit rates while supporting seamless spillover to successor replicas upon saturation.
+  - In-process deterministic execution in $<25\mu\text{s}$ per routing decision with zero external LLM calls or centralized load balancer hardware.
+  - Dual-SDK parity across Python (`swarmwatch.sharding`) and TypeScript (`@swarmwatch/sdk/src/sharding.ts`) conforming strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`GET /api/v1/sharding/status`, `GET /api/v1/sharding/ring`, `POST /api/v1/sharding/route`, `POST /api/v1/sharding/node-capacity`, `POST /api/v1/sharding/rebalance`), CLI subcommand (`swarmwatch shard status|ring|route|rebalance`), and Web Console `#shardBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

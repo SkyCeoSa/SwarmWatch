@@ -484,4 +484,26 @@ export {
   globalGossipManager,
 } from "./gossip.ts";
 
+// Autonomous Dynamic Workload Sharding & Compute-Aware Load Balancer (Seam 46 / ADR 0057)
+export type {
+  NodeHealthTierType,
+  NodeComputeMetrics,
+  VirtualNode,
+  ShardRoutingKey,
+  ShardRouteResult,
+  ShardingStatusReport,
+} from "./sharding.ts";
+export {
+  NodeHealthTier,
+  computeCapacityScore,
+  getHealthTier,
+  hashToken32,
+  formatShardRoutingKey,
+  parseShardRoutingKey,
+  ConsistentHashRing,
+  ComputeAwareBalancer,
+  globalComputeBalancer,
+} from "./sharding.ts";
+
+
 

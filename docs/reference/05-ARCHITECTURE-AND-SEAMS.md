@@ -239,4 +239,11 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#meshBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Decentralized peer-to-peer telemetry propagation across distributed, edge, and air-gapped clusters without central brokers; causal vector clocks (`VectorClock`) tracking event precedence, partial orders, and concurrent branching; dual epidemic gossip protocols (eager rumor mongering with $k=3$ fanout and pairwise anti-entropy digest exchange); deterministic $<50\mu\text{s}$ execution per turn; zero remote LLM API calls; dual-SDK parity.
 
+46. **Autonomous Dynamic Workload Sharding & Compute-Aware Load Balancer Seam (ADR 0057 Dual-SDK Parity)**:
+    - Primitives (Python): `NodeHealthTier`, `NodeComputeMetrics`, `ComputeCapacityScore`, `VirtualNode`, `ConsistentHashRing`, `ShardRouteResult`, `ShardingStatusReport`, `ComputeAwareBalancer`, `global_compute_balancer` (`sharding.py`), server endpoints `GET /api/v1/sharding/status`, `GET /api/v1/sharding/ring`, `POST /api/v1/sharding/route`, `POST /api/v1/sharding/node-capacity`, `POST /api/v1/sharding/rebalance` (`server.py`), CLI subcommand `swarmwatch shard` (`cli.py`).
+    - Primitives (TypeScript): `NodeHealthTier`, `NodeComputeMetrics`, `ComputeCapacityScore`, `VirtualNode`, `ConsistentHashRing`, `ShardRouteResult`, `ShardingStatusReport`, `ComputeAwareBalancer`, `globalComputeBalancer` (`sharding.ts`), exported via `index.ts`.
+    - Primitives (Console): `#shardBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Deterministic consistent hash ring with virtual nodes weighted by real-time compute capacity scores ($C_i \in [0.0, 1.0]$); causal session affinity preserving in-memory DAG cache hits; graceful spillover routing to successor replicas when primary nodes congest; sub-millisecond execution ($<25\mu\text{s}$ per routing decision); zero external LLM calls; dual-SDK parity.
+
+
 

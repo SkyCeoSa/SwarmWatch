@@ -283,6 +283,16 @@ def main(argv=None):
     mesh_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     mesh_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch shard` subcommand (Seam 46 / ADR 0057)
+    shard_parser = subparsers.add_parser("shard", help="Autonomous Dynamic Workload Sharding & Compute-Aware Load Balancer")
+    shard_parser.add_argument("action", choices=["status", "ring", "route", "rebalance"], default="status", nargs="?", help="Sharding action (status, ring, route, rebalance)")
+    shard_parser.add_argument("--key", help="Task key or swarm session ID to route (e.g. 'swarm-01' or 'tenant:project:swarm:session')")
+    shard_parser.add_argument("--node-id", help="Target node ID for capacity inspection or manual registration")
+    shard_parser.add_argument("--endpoint", help="Node endpoint URL (e.g. http://10.0.0.1:8765)")
+    shard_parser.add_argument("--base-vnodes", type=int, default=64, help="Base virtual nodes per unit capacity (default: 64)")
+    shard_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    shard_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -2239,6 +2249,123 @@ def main(argv=None):
                 print(f"  Gossip Rounds:        {data.get('gossip_rounds_completed')}")
                 print(f"  Convergence Health:   {col}{health.upper()}\033[0m")
                 print(f"  Vector Clock:         {json.dumps(data.get('vector_clock', {}))}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "shard":
+        from swarmwatch.sharding import global_compute_balancer, ShardRoutingKey, NodeComputeMetrics
+        import urllib.request
+
+        if args.action == "ring":
+            target_url = f"{args.url.rstrip('/')}/api/v1/sharding/ring"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                tokens = global_compute_balancer.get_ring_tokens()
+                data = {"tokens_count": len(tokens), "tokens": tokens}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CONSISTENT HASH RING LAYOUT (ADR 0057)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Ring Virtual Nodes: {data.get('tokens_count')}")
+                tokens = data.get("tokens", [])
+                for t in tokens[:12]:
+                    print(f"  - Token: 0x{t.get('token', 0):08x} -> {t.get('node_id')} (vnode #{t.get('vnode_idx')})")
+                if len(tokens) > 12:
+                    print(f"  ... and {len(tokens) - 12} more virtual node tokens")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "route":
+            route_key_str = args.key or "default:default:swarm-live-01"
+            target_url = f"{args.url.rstrip('/')}/api/v1/sharding/route"
+            payload = json.dumps({"swarm_id": route_key_str}).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                rk = ShardRoutingKey.from_string(route_key_str)
+                res = global_compute_balancer.route(rk)
+                data = res.to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                mode = data.get("route_mode", "primary")
+                col = "\033[92m" if mode == "primary" else "\033[93m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH WORKLOAD SHARD ROUTE RESOLUTION (ADR 0057)        |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Routing Key:          {data.get('routing_key')}")
+                print(f"  Route Mode:           {col}{mode.upper()}\033[0m")
+                print(f"  Primary Node ID:      {data.get('primary_node_id')}")
+                print(f"  Endpoint:             {data.get('endpoint')}")
+                print(f"  Spillover Node ID:    {data.get('spillover_node_id') or 'none'}")
+                print(f"  Capacity Headroom:    {data.get('capacity_score')}")
+                print(f"  Health Tier:          {data.get('health_tier')}")
+                print(f"  Lookup Latency:       {data.get('lookup_latency_ns')} ns")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "rebalance":
+            target_url = f"{args.url.rstrip('/')}/api/v1/sharding/rebalance"
+            payload = json.dumps({"base_vnodes": args.base_vnodes}).encode()
+            try:
+                req = urllib.request.Request(target_url, data=payload, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                if args.base_vnodes:
+                    global_compute_balancer.ring.base_vnodes = args.base_vnodes
+                rep = global_compute_balancer.rebalance()
+                data = {"status": "rebalanced", "report": rep.to_dict()}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                rep = data.get("report", {})
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DYNAMIC SHARD REBALANCE REPORT (ADR 0057)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Physical Nodes:       {rep.get('total_physical_nodes')}")
+                print(f"  Total Virtual Nodes:  {rep.get('total_virtual_nodes')}")
+                print(f"  Rebalance Count:      {rep.get('rebalance_count')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        else:  # status
+            target_url = f"{args.url.rstrip('/')}/api/v1/sharding/status"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_compute_balancer.get_status().to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH COMPUTE-AWARE WORKLOAD SHARDING STATUS (ADR 0057)  |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Physical Nodes:       {data.get('total_physical_nodes')}")
+                print(f"  Total Virtual Nodes:  {data.get('total_virtual_nodes')}")
+                print(f"  Rebalance Epochs:     {data.get('rebalance_count')}")
+                nodes = data.get("nodes", {})
+                for nid, ninfo in nodes.items():
+                    tier = ninfo.get("health_tier", "optimal")
+                    tcol = "\033[92m" if tier in ("optimal", "nominal") else "\033[91m"
+                    print(f"  Node [{nid}]:")
+                    print(f"    - Endpoint:         {ninfo.get('endpoint')}")
+                    print(f"    - Capacity Score:   {ninfo.get('capacity_score')}")
+                    print(f"    - Health Tier:      {tcol}{tier.upper()}\033[0m")
+                    print(f"    - Virtual Nodes:    {ninfo.get('vnodes')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

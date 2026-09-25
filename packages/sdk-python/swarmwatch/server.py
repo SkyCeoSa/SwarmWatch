@@ -124,6 +124,18 @@ from swarmwatch.gossip import (
     GossipMeshManager,
     global_gossip_manager,
 )
+from swarmwatch.sharding import (
+    NodeHealthTier,
+    NodeComputeMetrics,
+    compute_capacity_score,
+    get_health_tier,
+    ShardRoutingKey,
+    ShardRouteResult,
+    ConsistentHashRing,
+    ShardingStatusReport,
+    ComputeAwareBalancer,
+    global_compute_balancer,
+)
 
 
 
@@ -341,6 +353,28 @@ class MeshGossipRoundRequest(BaseModel):
 class MeshGossipSyncRequest(BaseModel):
     digest: Optional[Dict[str, Any]] = None
     delta: Optional[Dict[str, Any]] = None
+
+
+class ShardRouteRequest(BaseModel):
+    tenant_id: Optional[str] = "default"
+    project_id: Optional[str] = "default"
+    swarm_id: str
+    session_affinity_key: Optional[str] = None
+
+
+class NodeCapacityUpdateRequest(BaseModel):
+    node_id: str
+    endpoint: Optional[str] = None
+    cpu_utilization: float = 0.0
+    memory_utilization: float = 0.0
+    queue_depth: int = 0
+    max_queue_depth: int = 1000
+    avg_latency_ms: float = 0.0
+
+
+class ShardRebalanceRequest(BaseModel):
+    base_vnodes: Optional[int] = None
+
 
 
 
@@ -4777,10 +4811,64 @@ def create_app(
                 "digest": digest.to_dict(),
             }
 
+    @app.get("/api/v1/sharding/status")
+    async def get_sharding_status_endpoint():
+        """Returns consolidated report on sharding state, node capacity scores, and ring status."""
+        status_report = global_compute_balancer.get_status()
+        return status_report.to_dict()
 
+    @app.get("/api/v1/sharding/ring")
+    async def get_sharding_ring_endpoint():
+        """Returns the ordered token layout of all virtual nodes on the consistent hash ring."""
+        tokens = global_compute_balancer.get_ring_tokens()
+        return {
+            "tokens_count": len(tokens),
+            "tokens": tokens,
+        }
 
+    @app.post("/api/v1/sharding/route")
+    async def route_shard_key_endpoint(req: ShardRouteRequest):
+        """Resolves optimal execution node for a task key with session affinity and spillover safety."""
+        routing_key = ShardRoutingKey(
+            tenant_id=req.tenant_id or "default",
+            project_id=req.project_id or "default",
+            swarm_id=req.swarm_id,
+            session_affinity_key=req.session_affinity_key,
+        )
+        result = global_compute_balancer.route(routing_key)
+        return result.to_dict()
 
+    @app.post("/api/v1/sharding/node-capacity")
+    async def update_node_capacity_endpoint(req: NodeCapacityUpdateRequest):
+        """Updates real-time compute telemetry for an execution node and recalculates ring allocations."""
+        metrics = NodeComputeMetrics(
+            cpu_utilization=req.cpu_utilization,
+            memory_utilization=req.memory_utilization,
+            queue_depth=req.queue_depth,
+            max_queue_depth=req.max_queue_depth,
+            avg_latency_ms=req.avg_latency_ms,
+        )
+        if req.endpoint and req.node_id not in global_compute_balancer._endpoints:
+            global_compute_balancer.register_node(req.node_id, req.endpoint, metrics)
+        else:
+            global_compute_balancer.update_node_metrics(req.node_id, metrics)
+        return {
+            "status": "updated",
+            "node_id": req.node_id,
+            "capacity_score": compute_capacity_score(metrics),
+            "health_tier": get_health_tier(compute_capacity_score(metrics)).value,
+        }
 
+    @app.post("/api/v1/sharding/rebalance")
+    async def rebalance_sharding_ring_endpoint(req: Optional[ShardRebalanceRequest] = None):
+        """Forces recalculation and reconstruction of the dynamic consistent hash ring."""
+        if req and req.base_vnodes:
+            global_compute_balancer.ring.base_vnodes = req.base_vnodes
+        report = global_compute_balancer.rebalance()
+        return {
+            "status": "rebalanced",
+            "report": report.to_dict(),
+        }
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

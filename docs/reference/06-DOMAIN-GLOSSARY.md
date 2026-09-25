@@ -1008,4 +1008,32 @@ _Avoid_: Sync delta, diff batch, update message
 The categorical evaluation of mesh state coherence (`CONVERGED`, `SYNCING`, `PARTITIONED`) measuring cluster-wide telemetry consistency.
 _Avoid_: Mesh grade, sync status, network health
 
+---
+
+### Autonomous Dynamic Workload Sharding & Compute-Aware Load Balancer (Seam 46 / ADR 0057)
+
+**ComputeAwareBalancer**:
+The deep module orchestrating decentralized, compute-weighted consistent hashing, real-time node capacity scoring, causal session affinity, and automated spillover routing in $<25\mu\text{s}$ per decision without external LLM calls.
+_Avoid_: Task router, load balancer daemon, shard proxy, traffic splitter
+
+**ComputeCapacityScore**:
+The normalized scalar $C_i \in [0.0, 1.0]$ quantifying a node's available compute headroom computed via weighted CPU headroom, memory availability, and queue headroom.
+_Avoid_: Node score, server load rating, capacity ratio, health weight
+
+**ConsistentHashRing**:
+The deterministic 32-bit circular hash space with dynamic virtual node allocation ($V_i = \max(1, \lfloor V_{\text{base}} \times C_i \rfloor)$) and $O(\log N)$ binary search lookup ensuring minimal key remapping during topology changes.
+_Avoid_: Hash circle, shard lookup table, token map
+
+**ShardRoutingKey**:
+The structured routing identifier encapsulating `tenant_id`, `project_id`, `swarm_id`, and optional `session_affinity_key` used to guarantee causal locality.
+_Avoid_: Shard key, hash input, routing string
+
+**NodeHealthTier**:
+The categorical operational health classification (`OPTIMAL`, `NOMINAL`, `CONGESTED`, `OVERLOADED`) dynamically determined by compute headroom thresholds.
+_Avoid_: Server status, node tier, load grade
+
+**ShardRouteResult**:
+The immutable routing resolution envelope containing selected primary node ID, endpoint URI, spillover node ID, execution mode, and lookup latency nanoseconds.
+_Avoid_: Route response, dispatch envelope, shard pick
+
 
