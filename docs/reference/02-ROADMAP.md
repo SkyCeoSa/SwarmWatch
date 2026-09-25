@@ -371,6 +371,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Instant tamper detection: invalid signatures or modified binary payloads flag `tamper_detected = True` in $<20\mu\text{s}$ with zero LLM vision/audio token costs.
   - Dual-SDK parity across Python (`swarmwatch.multimodal`) and TypeScript (`@swarmwatch/sdk/src/multimodal.ts`) conforming strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/swarms/{id}/artifacts`, `POST /api/v1/swarms/{id}/artifacts/inspect`, `POST /api/v1/swarms/{id}/artifacts/watermark`, `POST /api/v1/swarms/{id}/artifacts/verify`), CLI subcommand (`swarmwatch artifact status|inspect|watermark|verify`), and Web Console `#artifactBadge` widget.
+- **Decentralized Epidemic Gossip Telemetry Mesh Sync (Seam 45 & ADR 0056 Dual-SDK Parity)**:
+  - Deep module `GossipMeshManager` providing decentralized peer-to-peer telemetry synchronization across distributed, edge, and air-gapped agent clusters without central brokers.
+  - Causal Vector Clocks (`VectorClock`) tracking event precedence, partial orders, and concurrent branch divergence across independent mesh nodes.
+  - Dual gossip protocols: Eager Rumor Mongering (probabilistic $k$-fanout push for urgent circuit trips and interventions) and Pairwise Anti-Entropy (`GossipDigest` and `GossipDelta` reconciliation).
+  - In-process deterministic execution in $<50\mu\text{s}$ per turn with zero external LLM API calls or heavy messaging middleware.
+  - Dual-SDK parity across Python (`swarmwatch.gossip`) and TypeScript (`@swarmwatch/sdk/src/gossip.ts`) conforming strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`GET /api/v1/mesh/status`, `GET /api/v1/mesh/peers`, `POST /api/v1/mesh/peers/register`, `POST /api/v1/mesh/gossip/round`, `POST /api/v1/mesh/gossip/sync`), CLI subcommand (`swarmwatch mesh status|peers|join|sync`), and Web Console `#meshBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

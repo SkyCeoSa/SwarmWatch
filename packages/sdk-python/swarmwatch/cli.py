@@ -274,7 +274,17 @@ def main(argv=None):
     artifact_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     artifact_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch mesh` subcommand (Seam 45 / ADR 0056)
+    mesh_parser = subparsers.add_parser("mesh", help="Decentralized Epidemic Gossip Telemetry Mesh Sync")
+    mesh_parser.add_argument("action", choices=["status", "peers", "join", "sync"], default="status", nargs="?", help="Mesh action (status, peers, join, sync)")
+    mesh_parser.add_argument("--peer-endpoint", help="Peer endpoint URL to join or register (e.g. http://10.0.0.2:8765)")
+    mesh_parser.add_argument("--peer-id", help="Optional peer node ID for join")
+    mesh_parser.add_argument("--fanout", type=int, default=3, help="Gossip fanout k (default: 3)")
+    mesh_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    mesh_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -2122,6 +2132,113 @@ def main(argv=None):
                         m = a.get("metadata", {})
                         wm = a.get("watermark", {})
                         print(f"    [{idx+1}] {a.get('artifact_id')} ({m.get('modality')}/{m.get('mime_type')}): by {wm.get('producer_agent_id')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "mesh":
+        from swarmwatch.gossip import global_gossip_manager
+        import urllib.request
+
+        if args.action == "peers":
+            target_url = f"{args.url.rstrip('/')}/api/v1/mesh/peers"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                peers = [p.to_dict() for p in global_gossip_manager.list_peers()]
+                data = {
+                    "peers_count": len(peers),
+                    "peers": peers,
+                    "local_node_id": global_gossip_manager.node_id,
+                }
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH TELEMETRY MESH PEERS (ADR 0056)                    |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Local Node ID:        {data.get('local_node_id')}")
+                print(f"  Active Peers Count:   {data.get('peers_count')}")
+                print("+---------------------------------------------------------------+")
+                for idx, p in enumerate(data.get("peers", [])):
+                    status_col = "\033[92m" if p.get("status") == "active" else "\033[93m"
+                    print(f"  [{idx+1}] {p.get('node_id')} @ {p.get('endpoint')} -> {status_col}{p.get('status').upper()}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "join":
+            endpoint = args.peer_endpoint or "http://127.0.0.1:8766"
+            node_id = args.peer_id or f"peer-{endpoint.split(':')[-1]}"
+            target_url = f"{args.url.rstrip('/')}/api/v1/mesh/peers/register"
+            payload = json.dumps({"node_id": node_id, "endpoint": endpoint}).encode("utf-8")
+            try:
+                req = urllib.request.Request(target_url, data=payload, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                node = global_gossip_manager.register_peer(node_id, endpoint)
+                data = {"status": "registered", "peer": node.to_dict()}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n[SwarmWatch Mesh] Registered peer {node_id} @ {endpoint} (ACTIVE)\n")
+            sys.exit(0)
+
+        elif args.action == "sync":
+            target_url = f"{args.url.rstrip('/')}/api/v1/mesh/gossip/round"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                res = global_gossip_manager.run_gossip_round()
+                data = {"status": "round_completed", "result": res}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                r = data.get("result", {})
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EPIDEMIC GOSSIP SYNC ROUND (ADR 0056)              |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Round Index:          {r.get('round')}")
+                print(f"  Peers Synced:         {r.get('peers_synced')}")
+                print(f"  Spans Exchanged:      {r.get('spans_exchanged')}")
+                print(f"  Trips Exchanged:      {r.get('trips_exchanged')}")
+                print(f"  Watermarks Exchanged: {r.get('watermarks_exchanged')}")
+                print(f"  Convergence Health:   \033[92m{r.get('convergence_health', 'CONVERGED').upper()}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        else:  # status
+            target_url = f"{args.url.rstrip('/')}/api/v1/mesh/status"
+            try:
+                with urllib.request.urlopen(target_url, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_gossip_manager.get_status().to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                health = data.get("convergence_health", "converged")
+                col = "\033[92m" if health == "converged" else "\033[93m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DECENTRALIZED TELEMETRY MESH (ADR 0056)            |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Local Node ID:        {data.get('local_node_id')}")
+                print(f"  Endpoint:             {data.get('local_endpoint')}")
+                print(f"  Active Peers:         {data.get('active_peers_count')}")
+                print(f"  Suspect Peers:        {data.get('suspect_peers_count')}")
+                print(f"  Dead Peers:           {data.get('dead_peers_count')}")
+                print(f"  Synced Spans:         {data.get('total_synced_spans')}")
+                print(f"  Synced Trips:         {data.get('total_synced_trips')}")
+                print(f"  Synced Watermarks:    {data.get('total_synced_watermarks')}")
+                print(f"  Gossip Rounds:        {data.get('gossip_rounds_completed')}")
+                print(f"  Convergence Health:   {col}{health.upper()}\033[0m")
+                print(f"  Vector Clock:         {json.dumps(data.get('vector_clock', {}))}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

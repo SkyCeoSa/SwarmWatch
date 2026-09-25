@@ -467,3 +467,21 @@ export {
   globalMultiModalInspector,
 } from "./multimodal.ts";
 
+// Decentralized Epidemic Gossip Telemetry Mesh Sync (Seam 45 / ADR 0056)
+export type {
+  MeshNodeStatusType,
+  MeshConvergenceHealthType,
+  MeshNode,
+  GossipDigest,
+  GossipDelta,
+  MeshStatusReport,
+} from "./gossip.ts";
+export {
+  MeshNodeStatus,
+  MeshConvergenceHealth,
+  VectorClock,
+  GossipMeshManager,
+  globalGossipManager,
+} from "./gossip.ts";
+
+

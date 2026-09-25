@@ -233,3 +233,10 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#artifactBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Pure in-process binary header inspection (<0.1ms per asset) for PNG, JPEG, GIF, WEBP, WAV, MP3, MP4, and PDF; lightweight `MediaMetadata` extraction; deterministic 16-hex character perceptual hash (pHash) for visual media; cryptographic provenance watermarking (`ArtifactWatermark`) with HMAC-SHA256 signatures; sub-millisecond tamper verification ($<20\mu\text{s}$) flagging `tamper_detected = True`; zero remote multimodal LLM calls; dual-SDK parity.
 
+45. **Decentralized Epidemic Gossip Telemetry Mesh Sync Seam (ADR 0056 Dual-SDK Parity)**:
+    - Primitives (Python): `MeshNodeStatus`, `MeshNode`, `VectorClock`, `GossipDigest`, `GossipDelta`, `MeshStatusReport`, `GossipMeshManager`, `global_gossip_manager` (`gossip.py`), server endpoints `GET /api/v1/mesh/status`, `GET /api/v1/mesh/peers`, `POST /api/v1/mesh/peers/register`, `POST /api/v1/mesh/gossip/round`, `POST /api/v1/mesh/gossip/sync` (`server.py`), CLI subcommand `swarmwatch mesh` (`cli.py`).
+    - Primitives (TypeScript): `MeshNodeStatus`, `MeshNode`, `VectorClock`, `GossipDigest`, `GossipDelta`, `MeshStatusReport`, `GossipMeshManager`, `globalGossipManager` (`gossip.ts`), exported via `index.ts`.
+    - Primitives (Console): `#meshBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Decentralized peer-to-peer telemetry propagation across distributed, edge, and air-gapped clusters without central brokers; causal vector clocks (`VectorClock`) tracking event precedence, partial orders, and concurrent branching; dual epidemic gossip protocols (eager rumor mongering with $k=3$ fanout and pairwise anti-entropy digest exchange); deterministic $<50\mu\text{s}$ execution per turn; zero remote LLM API calls; dual-SDK parity.
+
+

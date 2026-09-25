@@ -113,6 +113,17 @@ from swarmwatch.multimodal import (
     MultiModalInspector,
     global_multimodal_inspector,
 )
+from swarmwatch.gossip import (
+    MeshNodeStatus,
+    MeshNode,
+    VectorClock,
+    GossipDigest,
+    GossipDelta,
+    MeshConvergenceHealth,
+    MeshStatusReport,
+    GossipMeshManager,
+    global_gossip_manager,
+)
 
 
 
@@ -315,6 +326,22 @@ class ArtifactVerifyRequest(BaseModel):
     artifact_id: str
     payload_base64: str
     tenant_secret: str = "sw_secret_salt_default"
+
+
+class MeshPeerRegisterRequest(BaseModel):
+    node_id: str
+    endpoint: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class MeshGossipRoundRequest(BaseModel):
+    fanout: Optional[int] = None
+
+
+class MeshGossipSyncRequest(BaseModel):
+    digest: Optional[Dict[str, Any]] = None
+    delta: Optional[Dict[str, Any]] = None
+
 
 
 
@@ -4685,6 +4712,71 @@ def create_app(
             "tamper_detected": not is_valid,
             "verified": is_valid,
         }
+
+    @app.get("/api/v1/mesh/status")
+    async def get_mesh_status_endpoint():
+        """Returns comprehensive decentralized gossip mesh diagnostic status."""
+        status_report = global_gossip_manager.get_status()
+        return status_report.to_dict()
+
+    @app.get("/api/v1/mesh/peers")
+    async def get_mesh_peers_endpoint(include_dead: bool = False):
+        """Lists active, suspect, and optionally dead mesh peers."""
+        peers = [p.to_dict() for p in global_gossip_manager.list_peers(include_dead=include_dead)]
+        return {
+            "peers_count": len(peers),
+            "peers": peers,
+            "local_node_id": global_gossip_manager.node_id,
+        }
+
+    @app.post("/api/v1/mesh/peers/register")
+    async def register_mesh_peer_endpoint(req: MeshPeerRegisterRequest):
+        """Registers or refreshes a remote peer node in the local mesh table."""
+        node = global_gossip_manager.register_peer(
+            node_id=req.node_id,
+            endpoint=req.endpoint,
+            metadata=req.metadata,
+        )
+        return {
+            "status": "registered",
+            "peer": node.to_dict(),
+        }
+
+    @app.post("/api/v1/mesh/gossip/round")
+    async def trigger_mesh_gossip_round_endpoint(req: Optional[MeshGossipRoundRequest] = None):
+        """Triggers an on-demand epidemic anti-entropy gossip round."""
+        fanout = req.fanout if req else None
+        round_result = global_gossip_manager.run_gossip_round()
+        return {
+            "status": "round_completed",
+            "result": round_result,
+        }
+
+    @app.post("/api/v1/mesh/gossip/sync")
+    async def sync_mesh_gossip_endpoint(req: MeshGossipSyncRequest):
+        """Reconciles an incoming GossipDigest or applies an incoming GossipDelta."""
+        if req.digest:
+            digest_obj = GossipDigest.from_dict(req.digest)
+            delta = global_gossip_manager.compute_delta_for_digest(digest_obj)
+            return {
+                "action": "delta_computed",
+                "delta": delta.to_dict(),
+            }
+        elif req.delta:
+            delta_obj = GossipDelta.from_dict(req.delta)
+            apply_res = global_gossip_manager.apply_delta(delta_obj)
+            return {
+                "action": "delta_applied",
+                "result": apply_res,
+                "current_vector_clock": global_gossip_manager.vector_clock.to_dict(),
+            }
+        else:
+            digest = global_gossip_manager.generate_digest()
+            return {
+                "action": "digest_generated",
+                "digest": digest.to_dict(),
+            }
+
 
 
 

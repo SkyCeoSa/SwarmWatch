@@ -595,3 +595,20 @@ _Avoid_: Hook call, function callback, middleware run
 - **WatermarkedArtifact**: Immutable multi-modal asset envelope combining extracted technical metadata with cryptographic provenance watermarks for tamper-evident delegation across agent DAGs.
   _Avoid_: Signed file, tagged asset, wrapped blob
 
+---
+
+### Decentralized Epidemic Gossip Telemetry Mesh Sync (Seam 45 / ADR 0056)
+- **GossipMeshManager**: Deep module orchestrating decentralized peer-to-peer telemetry propagation, Vector Clock causality tracking, and anti-entropy synchronization in $<50\mu\text{s}$ per turn without central brokers or LLM calls.
+  _Avoid_: P2P sync bot, cluster gossip daemon, mesh router, broadcast service
+- **MeshNode**: Autonomous peer node participating in the decentralized SwarmWatch telemetry mesh, characterized by `node_id`, network endpoint, lifecycle status (`ACTIVE`, `SUSPECT`, `DEAD`), and heartbeat epoch.
+  _Avoid_: Server node, cluster peer, host entry
+- **VectorClock**: Monotonically advancing mapping of `{node_id: sequence_counter}` capturing causal event ordering, partial precedence, and concurrent branching without physical clock synchronization.
+  _Avoid_: Lamport timestamp, clock dict, tick map
+- **GossipDigest**: Compact summary of active vector clocks and known event checksums exchanged during periodic Anti-Entropy rounds to identify missing spans or circuit events.
+  _Avoid_: Hash list, sync packet, peer digest
+- **GossipDelta**: Targeted reconciliation payload containing causal spans, circuit trip interventions, and artifact watermarks transmitted to bring a lagging peer to convergence.
+  _Avoid_: Sync delta, diff batch, update message
+- **MeshConvergenceHealth**: Categorical evaluation of mesh state coherence (`CONVERGED`, `SYNCING`, `PARTITIONED`) measuring cluster-wide telemetry consistency.
+  _Avoid_: Mesh grade, sync status, network health
+
+

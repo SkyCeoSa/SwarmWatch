@@ -345,6 +345,15 @@ __all__ = [
     "WatermarkedArtifact",
     "MultiModalInspector",
     "global_multimodal_inspector",
+    "MeshNodeStatus",
+    "MeshNode",
+    "VectorClock",
+    "GossipDigest",
+    "GossipDelta",
+    "MeshConvergenceHealth",
+    "MeshStatusReport",
+    "GossipMeshManager",
+    "global_gossip_manager",
 ]
 
 
@@ -530,6 +539,18 @@ from swarmwatch.multimodal import (
     MultiModalInspector,
     global_multimodal_inspector,
 )
+from swarmwatch.gossip import (
+    MeshNodeStatus,
+    MeshNode,
+    VectorClock,
+    GossipDigest,
+    GossipDelta,
+    MeshConvergenceHealth,
+    MeshStatusReport,
+    GossipMeshManager,
+    global_gossip_manager,
+)
+
 
 
 

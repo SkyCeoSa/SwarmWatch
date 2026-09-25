@@ -1653,6 +1653,10 @@
             <span class="status-indicator" id="artifactDot" style="background: var(--text-muted);"></span>
             <span id="artifactText">ARTIFACTS: 0 RECORDED</span>
           </div>
+          <div class="fleet-badge" id="meshBadge" title="Decentralized Epidemic Gossip Telemetry Mesh Sync (ADR 0056)">
+            <span class="status-indicator" id="meshDot" style="background: var(--success);"></span>
+            <span id="meshText">MESH: CONVERGED (0 PEERS)</span>
+          </div>
         </div>
 
 
@@ -4311,6 +4315,35 @@
       }
       refreshArtifactStatus();
       setInterval(refreshArtifactStatus, 10800);
+
+      // -------------------------------------------------------------------
+      // Decentralized Epidemic Gossip Telemetry Mesh Sync (ADR 0056)
+      // -------------------------------------------------------------------
+      async function refreshMeshStatus() {
+        var meshDot = document.getElementById('meshDot');
+        var meshText = document.getElementById('meshText');
+        try {
+          var res = await fetch('/api/v1/mesh/status');
+          if (res.ok) {
+            var data = await res.json();
+            var health = data.convergence_health || 'converged';
+            var peers = data.active_peers_count || 0;
+            if (health === 'partitioned') {
+              if (meshDot) meshDot.style.background = 'var(--danger)';
+              if (meshText) meshText.textContent = 'MESH: PARTITIONED';
+            } else if (health === 'syncing') {
+              if (meshDot) meshDot.style.background = 'var(--warning)';
+              if (meshText) meshText.textContent = 'MESH: SYNCING (' + peers + ' PEERS)';
+            } else {
+              if (meshDot) meshDot.style.background = 'var(--success)';
+              if (meshText) meshText.textContent = 'MESH: CONVERGED (' + peers + ' PEERS)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshMeshStatus();
+      setInterval(refreshMeshStatus, 11200);
+
 
 
 
