@@ -24,6 +24,7 @@ class CanonicalDomainTag:
     SNAPSHOT = "sw:snap:v1"
     RECEIPT = "sw:rcpt:v1"
     PERMIT = "sw:pmt:v1"
+    EFFECT = "sw:eff:v1"
     TOPOLOGY = "sw:topo:v1"
     STATE = "sw:state:v1"
     METRIC = "sw:metric:v1"

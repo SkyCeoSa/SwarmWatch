@@ -420,6 +420,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Cryptographically verifiable permit certificates signed using `CanonicalCodec` with domain separation tag `sw:pmt:v1`.
   - Dual-SDK parity across Python (`swarmwatch.safety_authority`) and TypeScript (`@swarmwatch/sdk/src/safety_authority.ts`) conforming strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/safety/reserve`, `POST /api/v1/safety/commit`, `POST /api/v1/safety/release`, `POST /api/v1/safety/trip`, `POST /api/v1/safety/rearm`, `GET /api/v1/safety/status`), CLI subcommand (`swarmwatch safety reserve|commit|release|trip|status`), and Web Console `#safetyBadge` widget.
+- **Fenced Effect Ledger & Monotonic Idempotency Barrier (Seam 52 & ADR 0063 Dual-SDK Parity)**:
+  - Deep module `EffectLedger` preventing stale leaders and duplicate side-effects from re-executing external tools.
+  - Guarantees each effect key commits at most once under a monotonic fencing epoch via a compare-and-swap (CAS) state machine (`claim → authorize → complete`).
+  - Stale leaders or retry workers presenting older epochs are rejected fail-closed with `STALE_EPOCH`.
+  - Canonical effect receipts (`EffectReceipt`) signed with domain separation tag `sw:eff:v1` via `CanonicalCodec`.
+  - Dual-SDK parity across Python (`swarmwatch.effect_ledger`) and TypeScript (`@swarmwatch/sdk/src/effect_ledger.ts`) complying strictly with Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/effects/claim`, `POST /api/v1/effects/authorize`, `POST /api/v1/effects/complete`, `POST /api/v1/effects/abort`, `GET /api/v1/effects/reconcile`, `GET /api/v1/effects/status`), CLI subcommand (`swarmwatch effects claim|complete|reconcile|status`), and Web Console `#ledgerBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

@@ -275,6 +275,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#safetyBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Single authoritative execution permit engine enforcing linearizable `reserve → commit/release → trip` transitions across all distributed workers and subsystems; guaranteed fail-closed execution where no agent turn or tool invocation starts without an unexpired tenant-scoped permit from the current epoch; monotonic fencing epoch counter invalidating previous permits immediately upon trip; canonical permit hashing (`sw:pmt:v1`); sub-10 microsecond execution ($<10\mu\text{s}$); zero external LLM calls; dual-SDK parity.
 
+52. **Fenced Effect Ledger & Monotonic Idempotency Barrier Seam (ADR 0063 Dual-SDK Parity)**:
+    - Primitives (Python): `ClaimStatus`, `EffectClaim`, `EffectRecord`, `EffectReceipt`, `EffectLedger`, `global_effect_ledger` (`effect_ledger.py`), server endpoints `POST /api/v1/effects/claim`, `POST /api/v1/effects/authorize`, `POST /api/v1/effects/complete`, `POST /api/v1/effects/abort`, `GET /api/v1/effects/reconcile`, `GET /api/v1/effects/status` (`server.py`), CLI subcommand `swarmwatch effects` (`cli.py`).
+    - Primitives (TypeScript): `ClaimStatus`, `EffectClaim`, `EffectRecord`, `EffectReceipt`, `EffectLedger`, `globalEffectLedger` (`effect_ledger.ts`), exported via `index.ts`.
+    - Primitives (Console): `#ledgerBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Compare-and-swap (CAS) transition system with monotonic fencing epochs and idempotency barrier guaranteeing each external side-effect executes and commits at most once; stale leaders holding older epochs are rejected fail-closed (`STALE_EPOCH`); canonical effect receipt signing with domain tag `sw:eff:v1`; sub-15 microsecond execution ($<15\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
 
 
 

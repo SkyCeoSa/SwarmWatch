@@ -1681,6 +1681,10 @@
             <span class="status-indicator" id="safetyDot" style="background: var(--success);"></span>
             <span id="safetyText">SAFETY: AUTHORITATIVE (E1)</span>
           </div>
+          <div class="fleet-badge" id="ledgerBadge" title="Fenced Effect Ledger & Monotonic Idempotency Barrier (ADR 0063)">
+            <span class="status-indicator" id="ledgerDot" style="background: var(--success);"></span>
+            <span id="ledgerText">EFFECT LEDGER: FENCED (0)</span>
+          </div>
         </div>
 
 
@@ -4523,6 +4527,29 @@
       }
       refreshSafetyStatus();
       setInterval(refreshSafetyStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0063: Fenced Effect Ledger & Monotonic Idempotency Barrier
+      // -------------------------------------------------------------------
+      async function refreshLedgerStatus() {
+        var ledgerDot = document.getElementById('ledgerDot');
+        var ledgerText = document.getElementById('ledgerText');
+        try {
+          var res = await fetch('/api/v1/effects/status');
+          if (res.ok) {
+            var data = await res.json();
+            if (ledgerDot) {
+              ledgerDot.style.background = 'var(--success)';
+            }
+            if (ledgerText) {
+              var cnt = data.committed_effects_count !== undefined ? data.committed_effects_count : 0;
+              ledgerText.textContent = 'EFFECT LEDGER: FENCED (' + cnt + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshLedgerStatus();
+      setInterval(refreshLedgerStatus, 11000);
 
       if (btnMfaModal) {
 

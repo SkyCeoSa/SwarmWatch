@@ -177,6 +177,14 @@ from swarmwatch.safety_authority import (
     SafetyAuthority,
     global_safety_authority,
 )
+from swarmwatch.effect_ledger import (
+    ClaimStatus,
+    EffectReceipt,
+    EffectRecord,
+    ClaimResult,
+    EffectLedger,
+    global_effect_ledger,
+)
 
 
 
@@ -510,6 +518,30 @@ class SafetyTripRequest(BaseModel):
 
 class SafetyRearmRequest(BaseModel):
     tenant_id: Optional[str] = None
+
+
+class EffectClaimRequest(BaseModel):
+    effect_key: str
+    tenant_id: str = "default"
+    epoch: int = 1
+    idempotency_key: Optional[str] = None
+    action: str = "external_tool"
+    timeout_ms: float = 5000.0
+
+
+class EffectAuthorizeRequest(BaseModel):
+    claim_id: str
+    permit_hash: str
+
+
+class EffectCompleteRequest(BaseModel):
+    claim_id: str
+    execution_result: Optional[Any] = None
+
+
+class EffectAbortRequest(BaseModel):
+    claim_id: str
+    reason: str = "canceled"
 
 
 
@@ -5321,6 +5353,65 @@ def create_app(
     async def safety_status_endpoint(tenant_id: str = "default"):
         """Returns comprehensive authoritative status and active permit counts."""
         return global_safety_authority.status(tenant_id=tenant_id)
+
+    @app.post("/api/v1/effects/claim")
+    async def effect_claim_endpoint(req: EffectClaimRequest):
+        """Attempts to claim an effect key under compare-and-swap semantics and monotonic fencing."""
+        res = global_effect_ledger.claim(
+            effect_key=req.effect_key,
+            tenant_id=req.tenant_id,
+            epoch=req.epoch,
+            idempotency_key=req.idempotency_key,
+            action=req.action,
+            timeout_ms=req.timeout_ms,
+        )
+        return res.to_dict()
+
+    @app.post("/api/v1/effects/authorize")
+    async def effect_authorize_endpoint(req: EffectAuthorizeRequest):
+        """Validates the claim against an active SafetyPermit hash."""
+        ok, msg = global_effect_ledger.authorize(
+            claim_id=req.claim_id,
+            permit_hash=req.permit_hash,
+        )
+        if not ok:
+            raise HTTPException(status_code=400, detail=msg)
+        return {"status": "authorized", "claim_id": req.claim_id, "message": msg}
+
+    @app.post("/api/v1/effects/complete")
+    async def effect_complete_endpoint(req: EffectCompleteRequest):
+        """Completes and commits an authorized effect, returning an immutable EffectReceipt."""
+        ok, receipt, msg = global_effect_ledger.complete(
+            claim_id=req.claim_id,
+            execution_result=req.execution_result,
+        )
+        if not ok:
+            raise HTTPException(status_code=400, detail=msg)
+        return {
+            "status": "committed",
+            "claim_id": req.claim_id,
+            "receipt": receipt.to_dict() if receipt else None,
+            "message": msg,
+        }
+
+    @app.post("/api/v1/effects/abort")
+    async def effect_abort_endpoint(req: EffectAbortRequest):
+        """Aborts an active in-flight claim, freeing the effect key for retry."""
+        ok, msg = global_effect_ledger.abort(claim_id=req.claim_id, reason=req.reason)
+        if not ok:
+            raise HTTPException(status_code=400, detail=msg)
+        return {"status": "aborted", "claim_id": req.claim_id, "message": msg}
+
+    @app.get("/api/v1/effects/reconcile")
+    async def effect_reconcile_endpoint(since_epoch: int = 1, tenant_id: Optional[str] = None):
+        """Returns committed effect records for cross-worker state reconciliation."""
+        records = global_effect_ledger.reconcile(since_epoch=since_epoch, tenant_id=tenant_id)
+        return {"reconciled_records": records, "count": len(records), "since_epoch": since_epoch}
+
+    @app.get("/api/v1/effects/status")
+    async def effect_status_endpoint(tenant_id: str = "default"):
+        """Returns diagnostic ledger metrics."""
+        return global_effect_ledger.status(tenant_id=tenant_id)
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

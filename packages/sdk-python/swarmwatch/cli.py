@@ -351,6 +351,19 @@ def main(argv=None):
     safety_parser.add_argument("--timeout", type=float, default=5000.0, help="Permit timeout in milliseconds (default: 5000.0)")
     safety_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch effects` subcommand (Seam 52 / ADR 0063)
+    effects_parser = subparsers.add_parser("effects", help="Fenced Effect Ledger & Monotonic Idempotency Barrier")
+    effects_parser.add_argument("action", choices=["claim", "authorize", "complete", "abort", "reconcile", "status"], default="status", nargs="?", help="Effect ledger action (claim, authorize, complete, abort, reconcile, status)")
+    effects_parser.add_argument("--effect-key", default=None, help="Unique effect key to claim or inspect")
+    effects_parser.add_argument("--claim-id", default=None, help="Target claim ID for authorize, complete, or abort")
+    effects_parser.add_argument("--permit-hash", default=None, help="Safety permit hash for authorization (64 hex characters)")
+    effects_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
+    effects_parser.add_argument("--epoch", type=int, default=1, help="Authoritative epoch (default: 1)")
+    effects_parser.add_argument("--idempotency-key", default=None, help="Client idempotency key for deduplication")
+    effects_parser.add_argument("--action-name", default="external_tool", help="Action name (default: 'external_tool')")
+    effects_parser.add_argument("--reason", default="canceled", help="Reason for aborting claim")
+    effects_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -3128,6 +3141,102 @@ def main(argv=None):
                 print(f"  Available Budget:     ${t.get('available_cost', 0):.4f} / ${t.get('max_cost', 0):.4f}")
                 print(f"  Available Tokens:     {t.get('available_tokens', 0)} / {t.get('max_tokens', 0)}")
                 print(f"  Spent Turns:          {t.get('spent_turns', 0)} / {t.get('max_turns', 0)}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "effects":
+        from swarmwatch.effect_ledger import global_effect_ledger, ClaimStatus
+        tenant_id = args.tenant or "default"
+
+        if args.action == "claim":
+            if not args.effect_key:
+                print("\033[91mError: --effect-key is required for claim.\033[0m")
+                sys.exit(1)
+            res = global_effect_ledger.claim(
+                effect_key=args.effect_key,
+                tenant_id=tenant_id,
+                epoch=args.epoch,
+                idempotency_key=args.idempotency_key,
+                action=args.action_name,
+            )
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                color = "\033[92m" if res.status in ("ACCEPTED", "IDEMPOTENT_COMMITTED") else "\033[91m"
+                print(f"{color}[SwarmWatch] Effect Claim: {res.status}\033[0m")
+                if res.claim_id:
+                    print(f"  Claim ID:        {res.claim_id}")
+                if res.reason:
+                    print(f"  Reason:          {res.reason}")
+            sys.exit(0 if res.status in ("ACCEPTED", "IDEMPOTENT_COMMITTED") else 1)
+
+        elif args.action == "authorize":
+            if not args.claim_id or not args.permit_hash:
+                print("\033[91mError: Both --claim-id and --permit-hash are required for authorize.\033[0m")
+                sys.exit(1)
+            ok, msg = global_effect_ledger.authorize(claim_id=args.claim_id, permit_hash=args.permit_hash)
+            data = {"status": "authorized" if ok else "failed", "claim_id": args.claim_id, "message": msg}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                color = "\033[92m" if ok else "\033[91m"
+                print(f"{color}[SwarmWatch] Effect Authorize: {'SUCCESS' if ok else 'FAILED'} - {msg}\033[0m")
+            sys.exit(0 if ok else 1)
+
+        elif args.action == "complete":
+            if not args.claim_id:
+                print("\033[91mError: --claim-id is required for complete.\033[0m")
+                sys.exit(1)
+            ok, receipt, msg = global_effect_ledger.complete(claim_id=args.claim_id)
+            data = {"status": "committed" if ok else "failed", "claim_id": args.claim_id, "receipt": receipt.to_dict() if receipt else None, "message": msg}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                color = "\033[92m" if ok else "\033[91m"
+                print(f"{color}[SwarmWatch] Effect Complete: {'COMMITTED' if ok else 'FAILED'} - {msg}\033[0m")
+                if receipt:
+                    print(f"  Receipt ID:      {receipt.receipt_id}")
+                    print(f"  Receipt Hash:    {receipt.receipt_hash}")
+            sys.exit(0 if ok else 1)
+
+        elif args.action == "abort":
+            if not args.claim_id:
+                print("\033[91mError: --claim-id is required for abort.\033[0m")
+                sys.exit(1)
+            ok, msg = global_effect_ledger.abort(claim_id=args.claim_id, reason=args.reason)
+            data = {"status": "aborted" if ok else "failed", "claim_id": args.claim_id, "message": msg}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                color = "\033[92m" if ok else "\033[91m"
+                print(f"{color}[SwarmWatch] Effect Abort: {msg}\033[0m")
+            sys.exit(0 if ok else 1)
+
+        elif args.action == "reconcile":
+            records = global_effect_ledger.reconcile(since_epoch=args.epoch, tenant_id=None if args.tenant == "default" else args.tenant)
+            data = {"reconciled_records": records, "count": len(records), "since_epoch": args.epoch}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n[SwarmWatch] Reconciled {len(records)} committed effects since epoch {args.epoch}:")
+                for r in records:
+                    print(f"  - Key: {r['effect_key']} | Claim: {r['claim_id']} | Epoch: {r['epoch']} | Receipt: {r.get('receipt', {}).get('receipt_id')}")
+            sys.exit(0)
+
+        elif args.action == "status":
+            data = global_effect_ledger.status(tenant_id=tenant_id)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH FENCED EFFECT LEDGER STATUS (ADR 0063)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Current Epoch:        {data.get('current_epoch')}")
+                print(f"  Total Records:        {data.get('total_records')}")
+                print(f"  Active Claims:        {data.get('active_claims_count')}")
+                print(f"  Committed Effects:    {data.get('committed_effects_count')}")
+                print(f"  Tenant ID:            {data.get('tenant_id')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

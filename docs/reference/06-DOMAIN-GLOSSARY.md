@@ -1168,6 +1168,34 @@ _Avoid_: Status mode, health state, circuit condition
 A monotonically increasing integer counter incremented upon every circuit trip or re-arm, permanently and atomically obsoleting all execution permits issued under previous epochs.
 _Avoid_: Version number, lease counter, timestamp tag
 
+---
+
+### Fenced Effect Ledger & Monotonic Idempotency Barrier
+
+**EffectLedger**:
+The deep module and compare-and-swap (CAS) transition system enforcing that each external side-effect executes at most once under a monotonic fencing epoch.
+_Avoid_: Action log, tool tracker, effect database, call history
+
+**EffectClaim**:
+A time-bounded, epoch-fenced reservation placed on an effect key prior to executing an external tool action.
+_Avoid_: Lock ticket, action reservation, claim ticket
+
+**EffectRecord**:
+The internal durable state tracking an effect key, its idempotency key, epoch, tenant ID, and claim status.
+_Avoid_: Log entry, row dict, history record
+
+**EffectReceipt**:
+A cryptographically verifiable certificate signed with canonical domain tag `sw:eff:v1` proving that an external effect completed and committed exactly once.
+_Avoid_: Proof receipt, done receipt, result token
+
+**ClaimStatus**:
+The discrete lifecycle state of an effect claim (`CLAIMED`, `AUTHORIZED`, `COMMITTED`, `ABORTED`, `EXPIRED`).
+_Avoid_: Action state, progress flag, step code
+
+**IdempotencyKey**:
+A unique client-provided string deduplicating concurrent or repeated requests for the same side-effectual action.
+_Avoid_: Nonce, request tag, repeat key
+
 
 
 

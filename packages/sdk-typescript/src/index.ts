@@ -581,3 +581,18 @@ export {
   globalSafetyAuthority,
 } from "./safety_authority.ts";
 
+// Fenced Effect Ledger & Monotonic Idempotency Barrier (Seam 52 / ADR 0063)
+export type {
+  ClaimStatusEnum,
+  EffectReceiptOptions,
+  EffectRecordOptions,
+} from "./effect_ledger.ts";
+export {
+  ClaimStatus,
+  EffectReceipt,
+  EffectRecord,
+  ClaimResult,
+  EffectLedger,
+  globalEffectLedger,
+} from "./effect_ledger.ts";
+
