@@ -1685,6 +1685,10 @@
             <span class="status-indicator" id="ledgerDot" style="background: var(--success);"></span>
             <span id="ledgerText">EFFECT LEDGER: FENCED (0)</span>
           </div>
+          <div class="fleet-badge" id="ingressBadge" title="Loss-Aware Causal Ingestion & Evidentiary Completeness Rule (ADR 0064)">
+            <span class="status-indicator" id="ingressDot" style="background: var(--success);"></span>
+            <span id="ingressText">INGRESS: LOSS-AWARE (0 GAP)</span>
+          </div>
         </div>
 
 
@@ -4550,6 +4554,36 @@
       }
       refreshLedgerStatus();
       setInterval(refreshLedgerStatus, 11000);
+
+      // -------------------------------------------------------------------
+      // ADR 0064: Loss-Aware Causal Ingestion & Evidentiary Completeness Rule
+      // -------------------------------------------------------------------
+      async function refreshIngressStatus() {
+        var ingressDot = document.getElementById('ingressDot');
+        var ingressText = document.getElementById('ingressText');
+        try {
+          var res = await fetch('/api/v1/ingress/status');
+          if (res.ok) {
+            var data = await res.json();
+            var status = data.completeness_status || 'COMPLETE';
+            var gaps = data.total_gaps !== undefined ? data.total_gaps : 0;
+            if (ingressDot) {
+              if (status === 'COMPLETE') {
+                ingressDot.style.background = 'var(--success)';
+              } else if (status === 'SATURATED') {
+                ingressDot.style.background = 'var(--danger)';
+              } else {
+                ingressDot.style.background = 'var(--warning)';
+              }
+            }
+            if (ingressText) {
+              ingressText.textContent = 'INGRESS: LOSS-AWARE (' + gaps + ' GAP)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshIngressStatus();
+      setInterval(refreshIngressStatus, 10000);
 
       if (btnMfaModal) {
 

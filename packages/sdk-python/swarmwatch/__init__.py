@@ -658,6 +658,15 @@ from swarmwatch.effect_ledger import (
     EffectLedger,
     global_effect_ledger,
 )
+from swarmwatch.causal_ingress import (
+    IngressPriority,
+    CompletenessStatus,
+    SequenceGap,
+    CompletenessReport,
+    IngressResult,
+    CausalIngress,
+    global_causal_ingress,
+)
 
 
 

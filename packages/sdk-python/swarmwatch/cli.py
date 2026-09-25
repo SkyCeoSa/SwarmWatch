@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import json
 import os
 import sys
+import time
 import webbrowser
 import uvicorn
 
@@ -363,6 +364,17 @@ def main(argv=None):
     effects_parser.add_argument("--action-name", default="external_tool", help="Action name (default: 'external_tool')")
     effects_parser.add_argument("--reason", default="canceled", help="Reason for aborting claim")
     effects_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
+    # `swarmwatch ingress` subcommand (Seam 53 / ADR 0064)
+    ingress_parser = subparsers.add_parser("ingress", help="Loss-Aware Causal Ingestion & Evidentiary Completeness Rule")
+    ingress_parser.add_argument("action", choices=["submit", "drain", "completeness", "status"], default="status", nargs="?", help="Ingress action (submit, drain, completeness, status)")
+    ingress_parser.add_argument("--span-id", default=None, help="Span ID for submission")
+    ingress_parser.add_argument("--swarm-id", "-s", default="default", help="Swarm session ID")
+    ingress_parser.add_argument("--stream-id", default="main", help="Stream ID for monotonic sequencing (default: 'main')")
+    ingress_parser.add_argument("--priority", "-p", choices=["NORMAL", "HIGH", "CRITICAL"], default="NORMAL", help="Ingestion priority tier (default: 'NORMAL')")
+    ingress_parser.add_argument("--parent-ids", default=None, help="Comma-separated parent span IDs")
+    ingress_parser.add_argument("--batch-size", type=int, default=100, help="Batch size for drain (default: 100)")
+    ingress_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
     args = parser.parse_args(argv)
 
@@ -3237,6 +3249,105 @@ def main(argv=None):
                 print(f"  Active Claims:        {data.get('active_claims_count')}")
                 print(f"  Committed Effects:    {data.get('committed_effects_count')}")
                 print(f"  Tenant ID:            {data.get('tenant_id')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "ingress":
+        from swarmwatch.causal_ingress import (
+            global_causal_ingress,
+            IngressPriority,
+            CompletenessStatus,
+        )
+        swarm_id = args.swarm_id or "default"
+
+        if args.action == "submit":
+            span_id = args.span_id or f"spn_{int(time.time()*1000)}"
+            parents = [p.strip() for p in args.parent_ids.split(",")] if args.parent_ids else []
+            span_dict = {
+                "span_id": span_id,
+                "swarm_id": swarm_id,
+                "parent_span_ids": parents,
+                "payload": "CLI span submission",
+            }
+            res = global_causal_ingress.submit(
+                span=span_dict,
+                priority=args.priority.upper(),
+                stream_id=args.stream_id,
+            )
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                color = "\033[92m" if res.accepted else "\033[91m"
+                print(f"{color}[SwarmWatch] Ingress Submit: {'ACCEPTED' if res.accepted else 'DROPPED'} (Seq: #{res.seq_num})\033[0m")
+                print(f"  Swarm ID:     {res.swarm_id}")
+                print(f"  Priority:     {res.priority}")
+                print(f"  Status:       {res.status}")
+                if res.gap_detected:
+                    missing_str = str(res.gap.missing_count) if res.gap else "unknown"
+                    print(f"  \033[93mGap Detected: {missing_str} sequence(s) missing!\033[0m")
+                if res.reason:
+                    print(f"  Reason:       {res.reason}")
+            sys.exit(0 if res.accepted else 1)
+
+        elif args.action == "drain":
+            drained = global_causal_ingress.drain(batch_size=args.batch_size)
+            data = {"drained_spans": drained, "count": len(drained)}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\n[SwarmWatch] Drained {len(drained)} spans from ingress buffer:")
+                for s in drained:
+                    print(f"  - Seq #{s.get('_seq_num')}: {s.get('span_id')} [{s.get('_priority')}] (Stream: {s.get('_stream_id')})")
+            sys.exit(0)
+
+        elif args.action == "completeness":
+            report = global_causal_ingress.completeness(swarm_id=swarm_id)
+            data = report.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                color = "\033[92m" if report.status == CompletenessStatus.COMPLETE else ("\033[91m" if report.status == CompletenessStatus.SATURATED else "\033[93m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EVIDENTIARY COMPLETENESS REPORT (ADR 0064)        |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {report.swarm_id}")
+                print(f"  Completeness Status:  {color}{report.status}\033[0m")
+                print(f"  Total Submitted:      {report.total_submitted}")
+                print(f"  Total Accepted:       {report.total_accepted}")
+                print(f"  Total Dropped:        {report.total_dropped}")
+                print(f"  Loss Ratio:           {report.loss_ratio:.4%}")
+                print(f"  Critical Delivery:    {report.critical_delivery_ratio:.1%}")
+                print(f"  Sequence Gaps:        {len(report.sequence_gaps)}")
+                print(f"  Missing Causal Parents: {len(report.missing_causal_parents)}")
+                if report.sequence_gaps:
+                    print("\n  Sequence Gaps Detail:")
+                    for g in report.sequence_gaps:
+                        print(f"    - Stream '{g['stream_id']}': expected #{g['expected_seq']}, received #{g['received_seq']} (missing {g['missing_count']})")
+                if report.missing_causal_parents:
+                    print("\n  Missing Causal Parents:")
+                    for p in report.missing_causal_parents:
+                        print(f"    - {p}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "status":
+            data = global_causal_ingress.status(swarm_id=swarm_id)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CAUSAL INGRESS BUFFER STATUS (ADR 0064)            |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Queue Length:         {data.get('queue_length')}")
+                print(f"  Max Capacity:         {data.get('max_capacity')}")
+                print(f"  Normal Threshold:     {data.get('normal_threshold')}")
+                print(f"  Reserve Capacity:     {data.get('reserve_capacity')}")
+                print(f"  Swarm ID:             {data.get('swarm_id')}")
+                print(f"  Completeness Status:  {data.get('completeness_status')}")
+                print(f"  Total Dropped:        {data.get('total_dropped')}")
+                print(f"  Total Gaps:           {data.get('total_gaps')}")
+                print(f"  Critical Delivery:    {data.get('critical_delivery_ratio'):.1%}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

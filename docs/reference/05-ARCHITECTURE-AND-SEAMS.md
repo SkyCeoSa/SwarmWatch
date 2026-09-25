@@ -281,6 +281,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#ledgerBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Compare-and-swap (CAS) transition system with monotonic fencing epochs and idempotency barrier guaranteeing each external side-effect executes and commits at most once; stale leaders holding older epochs are rejected fail-closed (`STALE_EPOCH`); canonical effect receipt signing with domain tag `sw:eff:v1`; sub-15 microsecond execution ($<15\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
+53. **Loss-Aware Causal Ingestion & Evidentiary Completeness Rule Seam (ADR 0064 Dual-SDK Parity)**:
+    - Primitives (Python): `IngressPriority`, `CompletenessStatus`, `SequenceGap`, `CompletenessReport`, `IngressResult`, `CausalIngress`, `global_causal_ingress` (`causal_ingress.py`), server endpoints `POST /api/v1/ingress/submit`, `POST /api/v1/ingress/drain`, `GET /api/v1/ingress/completeness/{swarm_id}`, `GET /api/v1/ingress/status` (`server.py`), CLI subcommand `swarmwatch ingress` (`cli.py`).
+    - Primitives (TypeScript): `IngressPriority`, `CompletenessStatus`, `SequenceGap`, `CompletenessReport`, `IngressResult`, `CausalIngress`, `globalCausalIngress` (`causal_ingress.ts`), exported via `index.ts`.
+    - Primitives (Console): `#ingressBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Prioritized, bounded ingestion queue with monotonic per-stream sequence numbering and explicit gap accounting; guarantees 100% preservation of `CRITICAL` safety trips and security interventions under queue saturation; enforces the evidentiary completeness rule where missing sequences or unanchored parent spans permanently degrade trace status to `INCOMPLETE`; sub-microsecond enqueue latency ($<1\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
 
 
 

@@ -427,6 +427,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Canonical effect receipts (`EffectReceipt`) signed with domain separation tag `sw:eff:v1` via `CanonicalCodec`.
   - Dual-SDK parity across Python (`swarmwatch.effect_ledger`) and TypeScript (`@swarmwatch/sdk/src/effect_ledger.ts`) complying strictly with Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/effects/claim`, `POST /api/v1/effects/authorize`, `POST /api/v1/effects/complete`, `POST /api/v1/effects/abort`, `GET /api/v1/effects/reconcile`, `GET /api/v1/effects/status`), CLI subcommand (`swarmwatch effects claim|complete|reconcile|status`), and Web Console `#ledgerBadge` widget.
+- **Loss-Aware Causal Ingestion & Evidentiary Completeness Rule (Seam 53 & ADR 0064 Dual-SDK Parity)**:
+  - Deep module `CausalIngress` eliminating forensic blindspots and silent telemetry drop by tracking sequence gaps and causal parent completeness.
+  - Monotonic per-stream sequence numbering and automatic `SequenceGap` tracking.
+  - Evidentiary completeness contracts (`COMPLETE` vs `INCOMPLETE`) ensuring fragmented traces cannot masquerade as intact causal DAGs.
+  - Dedicated priority headroom guaranteeing 100% delivery ratio for `CRITICAL` spans (circuit breaker trips, honeypot events, policy interventions) under buffer saturation.
+  - Dual-SDK parity across Python (`swarmwatch.causal_ingress`) and TypeScript (`@swarmwatch/sdk/src/causal_ingress.ts`) adhering strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/ingress/submit`, `POST /api/v1/ingress/drain`, `GET /api/v1/ingress/completeness/{swarm_id}`, `GET /api/v1/ingress/status`), CLI subcommand (`swarmwatch ingress submit|drain|completeness|status`), and Web Console `#ingressBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

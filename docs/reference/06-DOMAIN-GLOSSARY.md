@@ -1196,6 +1196,34 @@ _Avoid_: Action state, progress flag, step code
 A unique client-provided string deduplicating concurrent or repeated requests for the same side-effectual action.
 _Avoid_: Nonce, request tag, repeat key
 
+---
+
+### Loss-Aware Causal Ingestion & Evidentiary Completeness Rule
+
+**CausalIngress**:
+The prioritized, bounded ingestion coordinator that assigns monotonic sequence numbers and detects dropped spans to prevent forensic blindspots.
+_Avoid_: Event collector, stream queue, log consumer, ingestion pump
+
+**IngressPriority**:
+The priority tier of an incoming telemetry span (`NORMAL`, `HIGH`, `CRITICAL`), ensuring that safety circuit trips and honeypot alerts are preserved under queue saturation.
+_Avoid_: Urgency level, tag weight, priority int
+
+**CompletenessStatus**:
+The evidentiary state of a swarm trace (`COMPLETE`, `INCOMPLETE`, `SATURATED`).
+_Avoid_: Integrity flag, check status, valid state
+
+**SequenceGap**:
+An explicit, recorded discontinuity ($s_i - s_{i-1} > 1$) in the monotonic sequence stream proving telemetry loss.
+_Avoid_: Missing event, drop mark, queue skip
+
+**CompletenessReport**:
+The diagnostic summary detailing submitted, accepted, and dropped span counts, sequence gaps, and the evidentiary completeness verdict.
+_Avoid_: Loss stats, audit log, queue dump
+
+**EvidentiaryCompleteness**:
+The invariant requiring that missing causal ancestors or dropped sequence ranges permanently disqualify an execution trace from being certified as an intact causal DAG.
+_Avoid_: Fullness guarantee, unbroken check, proof intactness
+
 
 
 

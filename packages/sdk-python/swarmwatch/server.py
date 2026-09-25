@@ -185,6 +185,15 @@ from swarmwatch.effect_ledger import (
     EffectLedger,
     global_effect_ledger,
 )
+from swarmwatch.causal_ingress import (
+    IngressPriority,
+    CompletenessStatus,
+    SequenceGap,
+    CompletenessReport,
+    IngressResult,
+    CausalIngress,
+    global_causal_ingress,
+)
 
 
 
@@ -542,6 +551,16 @@ class EffectCompleteRequest(BaseModel):
 class EffectAbortRequest(BaseModel):
     claim_id: str
     reason: str = "canceled"
+
+
+class IngressSubmitRequest(BaseModel):
+    span: Dict[str, Any]
+    priority: str = "NORMAL"
+    stream_id: str = "main"
+
+
+class IngressDrainRequest(BaseModel):
+    batch_size: int = 100
 
 
 
@@ -5412,6 +5431,33 @@ def create_app(
     async def effect_status_endpoint(tenant_id: str = "default"):
         """Returns diagnostic ledger metrics."""
         return global_effect_ledger.status(tenant_id=tenant_id)
+
+    @app.post("/api/v1/ingress/submit")
+    async def ingress_submit_endpoint(req: IngressSubmitRequest):
+        """Submits a span for prioritized, loss-aware causal ingestion."""
+        res = global_causal_ingress.submit(
+            span=req.span,
+            priority=req.priority,
+            stream_id=req.stream_id,
+        )
+        return res.to_dict()
+
+    @app.post("/api/v1/ingress/drain")
+    async def ingress_drain_endpoint(req: IngressDrainRequest):
+        """Drains buffered spans in FIFO order."""
+        spans = global_causal_ingress.drain(batch_size=req.batch_size)
+        return {"drained_spans": spans, "count": len(spans)}
+
+    @app.get("/api/v1/ingress/completeness/{swarm_id}")
+    async def ingress_completeness_endpoint(swarm_id: str):
+        """Calculates evidentiary completeness report for the given swarm."""
+        report = global_causal_ingress.completeness(swarm_id=swarm_id)
+        return report.to_dict()
+
+    @app.get("/api/v1/ingress/status")
+    async def ingress_status_endpoint(swarm_id: str = "default"):
+        """Returns diagnostic buffer metrics for causal ingestion."""
+        return global_causal_ingress.status(swarm_id=swarm_id)
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

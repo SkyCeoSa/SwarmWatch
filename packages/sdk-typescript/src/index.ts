@@ -596,3 +596,21 @@ export {
   globalEffectLedger,
 } from "./effect_ledger.ts";
 
+// Loss-Aware Causal Ingestion & Evidentiary Completeness Rule (Seam 53 / ADR 0064)
+export type {
+  IngressPriorityEnum,
+  CompletenessStatusEnum,
+  SequenceGapOptions,
+  IngressResultOptions,
+  CompletenessReportOptions,
+} from "./causal_ingress.ts";
+export {
+  IngressPriority,
+  CompletenessStatus,
+  SequenceGap,
+  IngressResult,
+  CompletenessReport,
+  CausalIngress,
+  globalCausalIngress,
+} from "./causal_ingress.ts";
+
