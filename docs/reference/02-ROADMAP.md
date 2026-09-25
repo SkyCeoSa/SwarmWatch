@@ -404,6 +404,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Tamper-evident CausalAuditReceipt generation and mathematical verification proving turn inclusion, circuit breaker enforcement, and causal parentage without exposing private message or prompt contents.
   - Dual-SDK parity across Python (`swarmwatch.zk_proof`) and TypeScript (`@swarmwatch/sdk/src/zk_proof.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`GET /api/v1/swarms/{id}/proof/root`, `POST /api/v1/swarms/{id}/proof/generate`, `POST /api/v1/swarms/{id}/proof/verify`, `GET /api/v1/swarms/{id}/proof/manifest`), CLI subcommand (`swarmwatch proof root|generate|verify|manifest`), and Web Console `#zkProofBadge` widget.
+- **Canonical Causal Encoding & Byte-Deterministic Contract Engine (Seam 50 & ADR 0061 Dual-SDK Parity)**:
+  - Deep module `CanonicalCodec` providing byte-deterministic canonical serialization conforming to RFC 8785 (JCS) principles.
+  - Guarantees byte-for-byte cross-runtime hash equality across Python 3.12+ and TypeScript/Node.js 22+.
+  - Enforces deterministic lexicographical key sorting, strict float and negative-zero normalization, whitespace stripping, and unescaped UTF-8 preservation.
+  - Domain-separated cryptographic hashing ($H_v(\text{domain\_tag}, x) = \text{SHA256}(\text{domain\_tag} \parallel \text{0x00} \parallel C_v(x))$) preventing cross-domain proof and state substitution attacks.
+  - Fail-closed validation rejecting circular references and non-finite numbers.
+  - Dual-SDK parity across Python (`swarmwatch.canonical`) and TypeScript (`@swarmwatch/sdk/src/canonical.ts`) strictly conforming to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/codec/canonicalize`, `POST /api/v1/codec/hash`), CLI subcommand (`swarmwatch codec canonicalize|hash`), and Web Console `#codecBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

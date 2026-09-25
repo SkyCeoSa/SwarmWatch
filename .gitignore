@@ -37,3 +37,8 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Audit Exports
+SWARMWATCH_MASTER_AUDIT_COMPENDIUM.md
+swarmwatch_audit_package*
+

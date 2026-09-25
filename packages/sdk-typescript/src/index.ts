@@ -554,3 +554,15 @@ export {
   globalZkProofEngine,
   sha256Digest,
 } from "./zk_proof.ts";
+
+// Canonical Causal Encoding & Byte-Deterministic Contract Engine (Seam 50 / ADR 0061)
+export type {
+  CanonicalDomainTagEnum,
+} from "./canonical.ts";
+export {
+  CanonicalDomainTag,
+  CanonicalEncodingError,
+  CanonicalCodec,
+  globalCanonicalCodec,
+} from "./canonical.ts";
+

@@ -133,7 +133,7 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Python): `RedisDistributedLock` (`redis_lock.py`), `RedisLeaderElector`, `ServerNodeRole`, REST endpoints `GET /api/v1/cluster/leader`, `POST /api/v1/cluster/leader/step-down`, CLI `swarmwatch cluster`.
     - Primitives (TypeScript): `RedisDistributedLock` (`redis_lock.ts`), `RedisLeaderElector`, `ServerNodeRole`.
     - Invariant: Atomic mutual exclusion and lease renewals; split-brain prevention for multi-server background jobs; sub-second automatic standby failover; active cluster node roster tracking in Redis; dual-SDK parity; 100% deterministic local execution.
-25. **S3 / Google Cloud Storage Streaming Log Archival & Cold Storage Tier Seam (ADR 0036 Dual-SDK Parity)**:
+25. **S3 / Google Cloud Storage Streaming Telemetry Archival & Cold Storage Tier Seam (ADR 0036 Dual-SDK Parity)**:
     - Primitives (Python): `ObjectStorageClient` (`archival.py`), `MockObjectStorageClient`, `S3ObjectStorageClient`, `ColdStorageArchiver`, `ArchiveManifest`, `ArchiveRecord`, REST endpoints `/api/v1/storage/archive/{id}`, `/api/v1/storage/restore/{id}`, `/api/v1/storage/archives`, CLI `swarmwatch archive`.
     - Primitives (TypeScript): `ObjectStorageClient` (`archival.ts`), `MockObjectStorageClient`, `ColdStorageArchiver`, `ArchiveManifest`, `ArchiveRecord`.
     - Invariant: Zero-dependency streaming gzip compression; cryptographic SHA-256 manifest verification; standard time-partitioned cloud data lake hierarchy; bi-directional archive and restoration round-trip; leader-coordinated singleton background execution; 100% local deterministic offline verification.
@@ -262,6 +262,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (TypeScript): `ProofCommitmentType`, `SpanCommitmentLeaf`, `MerkleAuditProof`, `CausalAuditReceipt`, `CausalProofAccumulator`, `ZkProofEngine`, `globalZkProofEngine` (`zk_proof.ts`), exported via `index.ts`.
     - Primitives (Console): `#zkProofBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Balanced binary Merkle tree accumulator computing session root anchors over span commitment leaves; zero-knowledge audit proofs verifying turn inclusion, safety circuit breaker trips, and causal DAG lineage without disclosing private prompt or message payloads; sub-millisecond proof generation ($<500\mu\text{s}$) and verification ($<20\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
+50. **Canonical Causal Encoding & Byte-Deterministic Contract Engine Seam (ADR 0061 Dual-SDK Parity)**:
+    - Primitives (Python): `CanonicalCodec`, `CanonicalDomainTag`, `CanonicalEncodingError` (`canonical.py`), server endpoints `POST /api/v1/codec/canonicalize`, `POST /api/v1/codec/hash`, CLI subcommand `swarmwatch codec canonicalize|hash` (`cli.py`).
+    - Primitives (TypeScript): `CanonicalCodec`, `CanonicalDomainTag`, `CanonicalEncodingError` (`canonical.ts`), exported via `index.ts`.
+    - Primitives (Console): `#codecBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: RFC 8785 (JCS) aligned canonical serialization guaranteeing byte-for-byte cross-runtime equality between Python and TypeScript; deterministic lexicographical key sorting, strict float and negative-zero normalization, whitespace stripping, and unescaped UTF-8 preservation; domain-separated cryptographic hashing ($H_v(\text{domain\_tag}, x) = \text{SHA256}(\text{domain\_tag} \parallel \text{0x00} \parallel C_v(x))$); fail-closed validation rejecting circular references and non-finite numbers; sub-5 microsecond execution ($<5\mu\text{s}$); zero remote LLM API calls; dual-SDK parity.
 
 
 

@@ -388,6 +388,10 @@ __all__ = [
     "CausalProofAccumulator",
     "ZkProofEngine",
     "global_zk_proof_engine",
+    "CanonicalCodec",
+    "CanonicalDomainTag",
+    "CanonicalEncodingError",
+    "global_canonical_codec",
 ]
 
 
@@ -625,6 +629,12 @@ from swarmwatch.zk_proof import (
     CausalProofAccumulator,
     ZkProofEngine,
     global_zk_proof_engine,
+)
+from swarmwatch.canonical import (
+    CanonicalCodec,
+    CanonicalDomainTag,
+    CanonicalEncodingError,
+    global_canonical_codec,
 )
 
 

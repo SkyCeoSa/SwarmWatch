@@ -164,6 +164,12 @@ from swarmwatch.zk_proof import (
     ZkProofEngine,
     global_zk_proof_engine,
 )
+from swarmwatch.canonical import (
+    CanonicalCodec,
+    CanonicalDomainTag,
+    CanonicalEncodingError,
+    global_canonical_codec,
+)
 
 
 
@@ -458,6 +464,17 @@ class ZkProofGenerateRequest(BaseModel):
 class ZkProofVerifyRequest(BaseModel):
     receipt: Dict[str, Any]
     secret_key: Optional[str] = "sw_causal_audit_secret_key"
+
+
+class CanonicalizeRequest(BaseModel):
+    payload: Any
+    version: int = 1
+
+
+class CanonicalHashRequest(BaseModel):
+    payload: Any
+    domain_tag: str = ""
+    version: int = 1
 
 
 
@@ -5173,6 +5190,39 @@ def create_app(
         """Resets session Merkle accumulator for designated swarm."""
         global_zk_proof_engine.reset(swarm_id)
         return {"status": "reset", "swarm_id": swarm_id}
+
+    @app.post("/api/v1/codec/canonicalize")
+    async def canonicalize_payload_endpoint(req: CanonicalizeRequest):
+        """Encodes an arbitrary JSON object into its deterministic canonical representation (RFC 8785)."""
+        try:
+            canonical_str = global_canonical_codec.canonicalize(req.payload, version=req.version)
+            canonical_bytes = canonical_str.encode("utf-8")
+            return {
+                "status": "success",
+                "canonical_str": canonical_str,
+                "length_bytes": len(canonical_bytes),
+                "version": req.version,
+            }
+        except CanonicalEncodingError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/codec/hash")
+    async def canonical_hash_endpoint(req: CanonicalHashRequest):
+        """Computes domain-separated SHA-256 digest over canonical byte representation."""
+        try:
+            digest = global_canonical_codec.hash(
+                req.payload, domain_tag=req.domain_tag, version=req.version
+            )
+            canonical_str = global_canonical_codec.canonicalize(req.payload, version=req.version)
+            return {
+                "status": "success",
+                "digest": digest,
+                "domain_tag": req.domain_tag,
+                "length_bytes": len(canonical_str.encode("utf-8")),
+                "version": req.version,
+            }
+        except CanonicalEncodingError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

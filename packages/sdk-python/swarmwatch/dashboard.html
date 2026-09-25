@@ -1673,6 +1673,10 @@
             <span class="status-indicator" id="zkProofDot" style="background: var(--success);"></span>
             <span id="zkProofText">ZK-PROOF: VERIFIED (0)</span>
           </div>
+          <div class="fleet-badge" id="codecBadge" title="Canonical Causal Encoding & Byte-Deterministic Contract Engine (ADR 0061)">
+            <span class="status-indicator" id="codecDot" style="background: var(--success);"></span>
+            <span id="codecText">CODEC: RFC-8785 JCS</span>
+          </div>
         </div>
 
 
@@ -4464,6 +4468,27 @@
       }
       refreshZkProofStatus();
       setInterval(refreshZkProofStatus, 11000);
+
+      // -------------------------------------------------------------------
+      // ADR 0061: Canonical Causal Encoding & JCS Codec Status
+      // -------------------------------------------------------------------
+      async function refreshCodecStatus() {
+        var codecDot = document.getElementById('codecDot');
+        var codecText = document.getElementById('codecText');
+        try {
+          var res = await fetch('/api/v1/codec/canonicalize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payload: { status: 'ping' }, version: 1 })
+          });
+          if (res.ok) {
+            if (codecDot) codecDot.style.background = 'var(--success)';
+            if (codecText) codecText.textContent = 'CODEC: RFC-8785 JCS';
+          }
+        } catch (e) {}
+      }
+      refreshCodecStatus();
+      setInterval(refreshCodecStatus, 12000);
 
       if (btnMfaModal) {
 

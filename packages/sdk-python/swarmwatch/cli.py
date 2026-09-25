@@ -331,6 +331,14 @@ def main(argv=None):
     proof_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     proof_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch codec` subcommand (Seam 50 / ADR 0061)
+    codec_parser = subparsers.add_parser("codec", help="Canonical Causal Encoding & Byte-Deterministic Contract Engine (RFC 8785)")
+    codec_parser.add_argument("action", choices=["canonicalize", "hash"], default="canonicalize", nargs="?", help="Codec action (canonicalize, hash)")
+    codec_parser.add_argument("--payload", "-p", default=None, help="JSON string or file path containing payload to encode")
+    codec_parser.add_argument("--domain", "-d", default="", help="Domain separation tag (e.g. 'sw:leaf:v1', 'sw:snap:v1')")
+    codec_parser.add_argument("--version", "-v", type=int, default=1, help="Canonical encoding version (default: 1)")
+    codec_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -2946,6 +2954,71 @@ def main(argv=None):
                 print(json.dumps(data, indent=2))
             else:
                 print(f"\033[92m[SwarmWatch] Causal proof accumulator reset for swarm: {swarm_id}\033[0m")
+            sys.exit(0)
+
+    elif args.subcommand == "codec":
+        from swarmwatch.canonical import global_canonical_codec, CanonicalDomainTag, CanonicalEncodingError
+        payload_data = None
+        if args.payload:
+            if os.path.isfile(args.payload):
+                with open(args.payload, "r", encoding="utf-8") as f:
+                    payload_data = json.load(f)
+            else:
+                try:
+                    payload_data = json.loads(args.payload)
+                except Exception:
+                    payload_data = args.payload
+        else:
+            if not sys.stdin.isatty():
+                content = sys.stdin.read().strip()
+                if content:
+                    try:
+                        payload_data = json.loads(content)
+                    except Exception:
+                        payload_data = content
+
+        if payload_data is None:
+            print("\033[91mError: --payload JSON string/file or piped stdin is required.\033[0m")
+            sys.exit(1)
+
+        try:
+            canonical_str = global_canonical_codec.canonicalize(payload_data, version=args.version)
+            canonical_bytes = canonical_str.encode("utf-8")
+        except CanonicalEncodingError as e:
+            print(f"\033[91mEncoding Error: {e}\033[0m")
+            sys.exit(1)
+
+        if args.action == "canonicalize":
+            if args.format == "json":
+                print(json.dumps({
+                    "status": "success",
+                    "canonical_str": canonical_str,
+                    "length_bytes": len(canonical_bytes),
+                    "version": args.version
+                }, indent=2))
+            else:
+                print(canonical_str)
+            sys.exit(0)
+
+        elif args.action == "hash":
+            digest = global_canonical_codec.hash(payload_data, domain_tag=args.domain, version=args.version)
+            if args.format == "json":
+                print(json.dumps({
+                    "status": "success",
+                    "digest": digest,
+                    "domain_tag": args.domain,
+                    "length_bytes": len(canonical_bytes),
+                    "version": args.version
+                }, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CANONICAL CAUSAL DIGEST (ADR 0061)                 |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Domain Tag:           {args.domain or '(none)'}")
+                print(f"  SHA-256 Digest:       {digest}")
+                print(f"  Canonical Length:     {len(canonical_bytes)} bytes")
+                print(f"  Encoding Version:     {args.version} (RFC-8785 JCS)")
+                print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:
         parser.print_help()

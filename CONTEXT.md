@@ -679,8 +679,12 @@ _Avoid_: Hook call, function callback, middleware run
 - **CausalProofAccumulator**: In-process binary Merkle tree engine building session commitment trees, computing root anchors, and verifying audit receipts in $<20\mu\text{s}$.
   _Avoid_: Merkle calc, tree builder, hash chain, accumulator service
 
+---
 
-
-
-
-
+### Canonical Causal Encoding & Byte-Deterministic Contract Engine (Seam 50 / ADR 0061)
+- **CanonicalCodec**: Deep module providing byte-deterministic canonical serialization conforming to RFC 8785 (JCS) principles, guaranteeing identical SHA-256 state hashes across Python 3.12+ and TypeScript/Node.js 22+.
+  _Avoid_: JSON dumper, serializer utility, stringifier, object flattener
+- **CanonicalDomainTag**: Prefix string (e.g., `sw:leaf:v1`, `sw:snap:v1`, `sw:rcpt:v1`, `sw:pmt:v1`) separating cryptographic hashing contexts to prevent cross-domain substitution attacks.
+  _Avoid_: Hash salt, prefix label, tag type, domain name
+- **CanonicalEncodingError**: Fail-closed exception raised when an input object contains non-finite numbers (`NaN`, `Infinity`), circular references, or unrepresentable types.
+  _Avoid_: JSON error, serialize exception, dump failure
