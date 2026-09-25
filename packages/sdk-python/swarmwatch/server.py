@@ -155,6 +155,15 @@ from swarmwatch.epistemic import (
     EpistemicEngine,
     global_epistemic_engine,
 )
+from swarmwatch.zk_proof import (
+    ProofCommitmentType,
+    SpanCommitmentLeaf,
+    MerkleAuditProof,
+    CausalAuditReceipt,
+    CausalProofAccumulator,
+    ZkProofEngine,
+    global_zk_proof_engine,
+)
 
 
 
@@ -427,6 +436,28 @@ class EpistemicAssertRequest(BaseModel):
 
 class EpistemicReconcileRequest(BaseModel):
     strategy: Optional[str] = "CONFIDENCE_ENTRENCHMENT"
+
+
+class ZkProofCommitSpanRequest(BaseModel):
+    span_id: str
+    turn_index: int = 0
+    agent_id: str = "agent-primary"
+    payload_content: Optional[str] = None
+    payload_hash: Optional[str] = None
+    parent_span_ids: Optional[List[str]] = None
+    circuit_tripped: bool = False
+    trip_reason: Optional[str] = None
+
+
+class ZkProofGenerateRequest(BaseModel):
+    span_id: str
+    commitment_type: str = "TURN_INCLUSION"
+    secret_key: Optional[str] = "sw_causal_audit_secret_key"
+
+
+class ZkProofVerifyRequest(BaseModel):
+    receipt: Dict[str, Any]
+    secret_key: Optional[str] = "sw_causal_audit_secret_key"
 
 
 
@@ -5064,6 +5095,83 @@ def create_app(
     async def reset_epistemic_knowledge_endpoint(swarm_id: str):
         """Clears all propositional claims and conflicts for designated swarm."""
         global_epistemic_engine.reset(swarm_id)
+        return {"status": "reset", "swarm_id": swarm_id}
+
+    # -----------------------------------------------------------------------
+    # Zero-Knowledge Causal Proof & Cryptographic Audit Engine (Seam 49 / ADR 0060)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/swarms/{swarm_id}/proof/root")
+    async def get_causal_proof_root_endpoint(swarm_id: str):
+        """Retrieves active session Merkle root and leaf count."""
+        acc = global_zk_proof_engine.get_accumulator(swarm_id)
+        root = acc.get_merkle_root()
+        return {
+            "swarm_id": swarm_id,
+            "session_merkle_root": root,
+            "total_leaves": acc.total_leaves,
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/proof/commit")
+    async def commit_causal_span_endpoint(swarm_id: str, req: ZkProofCommitSpanRequest):
+        """Commits span execution metadata to session Merkle accumulator."""
+        leaf = global_zk_proof_engine.commit_span(
+            swarm_id=swarm_id,
+            span_id=req.span_id,
+            turn_index=req.turn_index,
+            agent_id=req.agent_id,
+            payload_content=req.payload_content,
+            payload_hash=req.payload_hash,
+            parent_span_ids=req.parent_span_ids,
+            circuit_tripped=req.circuit_tripped,
+            trip_reason=req.trip_reason,
+        )
+        return {
+            "status": "committed",
+            "swarm_id": swarm_id,
+            "leaf": leaf.to_dict(),
+            "session_merkle_root": global_zk_proof_engine.get_root(swarm_id),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/proof/generate")
+    async def generate_causal_proof_endpoint(swarm_id: str, req: ZkProofGenerateRequest):
+        """Generates zero-knowledge audit receipt with Merkle path and HMAC signature."""
+        try:
+            ct = ProofCommitmentType(req.commitment_type.upper())
+        except ValueError:
+            ct = ProofCommitmentType.TURN_INCLUSION
+
+        secret = req.secret_key or "sw_causal_audit_secret_key"
+        receipt = global_zk_proof_engine.generate_receipt(
+            swarm_id=swarm_id,
+            span_id=req.span_id,
+            commitment_type=ct,
+            secret_key=secret,
+        )
+        return {
+            "status": "generated",
+            "receipt": receipt.to_dict(),
+        }
+
+    @app.post("/api/v1/swarms/{swarm_id}/proof/verify")
+    async def verify_causal_proof_endpoint(swarm_id: str, req: ZkProofVerifyRequest):
+        """Cryptographically verifies audit receipt against session Merkle root."""
+        secret = req.secret_key or "sw_causal_audit_secret_key"
+        is_valid, err = global_zk_proof_engine.verify_receipt(req.receipt, secret_key=secret)
+        return {
+            "is_valid": is_valid,
+            "error": err,
+            "swarm_id": swarm_id,
+        }
+
+    @app.get("/api/v1/swarms/{swarm_id}/proof/manifest")
+    async def get_causal_proof_manifest_endpoint(swarm_id: str):
+        """Retrieves session audit manifest containing all commitment leaves."""
+        return global_zk_proof_engine.get_manifest(swarm_id)
+
+    @app.post("/api/v1/swarms/{swarm_id}/proof/reset")
+    async def reset_causal_proof_endpoint(swarm_id: str):
+        """Resets session Merkle accumulator for designated swarm."""
+        global_zk_proof_engine.reset(swarm_id)
         return {"status": "reset", "swarm_id": swarm_id}
 
     @app.websocket("/ws/swarm/{swarm_id}")

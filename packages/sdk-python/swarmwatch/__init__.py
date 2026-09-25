@@ -381,6 +381,13 @@ __all__ = [
     "EpistemicKnowledgeBase",
     "EpistemicEngine",
     "global_epistemic_engine",
+    "ProofCommitmentType",
+    "SpanCommitmentLeaf",
+    "MerkleAuditProof",
+    "CausalAuditReceipt",
+    "CausalProofAccumulator",
+    "ZkProofEngine",
+    "global_zk_proof_engine",
 ]
 
 
@@ -610,6 +617,16 @@ from swarmwatch.epistemic import (
     EpistemicEngine,
     global_epistemic_engine,
 )
+from swarmwatch.zk_proof import (
+    ProofCommitmentType,
+    SpanCommitmentLeaf,
+    MerkleAuditProof,
+    CausalAuditReceipt,
+    CausalProofAccumulator,
+    ZkProofEngine,
+    global_zk_proof_engine,
+)
+
 
 
 

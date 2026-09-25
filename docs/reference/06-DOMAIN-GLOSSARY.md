@@ -1100,6 +1100,35 @@ _Avoid_: Fact DB, belief map, truth store, agent memory
 The normalized scalar metric $D \in [0.0, 1.0]$ quantifying the total cognitive disagreement and contested propositions across an agent swarm.
 _Avoid_: Conflict rate, error percent, divergence index
 
+---
+
+### Zero-Knowledge Causal Proof Generation & Cryptographic Audit Engine (Seam 49 / ADR 0060)
+
+**ZkProofEngine**:
+The deep module generating zero-knowledge causal execution proofs, Merkle tree commitments, and verifiable audit receipts in $<500\mu\text{s}$ with zero external LLM calls.
+_Avoid_: Crypto logger, snark service, proof bot, notary
+
+**SpanCommitmentLeaf**:
+The cryptographic commitment leaf $L_i$ binding span ID, turn index, agent ID, payload hash, causal parent hashes, and circuit breaker trip state into a SHA-256 digest.
+_Avoid_: Leaf record, hash row, proof item, span digest
+
+**MerkleAuditProof**:
+The $O(\log n)$ sequence of sibling hashes proving mathematical inclusion of a commitment leaf within the immutable session Merkle root without disclosing prompt or message content.
+_Avoid_: Hash list, tree proof, path array, audit trail
+
+**CausalAuditReceipt**:
+The complete tamper-evident audit package containing commitment metadata, Merkle proof, session root, and cryptographic verification signature.
+_Avoid_: Audit log, receipt json, compliance dump, proof packet
+
+**ProofCommitmentType**:
+The categorical audit assertion type (`TURN_INCLUSION`, `CIRCUIT_TRIP`, `CAUSAL_LINEAGE`, `POLICY_COMPLIANCE`) specifying the verified regulatory invariant.
+_Avoid_: Proof kind, audit mode, check category
+
+**CausalProofAccumulator**:
+The in-process binary Merkle tree engine building session commitment trees, computing root anchors, and verifying audit receipts in $<20\mu\text{s}$.
+_Avoid_: Merkle calc, tree builder, hash chain, accumulator service
+
+
 
 
 

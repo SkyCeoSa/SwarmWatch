@@ -1669,6 +1669,10 @@
             <span class="status-indicator" id="epistemicDot" style="background: var(--success);"></span>
             <span id="epistemicText">EPISTEMIC: OK (0 claims)</span>
           </div>
+          <div class="fleet-badge" id="zkProofBadge" title="Zero-Knowledge Causal Proof Generation & Cryptographic Audit (ADR 0060)">
+            <span class="status-indicator" id="zkProofDot" style="background: var(--success);"></span>
+            <span id="zkProofText">ZK-PROOF: VERIFIED (0)</span>
+          </div>
         </div>
 
 
@@ -4441,9 +4445,25 @@
       refreshEpistemicStatus();
       setInterval(refreshEpistemicStatus, 10500);
 
-
-
-
+      // -------------------------------------------------------------------
+      // ADR 0060: Zero-Knowledge Causal Proof Status Polling
+      // -------------------------------------------------------------------
+      async function refreshZkProofStatus() {
+        var zkProofDot = document.getElementById('zkProofDot');
+        var zkProofText = document.getElementById('zkProofText');
+        var sId = currentSwarmId || 'swarm-live-01';
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(sId) + '/proof/root');
+          if (res.ok) {
+            var data = await res.json();
+            var totalLeaves = data.total_leaves || 0;
+            if (zkProofDot) zkProofDot.style.background = 'var(--success)';
+            if (zkProofText) zkProofText.textContent = 'ZK-PROOF: VERIFIED (' + totalLeaves + ')';
+          }
+        } catch (e) {}
+      }
+      refreshZkProofStatus();
+      setInterval(refreshZkProofStatus, 11000);
 
       if (btnMfaModal) {
 

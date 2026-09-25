@@ -257,6 +257,13 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#epistemicBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Formal modal epistemic logic ($S5/KD45$) tracking individual knowledge assertions ($K_i \phi$), mutual knowledge ($E_G \phi$), and common knowledge ($C_G \phi$); in-process contradiction detection ($<50\mu\text{s}$) identifying conflicting premises ($K_i \phi \land K_j \neg\phi$) and calculating Epistemic Dissonance Score ($D \in [0.0, 1.0]$); deterministic AGM-style belief revision primitives (expansion, contraction, revision) resolving conflicts without external LLM judges; sub-50 microsecond execution; zero remote LLM API calls; dual-SDK parity.
 
+49. **Zero-Knowledge Causal Proof Generation & Cryptographic Audit Engine Seam (ADR 0060 Dual-SDK Parity)**:
+    - Primitives (Python): `ProofCommitmentType`, `SpanCommitmentLeaf`, `MerkleAuditProof`, `CausalAuditReceipt`, `CausalProofAccumulator`, `ZkProofEngine`, `global_zk_proof_engine` (`zk_proof.py`), server endpoints `GET /api/v1/swarms/{id}/proof/root`, `POST /api/v1/swarms/{id}/proof/generate`, `POST /api/v1/swarms/{id}/proof/verify`, `GET /api/v1/swarms/{id}/proof/manifest` (`server.py`), CLI subcommand `swarmwatch proof` (`cli.py`).
+    - Primitives (TypeScript): `ProofCommitmentType`, `SpanCommitmentLeaf`, `MerkleAuditProof`, `CausalAuditReceipt`, `CausalProofAccumulator`, `ZkProofEngine`, `globalZkProofEngine` (`zk_proof.ts`), exported via `index.ts`.
+    - Primitives (Console): `#zkProofBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Balanced binary Merkle tree accumulator computing session root anchors over span commitment leaves; zero-knowledge audit proofs verifying turn inclusion, safety circuit breaker trips, and causal DAG lineage without disclosing private prompt or message payloads; sub-millisecond proof generation ($<500\mu\text{s}$) and verification ($<20\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
+
 
 
 

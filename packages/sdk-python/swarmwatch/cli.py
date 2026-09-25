@@ -317,6 +317,20 @@ def main(argv=None):
     epistemic_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     epistemic_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch proof` subcommand (Seam 49 / ADR 0060)
+    proof_parser = subparsers.add_parser("proof", help="Zero-Knowledge Causal Proof Generation & Cryptographic Audit")
+    proof_parser.add_argument("action", choices=["root", "commit", "generate", "verify", "manifest", "reset"], default="root", nargs="?", help="Proof action (root, commit, generate, verify, manifest, reset)")
+    proof_parser.add_argument("--swarm-id", "-s", default="swarm-live-01", help="Target swarm session ID (default: 'swarm-live-01')")
+    proof_parser.add_argument("--span-id", help="Target span ID to commit or prove")
+    proof_parser.add_argument("--turn", type=int, default=0, help="Turn index (default: 0)")
+    proof_parser.add_argument("--agent", default="agent-primary", help="Producer agent ID")
+    proof_parser.add_argument("--payload", default=None, help="Payload content string to hash or commit")
+    proof_parser.add_argument("--type", choices=["TURN_INCLUSION", "CIRCUIT_TRIP", "CAUSAL_LINEAGE", "POLICY_COMPLIANCE"], default="TURN_INCLUSION", help="Audit commitment proof type")
+    proof_parser.add_argument("--receipt", default=None, help="JSON receipt string or path to JSON receipt file to verify")
+    proof_parser.add_argument("--secret", default="sw_causal_audit_secret_key", help="HMAC secret key")
+    proof_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    proof_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -2724,6 +2738,214 @@ def main(argv=None):
                 print(f"  Unresolved Conflicts: {data.get('unresolved_conflicts_count', 0)}")
                 print(f"  Mutual Knowledge Items:{data.get('mutual_knowledge_count', 0)}")
                 print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "proof":
+        import urllib.request
+        from swarmwatch.zk_proof import (
+            global_zk_proof_engine,
+            ProofCommitmentType,
+            CausalAuditReceipt,
+        )
+
+        swarm_id = args.swarm_id
+
+        if args.action == "root":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/proof/root"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                acc = global_zk_proof_engine.get_accumulator(swarm_id)
+                data = {
+                    "swarm_id": swarm_id,
+                    "session_merkle_root": acc.get_merkle_root(),
+                    "total_leaves": acc.total_leaves,
+                }
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CRYPTOGRAPHIC CAUSAL MERKLE ROOT (ADR 0060)        |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Session Merkle Root:  {data.get('session_merkle_root')}")
+                print(f"  Total Committed Spans:{data.get('total_leaves')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "commit":
+            span_id = args.span_id or f"span_{datetime.now(timezone.utc).strftime('%H%M%S')}"
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/proof/commit"
+            body = json.dumps({
+                "span_id": span_id,
+                "turn_index": args.turn,
+                "agent_id": args.agent,
+                "payload_content": args.payload,
+            }).encode()
+            try:
+                req = urllib.request.Request(target_url, data=body, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                leaf = global_zk_proof_engine.commit_span(
+                    swarm_id=swarm_id,
+                    span_id=span_id,
+                    turn_index=args.turn,
+                    agent_id=args.agent,
+                    payload_content=args.payload,
+                )
+                data = {
+                    "status": "committed",
+                    "swarm_id": swarm_id,
+                    "leaf": leaf.to_dict(),
+                    "session_merkle_root": global_zk_proof_engine.get_root(swarm_id),
+                }
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                leaf = data.get("leaf", {})
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SPAN COMMITMENT RECORDED (ADR 0060)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Span ID:              {leaf.get('span_id')}")
+                print(f"  Turn Index:           {leaf.get('turn_index')}")
+                print(f"  Agent ID:             {leaf.get('agent_id')}")
+                print(f"  Leaf Hash:            {leaf.get('leaf_hash')}")
+                print(f"  Session Merkle Root:  {data.get('session_merkle_root')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "generate":
+            if not args.span_id:
+                print("\033[91mError: --span-id is required for proof generation.\033[0m")
+                sys.exit(1)
+
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/proof/generate"
+            body = json.dumps({
+                "span_id": args.span_id,
+                "commitment_type": args.type,
+                "secret_key": args.secret,
+            }).encode()
+            try:
+                req = urllib.request.Request(target_url, data=body, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                try:
+                    ct = ProofCommitmentType(args.type.upper())
+                except ValueError:
+                    ct = ProofCommitmentType.TURN_INCLUSION
+                receipt = global_zk_proof_engine.generate_receipt(
+                    swarm_id=swarm_id,
+                    span_id=args.span_id,
+                    commitment_type=ct,
+                    secret_key=args.secret,
+                )
+                data = {"status": "generated", "receipt": receipt.to_dict()}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                rcpt = data.get("receipt", {})
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ZERO-KNOWLEDGE AUDIT RECEIPT (ADR 0060)            |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Receipt ID:           {rcpt.get('receipt_id')}")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Commitment Type:      {rcpt.get('commitment_type')}")
+                print(f"  Verified Valid:       {rcpt.get('verified')}")
+                print(f"  Session Merkle Root:  {rcpt.get('session_merkle_root')}")
+                print(f"  HMAC Provenance Sig:  {rcpt.get('provenance_signature')[:24]}...")
+                proof = rcpt.get("merkle_proof", {})
+                print(f"  Merkle Path Steps:    {len(proof.get('sibling_hashes', []))}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "verify":
+            receipt_data = None
+            if args.receipt:
+                if os.path.exists(args.receipt):
+                    with open(args.receipt, "r", encoding="utf-8") as f:
+                        receipt_data = json.load(f)
+                else:
+                    try:
+                        receipt_data = json.loads(args.receipt)
+                    except Exception:
+                        receipt_data = json.loads(args.receipt.replace("'", '"'))
+            if not receipt_data:
+                print("\033[91mError: --receipt JSON string or file path is required for verification.\033[0m")
+                sys.exit(1)
+
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/proof/verify"
+            body = json.dumps({
+                "receipt": receipt_data,
+                "secret_key": args.secret,
+            }).encode()
+            try:
+                req = urllib.request.Request(target_url, data=body, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                is_valid, err = global_zk_proof_engine.verify_receipt(receipt_data, secret_key=args.secret)
+                data = {"is_valid": is_valid, "error": err, "swarm_id": swarm_id}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                col = "\033[92mVALID\033[0m" if data.get("is_valid") else "\033[91mTAMPERED / INVALID\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH AUDIT PROOF VERIFICATION (ADR 0060)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Verification Result:  {col}")
+                if data.get("error"):
+                    print(f"  Failure Detail:       {data.get('error')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if data.get("is_valid") else 1)
+
+        elif args.action == "manifest":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/proof/manifest"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_zk_proof_engine.get_manifest(swarm_id)
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CAUSAL AUDIT MANIFEST (ADR 0060)                   |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Swarm ID:             {swarm_id}")
+                print(f"  Session Merkle Root:  {data.get('session_merkle_root')}")
+                print(f"  Total Committed Spans:{data.get('total_leaves')}")
+                print(f"  Tree Depth:           {data.get('tree_depth')}")
+                print(f"  Receipts Generated:   {data.get('total_receipts_generated')}")
+                print(f"  Verifications Run:    {data.get('total_verifications')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "reset":
+            target_url = f"{args.url.rstrip('/')}/api/v1/swarms/{swarm_id}/proof/reset"
+            try:
+                req = urllib.request.Request(target_url, data=b"{}", headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                global_zk_proof_engine.reset(swarm_id)
+                data = {"status": "reset", "swarm_id": swarm_id}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\033[92m[SwarmWatch] Causal proof accumulator reset for swarm: {swarm_id}\033[0m")
             sys.exit(0)
     else:
         parser.print_help()

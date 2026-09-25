@@ -536,6 +536,21 @@ export {
   globalEpistemicEngine,
 } from "./epistemic.ts";
 
-
-
-
+// Zero-Knowledge Causal Proof Generation & Cryptographic Audit Engine (Seam 49 / ADR 0060)
+export type {
+  ProofCommitmentTypeEnum,
+  SpanCommitmentLeafOptions,
+  MerkleAuditProofOptions,
+  CausalAuditReceiptOptions,
+  CommitSpanOptions,
+} from "./zk_proof.ts";
+export {
+  ProofCommitmentType,
+  SpanCommitmentLeaf,
+  MerkleAuditProof,
+  CausalAuditReceipt,
+  CausalProofAccumulator,
+  ZkProofEngine,
+  globalZkProofEngine,
+  sha256Digest,
+} from "./zk_proof.ts";
