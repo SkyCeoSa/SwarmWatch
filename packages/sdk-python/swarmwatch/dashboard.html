@@ -1661,6 +1661,10 @@
             <span class="status-indicator" id="shardDot" style="background: var(--success);"></span>
             <span id="shardText">SHARDING: BALANCED (1 NODE)</span>
           </div>
+          <div class="fleet-badge" id="schemaBadge" title="Autonomous Semantic Schema Migration & State Translation Engine (ADR 0058)">
+            <span class="status-indicator" id="schemaDot" style="background: var(--success);"></span>
+            <span id="schemaText">SCHEMA: V2.0.0 (3 VERSIONS)</span>
+          </div>
         </div>
 
 
@@ -4382,6 +4386,28 @@
       }
       refreshShardStatus();
       setInterval(refreshShardStatus, 11500);
+
+      // -------------------------------------------------------------------
+      // ADR 0058: Autonomous Semantic Schema Migration Status Polling
+      // -------------------------------------------------------------------
+      async function refreshSchemaStatus() {
+        var schemaDot = document.getElementById('schemaDot');
+        var schemaText = document.getElementById('schemaText');
+        try {
+          var res = await fetch('/api/v1/schemas/status');
+          if (res.ok) {
+            var data = await res.json();
+            var totalV = data.total_versions || 0;
+            var regV = data.registered_versions || [];
+            var latest = regV.length > 0 ? regV[regV.length - 1] : 'v1.0.0';
+            var migrations = data.total_migrations_executed || 0;
+            if (schemaDot) schemaDot.style.background = 'var(--success)';
+            if (schemaText) schemaText.textContent = 'SCHEMA: ' + latest.toUpperCase() + ' (' + totalV + ' VERSIONS | ' + migrations + ' MIG)';
+          }
+        } catch (e) {}
+      }
+      refreshSchemaStatus();
+      setInterval(refreshSchemaStatus, 12000);
 
 
 

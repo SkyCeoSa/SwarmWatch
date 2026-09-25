@@ -505,5 +505,20 @@ export {
   globalComputeBalancer,
 } from "./sharding.ts";
 
+// Autonomous Semantic Schema Migration & State Translation Engine (Seam 47 / ADR 0058)
+export type {
+  FieldTransformActionType,
+  MigrationPlan,
+  MigrationResult,
+} from "./schema_migration.ts";
+export {
+  FieldTransformAction,
+  SchemaVersion,
+  FieldTransformRule,
+  MigrationStep,
+  SchemaMigrationEngine,
+  globalSchemaMigrationEngine,
+} from "./schema_migration.ts";
+
 
 

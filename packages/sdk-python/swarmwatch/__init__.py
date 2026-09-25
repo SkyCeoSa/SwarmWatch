@@ -366,6 +366,14 @@ __all__ = [
     "ShardingStatusReport",
     "ComputeAwareBalancer",
     "global_compute_balancer",
+    "FieldTransformAction",
+    "SchemaVersion",
+    "FieldTransformRule",
+    "MigrationStep",
+    "MigrationPlan",
+    "MigrationResult",
+    "SchemaMigrationEngine",
+    "global_schema_migration_engine",
 ]
 
 
@@ -575,6 +583,16 @@ from swarmwatch.sharding import (
     ShardingStatusReport,
     ComputeAwareBalancer,
     global_compute_balancer,
+)
+from swarmwatch.schema_migration import (
+    FieldTransformAction,
+    SchemaVersion,
+    FieldTransformRule,
+    MigrationStep,
+    MigrationPlan,
+    MigrationResult,
+    SchemaMigrationEngine,
+    global_schema_migration_engine,
 )
 
 

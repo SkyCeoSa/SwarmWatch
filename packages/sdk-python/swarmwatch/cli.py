@@ -293,6 +293,17 @@ def main(argv=None):
     shard_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
     shard_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch schema` subcommand (Seam 47 / ADR 0058)
+    schema_parser = subparsers.add_parser("schema", help="Autonomous Semantic Schema Migration & Backward-Compatible State Translation")
+    schema_parser.add_argument("action", choices=["status", "versions", "migrate", "validate"], default="status", nargs="?", help="Schema action (status, versions, migrate, validate)")
+    schema_parser.add_argument("--source", "-s", default="1.0.0", help="Source schema version (e.g. '1.0.0')")
+    schema_parser.add_argument("--target", "-t", default="2.0.0", help="Target schema version (e.g. '2.0.0')")
+    schema_parser.add_argument("--version", "-v", default="1.0.0", help="Schema version to validate against (default: '1.0.0')")
+    schema_parser.add_argument("--payload", "-p", default=None, help="JSON payload string to migrate or validate")
+    schema_parser.add_argument("--file", "-f", default=None, help="File path containing JSON payload to migrate or validate")
+    schema_parser.add_argument("--url", default=os.getenv("SWARMWATCH_SERVER_URL", "http://127.0.0.1:8765"), help="SwarmWatch server URL")
+    schema_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -2366,6 +2377,142 @@ def main(argv=None):
                     print(f"    - Capacity Score:   {ninfo.get('capacity_score')}")
                     print(f"    - Health Tier:      {tcol}{tier.upper()}\033[0m")
                     print(f"    - Virtual Nodes:    {ninfo.get('vnodes')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "schema":
+        from swarmwatch.schema_migration import (
+            global_schema_migration_engine,
+        )
+
+        def _get_payload():
+            if args.file and os.path.exists(args.file):
+                with open(args.file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            elif args.payload:
+                try:
+                    return json.loads(args.payload)
+                except Exception:
+                    import ast
+                    try:
+                        return ast.literal_eval(args.payload)
+                    except Exception:
+                        return json.loads(args.payload.replace("'", '"'))
+            return {"agent": "agent-planner", "tokens": "1500"}
+
+        if args.action == "versions":
+            target_url = f"{args.url.rstrip('/')}/api/v1/schemas/versions"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                versions = global_schema_migration_engine.get_versions()
+                data = {"total_versions": len(versions), "versions": versions}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH REGISTERED SCHEMA VERSIONS (ADR 0058)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Versions:       {data.get('total_versions')}")
+                for v in data.get("versions", []):
+                    print(f"    - {v}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "migrate":
+            payload_data = _get_payload()
+            target_url = f"{args.url.rstrip('/')}/api/v1/schemas/migrate"
+            body = json.dumps({
+                "source_version": args.source,
+                "target_version": args.target,
+                "payload": payload_data,
+            }).encode()
+            try:
+                req = urllib.request.Request(target_url, data=body, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                res = global_schema_migration_engine.migrate(
+                    payload=payload_data,
+                    source_version=args.source,
+                    target_version=args.target,
+                )
+                data = res.to_dict()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SEMANTIC SCHEMA MIGRATION RESULT (ADR 0058)       |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Migration:            {data.get('source_version')} -> {data.get('target_version')}")
+                print(f"  Applied Steps:        {data.get('applied_steps_count')}")
+                print(f"  Path Taken:           {' -> '.join(data.get('applied_path', []))}")
+                print(f"  Lookup Latency:       {data.get('lookup_latency_ns')} ns")
+                print(f"  Contract Valid:       {data.get('is_valid')}")
+                print("  Transformed Payload:")
+                print(json.dumps(data.get("transformed_payload", {}), indent=4))
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "validate":
+            payload_data = _get_payload()
+            target_url = f"{args.url.rstrip('/')}/api/v1/schemas/validate"
+            body = json.dumps({
+                "version": args.version,
+                "payload": payload_data,
+            }).encode()
+            try:
+                req = urllib.request.Request(target_url, data=body, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                valid, errors = global_schema_migration_engine.validate_payload(payload_data, args.version)
+                data = {"is_valid": valid, "version": args.version, "errors": errors}
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                col = "\033[92mVALID\033[0m" if data.get("is_valid") else "\033[91mINVALID\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SCHEMA VALIDATION (ADR 0058)                      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Target Version:       {data.get('version')}")
+                print(f"  Validation Status:    {col}")
+                if data.get("errors"):
+                    print("  Contract Violations:")
+                    for err in data.get("errors"):
+                        print(f"    - {err}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if data.get("is_valid") else 1)
+
+        else:  # status
+            target_url = f"{args.url.rstrip('/')}/api/v1/schemas/status"
+            try:
+                req = urllib.request.Request(target_url, headers={"Accept": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode())
+            except Exception:
+                data = global_schema_migration_engine.get_status()
+
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SCHEMA MIGRATION ENGINE STATUS (ADR 0058)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Versions:       {data.get('total_versions')}")
+                print(f"  Total Migration Links:{data.get('total_steps')}")
+                print(f"  Migrations Executed:  {data.get('total_migrations_executed')}")
+                print(f"  Registered Versions:  {', '.join(data.get('registered_versions', []))}")
+                steps = data.get("steps", [])
+                if steps:
+                    print("  Configured Migration Steps:")
+                    for s in steps:
+                        print(f"    - [{s.get('source')} <-> {s.get('target')}]: {s.get('description')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

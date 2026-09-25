@@ -627,5 +627,24 @@ _Avoid_: Hook call, function callback, middleware run
 - **ShardRouteResult**: The structured routing determination capturing primary node ID, endpoint, replica spillover node ID, capacity score, and route mode (`PRIMARY` vs `SPILLOVER`).
   _Avoid_: Route packet, dispatch info, balance decision
 
+---
+
+### Autonomous Semantic Schema Migration & Backward-Compatible State Translation Engine (Seam 47 / ADR 0058)
+- **SchemaMigrationEngine**: Deep module executing automated shortest-path migration graph planning, directional field transformations, and backward-compatible state dictionary translations in $<30\mu\text{s}$ with zero LLM calls.
+  _Avoid_: Schema fixer, version converter, json updater, data mutator
+- **SchemaVersion**: Structured semantic version (`major.minor.patch`) supporting deterministic ordering, precedence comparisons, and semver parsing.
+  _Avoid_: Version tag, release string, schema level
+- **FieldTransformAction**: Categorical primitive transformation action (`RENAME`, `CAST_TYPE`, `ADD_DEFAULT`, `REMOVE_DEPRECATED`, `NEST_FIELDS`, `FLATTEN_FIELDS`, `COMPUTE_DERIVED`) applied to payload fields.
+  _Avoid_: Change type, mutator action, edit command
+- **FieldTransformRule**: An atomic, deterministic transformation rule binding target field path, transform action, parameters, and default values.
+  _Avoid_: Rule item, transform config, schema patch
+- **MigrationStep**: Registered bidirectional transformation link between two discrete schema versions encapsulating forward and backward rule sequences.
+  _Avoid_: Version hop, upgrade step, transition record
+- **MigrationPlan**: The calculated shortest path of sequential migration steps traversing the schema version DAG from source to target version.
+  _Avoid_: Migration route, step sequence, version path
+- **MigrationResult**: The immutable output envelope containing transformed payload, applied version hops, schema validation status, and execution latency nanoseconds.
+  _Avoid_: Migration response, output json, translated data
+
+
 
 

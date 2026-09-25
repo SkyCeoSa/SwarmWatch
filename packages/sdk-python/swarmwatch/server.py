@@ -136,6 +136,16 @@ from swarmwatch.sharding import (
     ComputeAwareBalancer,
     global_compute_balancer,
 )
+from swarmwatch.schema_migration import (
+    FieldTransformAction,
+    SchemaVersion,
+    FieldTransformRule,
+    MigrationStep,
+    MigrationPlan,
+    MigrationResult,
+    SchemaMigrationEngine,
+    global_schema_migration_engine,
+)
 
 
 
@@ -374,6 +384,26 @@ class NodeCapacityUpdateRequest(BaseModel):
 
 class ShardRebalanceRequest(BaseModel):
     base_vnodes: Optional[int] = None
+
+
+class SchemaMigrationRequest(BaseModel):
+    source_version: str
+    target_version: str
+    payload: Dict[str, Any]
+
+
+class SchemaValidationRequest(BaseModel):
+    version: str
+    payload: Dict[str, Any]
+
+
+class SchemaRegisterStepRequest(BaseModel):
+    source_version: str
+    target_version: str
+    forward_rules: List[Dict[str, Any]]
+    backward_rules: Optional[List[Dict[str, Any]]] = None
+    description: Optional[str] = ""
+
 
 
 
@@ -4868,6 +4898,67 @@ def create_app(
         return {
             "status": "rebalanced",
             "report": report.to_dict(),
+        }
+
+    # -----------------------------------------------------------------------
+    # Autonomous Semantic Schema Migration & State Translation (Seam 47 / ADR 0058)
+    # -----------------------------------------------------------------------
+    @app.get("/api/v1/schemas/status")
+    async def get_schema_migration_status_endpoint():
+        """Returns consolidated schema migration engine status, registered versions, and steps."""
+        return global_schema_migration_engine.get_status()
+
+    @app.get("/api/v1/schemas/versions")
+    async def list_schema_versions_endpoint():
+        """Returns list of registered schema contract versions."""
+        versions = global_schema_migration_engine.get_versions()
+        return {
+            "total_versions": len(versions),
+            "versions": versions,
+        }
+
+    @app.post("/api/v1/schemas/migrate")
+    async def migrate_schema_payload_endpoint(req: SchemaMigrationRequest):
+        """Translates payload between schema versions along BFS shortest-path migration plan."""
+        try:
+            result = global_schema_migration_engine.migrate(
+                payload=req.payload,
+                source_version=req.source_version,
+                target_version=req.target_version,
+            )
+            return result.to_dict()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    @app.post("/api/v1/schemas/validate")
+    async def validate_schema_payload_endpoint(req: SchemaValidationRequest):
+        """Validates payload against schema contract for the specified version."""
+        is_valid, errors = global_schema_migration_engine.validate_payload(
+            payload=req.payload,
+            version=req.version,
+        )
+        return {
+            "is_valid": is_valid,
+            "version": req.version,
+            "errors": errors,
+        }
+
+    @app.post("/api/v1/schemas/register-migration")
+    async def register_schema_migration_endpoint(req: SchemaRegisterStepRequest):
+        """Registers a new bidirectional migration step between two schema versions."""
+        forward = [FieldTransformRule.from_dict(r) for r in req.forward_rules]
+        backward = [FieldTransformRule.from_dict(r) for r in req.backward_rules] if req.backward_rules else []
+        step = MigrationStep(
+            source_version=req.source_version,
+            target_version=req.target_version,
+            forward_rules=forward,
+            backward_rules=backward,
+            description=req.description or "",
+        )
+        global_schema_migration_engine.register_step(step)
+        return {
+            "status": "registered",
+            "step": step.to_dict(),
         }
 
     @app.websocket("/ws/swarm/{swarm_id}")

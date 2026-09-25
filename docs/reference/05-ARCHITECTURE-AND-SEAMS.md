@@ -245,5 +245,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#shardBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Deterministic consistent hash ring with virtual nodes weighted by real-time compute capacity scores ($C_i \in [0.0, 1.0]$); causal session affinity preserving in-memory DAG cache hits; graceful spillover routing to successor replicas when primary nodes congest; sub-millisecond execution ($<25\mu\text{s}$ per routing decision); zero external LLM calls; dual-SDK parity.
 
+47. **Autonomous Semantic Schema Migration & Backward-Compatible State Translation Engine Seam (ADR 0058 Dual-SDK Parity)**:
+    - Primitives (Python): `SchemaVersion`, `FieldTransformAction`, `FieldTransformRule`, `MigrationStep`, `MigrationPlan`, `MigrationResult`, `SchemaMigrationEngine`, `global_schema_migration_engine` (`schema_migration.py`), server endpoints `GET /api/v1/schemas/status`, `GET /api/v1/schemas/versions`, `POST /api/v1/schemas/register-migration`, `POST /api/v1/schemas/migrate`, `POST /api/v1/schemas/validate` (`server.py`), CLI subcommand `swarmwatch schema` (`cli.py`).
+    - Primitives (TypeScript): `SchemaVersion`, `FieldTransformAction`, `FieldTransformRule`, `MigrationStep`, `MigrationPlan`, `MigrationResult`, `SchemaMigrationEngine`, `globalSchemaMigrationEngine` (`schema_migration.ts`), exported via `index.ts`.
+    - Primitives (Console): `#schemaBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: In-process shortest-path migration DAG resolution; deterministic directional field transformations (`RENAME`, `CAST_TYPE`, `ADD_DEFAULT`, `REMOVE_DEPRECATED`, `NEST_FIELDS`, `FLATTEN_FIELDS`, `COMPUTE_DERIVED`); bidirectional reversibility with automatic rollback; guaranteed backward compatibility across Time-Machine step-back and cross-cluster gossip sync; sub-30 microsecond execution ($<30\mu\text{s}$); zero remote LLM API calls; dual-SDK parity.
+
+
 
 

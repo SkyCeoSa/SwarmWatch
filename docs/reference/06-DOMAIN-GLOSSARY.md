@@ -1036,4 +1036,37 @@ _Avoid_: Server status, node tier, load grade
 The immutable routing resolution envelope containing selected primary node ID, endpoint URI, spillover node ID, execution mode, and lookup latency nanoseconds.
 _Avoid_: Route response, dispatch envelope, shard pick
 
+---
+
+### Autonomous Semantic Schema Migration & Backward-Compatible State Translation Engine (Seam 47 / ADR 0058)
+
+**SchemaMigrationEngine**:
+The deep module orchestrating automated shortest-path migration graph planning, directional field transformations, and backward-compatible state dictionary translations in $<30\mu\text{s}$ with zero LLM calls.
+_Avoid_: Schema fixer, version converter, json updater, data mutator
+
+**SchemaVersion**:
+The structured semantic version identifier (`major.minor.patch`) supporting deterministic precedence comparisons, ordering, and semver parsing.
+_Avoid_: Version tag, release string, schema level
+
+**FieldTransformAction**:
+The categorical primitive transformation action (`RENAME`, `CAST_TYPE`, `ADD_DEFAULT`, `REMOVE_DEPRECATED`, `NEST_FIELDS`, `FLATTEN_FIELDS`, `COMPUTE_DERIVED`) executed on payload fields.
+_Avoid_: Change type, mutator action, edit command
+
+**FieldTransformRule**:
+The atomic, deterministic transformation rule binding target field path, transform action, parameters, and default fallback values.
+_Avoid_: Rule item, transform config, schema patch
+
+**MigrationStep**:
+The registered bidirectional transformation link between two discrete schema versions encapsulating forward and backward rule sequences.
+_Avoid_: Version hop, upgrade step, transition record
+
+**MigrationPlan**:
+The calculated shortest path of sequential migration steps traversing the schema version DAG from source to target version.
+_Avoid_: Migration route, step sequence, version path
+
+**MigrationResult**:
+The immutable output envelope containing transformed payload, applied version hops, schema validation status, and execution latency nanoseconds.
+_Avoid_: Migration response, output json, translated data
+
+
 

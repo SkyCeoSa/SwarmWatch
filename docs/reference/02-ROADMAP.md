@@ -385,6 +385,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - In-process deterministic execution in $<25\mu\text{s}$ per routing decision with zero external LLM calls or centralized load balancer hardware.
   - Dual-SDK parity across Python (`swarmwatch.sharding`) and TypeScript (`@swarmwatch/sdk/src/sharding.ts`) conforming strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/sharding/status`, `GET /api/v1/sharding/ring`, `POST /api/v1/sharding/route`, `POST /api/v1/sharding/node-capacity`, `POST /api/v1/sharding/rebalance`), CLI subcommand (`swarmwatch shard status|ring|route|rebalance`), and Web Console `#shardBadge` widget.
+- **Autonomous Semantic Schema Migration & Backward-Compatible State Translation Engine (Seam 47 & ADR 0058 Dual-SDK Parity)**:
+  - Deep module `SchemaMigrationEngine` planning optimal migration DAG paths across arbitrary schema versions with zero token consumption ($<30\mu\text{s}$).
+  - Directional transformation primitives (`FieldTransformAction`: `RENAME`, `CAST_TYPE`, `ADD_DEFAULT`, `REMOVE_DEPRECATED`, `NEST_FIELDS`, `FLATTEN_FIELDS`, `COMPUTE_DERIVED`).
+  - Bidirectional reversibility with automatic rollback and shortest-path BFS graph resolution.
+  - Guarantees backward and forward compatibility during Time-Machine step-backs and cross-cluster gossip telemetry sync.
+  - Dual-SDK parity across Python (`swarmwatch.schema_migration`) and TypeScript (`@swarmwatch/sdk/src/schema_migration.ts`) conforming strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`GET /api/v1/schemas/status`, `GET /api/v1/schemas/versions`, `POST /api/v1/schemas/register-migration`, `POST /api/v1/schemas/migrate`, `POST /api/v1/schemas/validate`), CLI subcommand (`swarmwatch schema status|versions|migrate|validate`), and Web Console `#schemaBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 
