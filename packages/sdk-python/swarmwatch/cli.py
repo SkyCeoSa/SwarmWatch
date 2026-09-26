@@ -403,7 +403,22 @@ def main(argv=None):
     verifier_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
     verifier_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch remediation` subcommand (Seam 56 / ADR 0067)
+    remediation_parser = subparsers.add_parser("remediation", help="Governed Remediation & Fenced Action State Machine")
+    remediation_parser.add_argument("action", choices=["propose", "authorize", "apply", "compensate", "status"], default="status", nargs="?", help="Remediation action (propose, authorize, apply, compensate, status)")
+    remediation_parser.add_argument("--proposal-id", default=None, help="Remediation proposal identifier")
+    remediation_parser.add_argument("--action-type", default="probation_clamp", help="Action type to propose (e.g. probation_clamp, down_route_model, blacklist_tool)")
+    remediation_parser.add_argument("--target-entity", default="Agent-01", help="Target agent or tool entity")
+    remediation_parser.add_argument("--tier", default="TIER_0_AUTOMATIC", choices=["TIER_0_AUTOMATIC", "TIER_1_SUPERVISED", "TIER_2_MANUAL"], help="Approval tier (default: TIER_0_AUTOMATIC)")
+    remediation_parser.add_argument("--role", default=None, help="Approver role (e.g. ADMIN, OPERATOR, SAFETY_SUPERVISOR)")
+    remediation_parser.add_argument("--permit-hash", default=None, help="Safety permit hash for Tier 1 authorization")
+    remediation_parser.add_argument("--epoch", type=int, default=1, help="Fencing epoch for apply (default: 1)")
+    remediation_parser.add_argument("--reason", default="Operator compensation request", help="Reason for compensation")
+    remediation_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
+    remediation_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -3629,9 +3644,138 @@ def main(argv=None):
                 print(f"  Verdicts Breakdown:   {json.dumps(data.get('verdicts_breakdown', {}))}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
+
+    elif args.subcommand == "remediation":
+        from swarmwatch.remediation_governor import (
+            ApprovalTier,
+            ProposalStatus,
+            BlastRadius,
+            global_remediation_governor,
+        )
+
+        tenant_id = getattr(args, "tenant", "default") or "default"
+
+        if args.action == "propose":
+            prop = global_remediation_governor.propose(
+                tenant_id=tenant_id,
+                action_type=args.action_type,
+                target_entity=args.target_entity,
+                approval_tier=args.tier,
+                proposal_id=args.proposal_id,
+            )
+            data = prop.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                status_color = "\033[92m" if data.get("status") in ("AUTHORIZED", "APPLIED") else ("\033[93m" if data.get("status") == "PROPOSED" else "\033[91m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH REMEDIATION PROPOSAL (ADR 0067)                    |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Proposal ID:          {data.get('proposal_id')}")
+                print(f"  Tenant ID:            {data.get('tenant_id')}")
+                print(f"  Action Type:          {data.get('action_type')}")
+                print(f"  Target Entity:        {data.get('target_entity')}")
+                print(f"  Approval Tier:        {data.get('approval_tier')}")
+                print(f"  Status:               {status_color}{data.get('status')}\033[0m")
+                print(f"  Authoritative Epoch:  {data.get('authoritative_epoch')}")
+                print(f"  Proposal Hash:        {data.get('proposal_hash')}")
+                if data.get("rejection_reason"):
+                    print(f"  Rejection Reason:     \033[91m{data.get('rejection_reason')}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "authorize":
+            if not args.proposal_id:
+                print("Error: --proposal-id required for authorize", file=sys.stderr)
+                sys.exit(1)
+            decision = global_remediation_governor.authorize(
+                proposal_id=args.proposal_id,
+                approver_role=args.role,
+                permit_hash=args.permit_hash,
+                current_epoch=args.epoch,
+            )
+            data = decision.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                app_color = "\033[92mAUTHORIZED\033[0m" if data.get("approved") else "\033[91mREJECTED\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH REMEDIATION AUTHORIZATION (ADR 0067)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Proposal ID:          {data.get('proposal_id')}")
+                print(f"  Decision:             {app_color}")
+                print(f"  Tier:                 {data.get('approval_tier')}")
+                print(f"  Authoritative Epoch:  {data.get('authoritative_epoch')}")
+                print(f"  Reason:               {data.get('reason')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if data.get("approved") else 1)
+
+        elif args.action == "apply":
+            if not args.proposal_id:
+                print("Error: --proposal-id required for apply", file=sys.stderr)
+                sys.exit(1)
+            res = global_remediation_governor.apply(
+                proposal_id=args.proposal_id,
+                current_epoch=args.epoch,
+            )
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                res_color = "\033[92mAPPLIED\033[0m" if data.get("success") else "\033[91mFAILED\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH REMEDIATION APPLICATION (ADR 0067)                 |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Proposal ID:          {data.get('proposal_id')}")
+                print(f"  Result:               {res_color}")
+                print(f"  Applied Epoch:        {data.get('applied_epoch')}")
+                print(f"  Latency (us):         {round(data.get('execution_latency_us', 0.0), 2)}")
+                if data.get("error"):
+                    print(f"  Error:                \033[91m{data.get('error')}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if data.get("success") else 1)
+
+        elif args.action == "compensate":
+            if not args.proposal_id:
+                print("Error: --proposal-id required for compensate", file=sys.stderr)
+                sys.exit(1)
+            comp = global_remediation_governor.compensate(
+                proposal_id=args.proposal_id,
+                reason=args.reason,
+            )
+            data = comp.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                comp_color = "\033[92mCOMPENSATED\033[0m" if data.get("success") else "\033[91mFAILED\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH REMEDIATION COMPENSATION (ADR 0067)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Proposal ID:          {data.get('proposal_id')}")
+                print(f"  Status:               {comp_color}")
+                print(f"  Reason:               {data.get('reason')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if data.get("success") else 1)
+
+        elif args.action == "status":
+            data = global_remediation_governor.status(tenant_id=tenant_id if tenant_id != "default" else None)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH REMEDIATION GOVERNOR STATUS (ADR 0067)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Current Epoch:        {data.get('current_epoch')}")
+                print(f"  Total Proposals:      {data.get('total_proposals')}")
+                print(f"  Active Remediations:  {data.get('active_remediations_count')}")
+                print(f"  Status Breakdown:     {json.dumps(data.get('by_status', {}))}")
+                print(f"  Tier Breakdown:       {json.dumps(data.get('by_tier', {}))}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 
 

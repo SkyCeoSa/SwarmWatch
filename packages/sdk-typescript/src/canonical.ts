@@ -15,6 +15,7 @@ export const CanonicalDomainTag = {
   TOPOLOGY: "sw:topo:v1",
   STATE: "sw:state:v1",
   METRIC: "sw:metric:v1",
+  REMEDIATION: "sw:rem:v1",
 } as const;
 
 export type CanonicalDomainTagEnum = typeof CanonicalDomainTag[keyof typeof CanonicalDomainTag];

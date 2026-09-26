@@ -449,6 +449,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Independent trace validator `verify_trace(model, property, trace)` replaying counterexample transitions in $<100\mu\text{s}$.
   - Dual-SDK parity across Python (`swarmwatch.safety_verifier`) and TypeScript (`@swarmwatch/sdk/src/safety_verifier.ts`) adhering strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/verifier/verify`, `POST /api/v1/verifier/check-trace`, `GET /api/v1/verifier/status`), CLI subcommand (`swarmwatch verifier verify|check-trace|status`), and Web Console `#verifierBadge` widget.
+- **Governed Remediation & Fenced Action State Machine (Seam 56 & ADR 0067 Dual-SDK Parity)**:
+  - Deep module `RemediationGovernor` establishing fenced action state machine (`PROPOSED → AUTHORIZED → APPLIED → COMPENSATED`) with strict blast radius controls.
+  - Multi-tiered approval gating (`ApprovalTier`): `TIER_0_AUTOMATIC` (low-impact, bounded mutations), `TIER_1_SUPERVISED` (topology mutations requiring authoritative `SafetyPermit`), `TIER_2_MANUAL` (high-impact rewiring, global blacklisting requiring operator/admin approval).
+  - Explicit precondition contracts evaluated prior to mutation; postcondition contracts evaluated post-mutation with automated compensation on invariant violation.
+  - Monotonic fencing epoch enforcement rejecting stale cluster leaders fail-closed (`STALE_EPOCH`).
+  - Idempotent deterministic compensation routines (`compensate()`) guaranteeing safe rollback of applied remediations.
+  - Dual-SDK parity across Python (`swarmwatch.remediation_governor`) and TypeScript (`@swarmwatch/sdk/src/remediation_governor.ts`) complying strictly with Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/remediation/propose`, `POST /api/v1/remediation/authorize`, `POST /api/v1/remediation/apply`, `POST /api/v1/remediation/compensate`, `GET /api/v1/remediation/status`), CLI subcommand (`swarmwatch remediation propose|authorize|apply|compensate|status`), and Web Console `#remediationBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

@@ -211,6 +211,18 @@ from swarmwatch.safety_verifier import (
     SafetyVerifier,
     global_safety_verifier,
 )
+from swarmwatch.remediation_governor import (
+    ApprovalTier,
+    ProposalStatus,
+    BlastRadius,
+    RemediationProposal,
+    RemediationDecision,
+    RemediationResult,
+    CompensationResult,
+    RemediationGovernor,
+    global_remediation_governor,
+)
+
 
 
 
@@ -611,6 +623,39 @@ class VerifierCheckTraceRequest(BaseModel):
     model: Dict[str, Any]
     property: Union[Dict[str, Any], str]
     trace: List[Dict[str, Any]]
+
+
+class RemediationProposeRequest(BaseModel):
+    tenant_id: str
+    action_type: str
+    target_entity: str
+    parameters: Optional[Dict[str, Any]] = None
+    blast_radius: Optional[Dict[str, Any]] = None
+    approval_tier: str = "TIER_0_AUTOMATIC"
+    preconditions: Optional[Dict[str, Any]] = None
+    postconditions: Optional[Dict[str, Any]] = None
+    compensation_action: Optional[Dict[str, Any]] = None
+    proposal_id: Optional[str] = None
+
+
+class RemediationAuthorizeRequest(BaseModel):
+    proposal_id: str
+    approver_role: Optional[str] = None
+    permit_hash: Optional[str] = None
+    current_epoch: Optional[int] = None
+    signature: Optional[str] = None
+
+
+class RemediationApplyRequest(BaseModel):
+    proposal_id: str
+    current_epoch: int
+    context: Optional[Dict[str, Any]] = None
+
+
+class RemediationCompensateRequest(BaseModel):
+    proposal_id: str
+    reason: str = "Operator compensation request"
+
 
 
 
@@ -5593,7 +5638,67 @@ def create_app(
         """Returns diagnostic metrics and breakdown of safety verifications."""
         return global_safety_verifier.status(tenant_id=tenant_id)
 
+    # -------------------------------------------------------------------------
+    # ADR 0067: Governed Remediation & Fenced Action State Machine (Seam 56)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/remediation/propose")
+    async def remediation_propose_endpoint(req: RemediationProposeRequest):
+        """Proposes a self-healing or topology remediation subject to blast radius constraints."""
+        try:
+            prop = global_remediation_governor.propose(
+                tenant_id=req.tenant_id,
+                action_type=req.action_type,
+                target_entity=req.target_entity,
+                parameters=req.parameters,
+                blast_radius=req.blast_radius,
+                approval_tier=req.approval_tier,
+                preconditions=req.preconditions,
+                postconditions=req.postconditions,
+                compensation_action=req.compensation_action,
+                proposal_id=req.proposal_id,
+            )
+            return prop.to_dict()
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/remediation/authorize")
+    async def remediation_authorize_endpoint(req: RemediationAuthorizeRequest):
+        """Evaluates authorization criteria for a remediation proposal."""
+        decision = global_remediation_governor.authorize(
+            proposal_id=req.proposal_id,
+            approver_role=req.approver_role,
+            permit_hash=req.permit_hash,
+            current_epoch=req.current_epoch,
+            signature=req.signature,
+        )
+        return decision.to_dict()
+
+    @app.post("/api/v1/remediation/apply")
+    async def remediation_apply_endpoint(req: RemediationApplyRequest):
+        """Applies an authorized remediation mutation under a monotonic fencing epoch."""
+        result = global_remediation_governor.apply(
+            proposal_id=req.proposal_id,
+            current_epoch=req.current_epoch,
+            context=req.context,
+        )
+        return result.to_dict()
+
+    @app.post("/api/v1/remediation/compensate")
+    async def remediation_compensate_endpoint(req: RemediationCompensateRequest):
+        """Executes idempotent compensation rollback for an applied or failed remediation."""
+        comp_res = global_remediation_governor.compensate(
+            proposal_id=req.proposal_id,
+            reason=req.reason,
+        )
+        return comp_res.to_dict()
+
+    @app.get("/api/v1/remediation/status")
+    async def remediation_status_endpoint(tenant_id: Optional[str] = None):
+        """Returns diagnostic statistics, active remediations, and proposal tallies."""
+        return global_remediation_governor.status(tenant_id=tenant_id)
+
     @app.websocket("/ws/swarm/{swarm_id}")
+
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):
         await ws_manager.connect(swarm_id, websocket)
         try:

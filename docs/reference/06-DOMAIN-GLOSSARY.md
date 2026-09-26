@@ -1280,6 +1280,39 @@ _Avoid_: Error log, failure path, bug trace, crash stack
 The sub-millisecond, independent replay verification (`verify_trace`) validating that each step of a counterexample trace is admissible in the transition system and terminates in a genuine invariant violation.
 _Avoid_: Trace check, path replay, bug confirmation
 
+---
+
+### Governed Remediation & Fenced Action State Machine
+
+**RemediationGovernor**:
+The deterministic state machine and execution coordinator governing self-healing interventions, approval gating, and monotonic epoch fencing.
+_Avoid_: Auto-healer, patch bot, fixer script, remediation manager
+
+**ApprovalTier**:
+The authorization tier (`TIER_0_AUTOMATIC`, `TIER_1_SUPERVISED`, `TIER_2_MANUAL`) defining blast radius ceilings and safety permit requirements.
+_Avoid_: Auth level, permission grade, approval rank
+
+**ProposalStatus**:
+The discrete lifecycle state (`PROPOSED`, `AUTHORIZED`, `APPLIED`, `COMPENSATED`, `REJECTED`, `FAILED`) of a remediation action.
+_Avoid_: Patch state, action step, progress flag
+
+**BlastRadius**:
+The quantitative bounding contract specifying affected agent IDs, tool names, cost deltas, token limits, and cross-tenant restrictions.
+_Avoid_: Impact score, danger zone, blast area
+
+**PreconditionContract**:
+The set of deterministic predicates that must strictly hold before a remediation mutation is committed.
+_Avoid_: Pre-check, input check, prerequisite list
+
+**PostconditionContract**:
+The set of deterministic invariant predicates that must hold immediately following remediation execution, triggering automated compensation on violation.
+_Avoid_: Post-check, sanity check, output verify
+
+**CompensationAction**:
+The idempotent, deterministic rollback routine restoring system invariants and neutralizing downstream side-effects of an applied remediation.
+_Avoid_: Undo script, rollback handler, revert hack
+
+
 
 
 

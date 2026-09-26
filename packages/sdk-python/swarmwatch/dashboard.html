@@ -1697,7 +1697,12 @@
             <span class="status-indicator" id="verifierDot" style="background: var(--success);"></span>
             <span id="verifierText">VERIFIER: BOUNDED SAFE</span>
           </div>
+          <div class="fleet-badge" id="remediationBadge" title="Governed Remediation & Fenced Action State Machine (ADR 0067)">
+            <span class="status-indicator" id="remediationDot" style="background: var(--success);"></span>
+            <span id="remediationText">REMEDIATION: GOVERNED (0)</span>
+          </div>
         </div>
+
 
 
 
@@ -4647,6 +4652,30 @@
       }
       refreshVerifierStatus();
       setInterval(refreshVerifierStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0067: Governed Remediation & Fenced Action State Machine
+      // -------------------------------------------------------------------
+      async function refreshRemediationStatus() {
+        var remediationDot = document.getElementById('remediationDot');
+        var remediationText = document.getElementById('remediationText');
+        try {
+          var res = await fetch('/api/v1/remediation/status');
+          if (res.ok) {
+            var data = await res.json();
+            var activeCount = data.active_remediations_count || 0;
+            if (remediationDot) {
+              remediationDot.style.background = 'var(--success)';
+            }
+            if (remediationText) {
+              remediationText.textContent = 'REMEDIATION: GOVERNED (' + activeCount + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRemediationStatus();
+      setInterval(refreshRemediationStatus, 10000);
+
 
 
 

@@ -410,7 +410,17 @@ __all__ = [
     "VerificationReport",
     "SafetyVerifier",
     "global_safety_verifier",
+    "ApprovalTier",
+    "ProposalStatus",
+    "BlastRadius",
+    "RemediationProposal",
+    "RemediationDecision",
+    "RemediationResult",
+    "CompensationResult",
+    "RemediationGovernor",
+    "global_remediation_governor",
 ]
+
 
 
 from swarmwatch.redis_lock import (
@@ -696,6 +706,18 @@ from swarmwatch.safety_verifier import (
     SafetyVerifier,
     global_safety_verifier,
 )
+from swarmwatch.remediation_governor import (
+    ApprovalTier,
+    ProposalStatus,
+    BlastRadius,
+    RemediationProposal,
+    RemediationDecision,
+    RemediationResult,
+    CompensationResult,
+    RemediationGovernor,
+    global_remediation_governor,
+)
+
 
 
 

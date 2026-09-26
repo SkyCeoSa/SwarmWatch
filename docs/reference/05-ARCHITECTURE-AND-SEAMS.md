@@ -299,6 +299,13 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#verifierBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Strict bounded verification semantics eliminating overbroad `VERIFIED` assertions; exploration within bound $k$ returns `BOUNDED_SAFE` with explicit depth, assumptions, and state coverage ratio; early termination under resource limits returns `INDETERMINATE`; complete state-space closure returns `UNBOUNDED_PROVEN`; detected invariant violations return `VIOLATED` with minimal counterexample trace independently sound under `verify_trace`; sub-millisecond execution ($<1.0\text{ms}$); zero external LLM API calls or SAT solver services; dual-SDK parity.
 
+56. **Governed Remediation & Fenced Action State Machine Seam (ADR 0067 Dual-SDK Parity)**:
+    - Primitives (Python): `ApprovalTier`, `ProposalStatus`, `BlastRadius`, `RemediationProposal`, `RemediationDecision`, `RemediationResult`, `CompensationResult`, `RemediationGovernor`, `global_remediation_governor` (`remediation_governor.py`), server endpoints `POST /api/v1/remediation/propose`, `POST /api/v1/remediation/authorize`, `POST /api/v1/remediation/apply`, `POST /api/v1/remediation/compensate`, `GET /api/v1/remediation/status` (`server.py`), CLI subcommand `swarmwatch remediation` (`cli.py`).
+    - Primitives (TypeScript): `ApprovalTier`, `ProposalStatus`, `BlastRadius`, `RemediationProposal`, `RemediationDecision`, `RemediationResult`, `CompensationResult`, `RemediationGovernor`, `globalRemediationGovernor` (`remediation_governor.ts`), exported via `index.ts`.
+    - Primitives (Console): `#remediationBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Strict multi-tiered approval gating and blast radius constraints governing all self-healing mutations; proposals must pass precondition contracts before execution and postcondition invariants after mutation; commits must hold an authoritative monotonic fencing epoch; stale leaders presenting obsolete epochs are rejected fail-closed (`STALE_EPOCH`); every applied remediation possesses an idempotent compensation routine (`compensate`) guaranteeing safe rollback; sub-20 microsecond execution ($<20\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
+
 
 
 

@@ -644,6 +644,28 @@ export {
   globalSafetyVerifier,
 } from "./safety_verifier.ts";
 
+// Governed Remediation & Fenced Action State Machine (Seam 56 / ADR 0067)
+export type {
+  ApprovalTierEnum,
+  ProposalStatusEnum,
+  BlastRadius,
+  RemediationProposal,
+  RemediationDecision,
+  RemediationResult,
+  CompensationResult,
+  ProposeOptions,
+  AuthorizeOptions,
+  ApplyOptions,
+  CompensateOptions,
+} from "./remediation_governor.ts";
+export {
+  ApprovalTier,
+  ProposalStatus,
+  RemediationGovernor,
+  globalRemediationGovernor,
+} from "./remediation_governor.ts";
+
+
 
 
 

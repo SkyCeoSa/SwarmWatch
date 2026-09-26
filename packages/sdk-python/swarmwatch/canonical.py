@@ -28,6 +28,7 @@ class CanonicalDomainTag:
     TOPOLOGY = "sw:topo:v1"
     STATE = "sw:state:v1"
     METRIC = "sw:metric:v1"
+    REMEDIATION = "sw:rem:v1"
 
 
 def _utf16_sort_key(s: str) -> bytes:
