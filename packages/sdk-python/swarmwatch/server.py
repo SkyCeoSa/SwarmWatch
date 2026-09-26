@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Union
 import uuid
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status, Body, Request
@@ -202,6 +202,16 @@ from swarmwatch.audit_anchor import (
     AuditAnchor,
     global_audit_anchor,
 )
+from swarmwatch.safety_verifier import (
+    BoundedVerdict,
+    VerificationProperty,
+    VerificationLimits,
+    TransitionStep,
+    VerificationReport,
+    SafetyVerifier,
+    global_safety_verifier,
+)
+
 
 
 
@@ -587,6 +597,21 @@ class AuditIssueReceiptRequest(BaseModel):
 
 class AuditVerifyReceiptRequest(BaseModel):
     receipt: Dict[str, Any]
+
+
+class VerifierVerifyRequest(BaseModel):
+    model: Dict[str, Any]
+    properties: Optional[List[Dict[str, Any]]] = None
+    limits: Optional[Dict[str, Any]] = None
+    model_id: str = "model_default"
+    tenant_id: str = "default"
+
+
+class VerifierCheckTraceRequest(BaseModel):
+    model: Dict[str, Any]
+    property: Union[Dict[str, Any], str]
+    trace: List[Dict[str, Any]]
+
 
 
 
@@ -5531,6 +5556,42 @@ def create_app(
     async def audit_status_endpoint(tenant_id: Optional[str] = None):
         """Returns diagnostic status of the durable audit anchor."""
         return global_audit_anchor.status(tenant_id=tenant_id)
+
+    # -------------------------------------------------------------------------
+    # ADR 0066: Bounded Verification Semantics & Explicit Counterexample Engine (Seam 55)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/verifier/verify")
+    async def verifier_verify_endpoint(req: VerifierVerifyRequest):
+        """Executes bounded verification on a transition model with truthful semantics."""
+        limits = VerificationLimits.from_dict(req.limits) if req.limits else None
+        props = [VerificationProperty.from_dict(p) for p in req.properties] if req.properties else None
+        report = global_safety_verifier.verify(
+            model=req.model,
+            properties=props,
+            limits=limits,
+            model_id=req.model_id,
+            tenant_id=req.tenant_id,
+        )
+        return report.to_dict()
+
+    @app.post("/api/v1/verifier/check-trace")
+    async def verifier_check_trace_endpoint(req: VerifierCheckTraceRequest):
+        """Replays and independently validates a counterexample trace."""
+        prop = VerificationProperty.from_dict(req.property) if isinstance(req.property, dict) else req.property
+        is_sound, diagnostic = global_safety_verifier.verify_trace(
+            model=req.model,
+            property=prop,
+            trace=req.trace,
+        )
+        return {
+            "is_sound": is_sound,
+            "diagnostic": diagnostic,
+        }
+
+    @app.get("/api/v1/verifier/status")
+    async def verifier_status_endpoint(tenant_id: Optional[str] = None):
+        """Returns diagnostic metrics and breakdown of safety verifications."""
+        return global_safety_verifier.status(tenant_id=tenant_id)
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

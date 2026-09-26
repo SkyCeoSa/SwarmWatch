@@ -293,6 +293,13 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#auditBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Append-only cryptographic hash chain linking root epochs from Genesis ($H_{chain}^{(e)} = \text{SHA256}(H_{chain}^{(e-1)} \parallel e \parallel R_e \parallel \text{tenant\_id})$); historical epochs persist across system crashes and restarts with automatic post-crash chain of custody verification; mathematical Merkle inclusion receipts independently verifiable without revealing adjacent payloads; strictly designated as Merkle audit receipts (not ZK proofs); sub-25 microsecond proof verification ($<25\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
+55. **Bounded Verification Semantics & Explicit Counterexample Engine Seam (ADR 0066 Dual-SDK Parity)**:
+    - Primitives (Python): `BoundedVerdict`, `VerificationProperty`, `VerificationLimits`, `TransitionStep`, `VerificationReport`, `SafetyVerifier`, `global_safety_verifier` (`safety_verifier.py`), server endpoints `POST /api/v1/verifier/verify`, `POST /api/v1/verifier/check-trace`, `GET /api/v1/verifier/status` (`server.py`), CLI subcommand `swarmwatch verifier` (`cli.py`).
+    - Primitives (TypeScript): `BoundedVerdict`, `VerificationProperty`, `VerificationLimits`, `TransitionStep`, `VerificationReport`, `SafetyVerifier`, `globalSafetyVerifier` (`safety_verifier.ts`), exported via `index.ts`.
+    - Primitives (Console): `#verifierBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Strict bounded verification semantics eliminating overbroad `VERIFIED` assertions; exploration within bound $k$ returns `BOUNDED_SAFE` with explicit depth, assumptions, and state coverage ratio; early termination under resource limits returns `INDETERMINATE`; complete state-space closure returns `UNBOUNDED_PROVEN`; detected invariant violations return `VIOLATED` with minimal counterexample trace independently sound under `verify_trace`; sub-millisecond execution ($<1.0\text{ms}$); zero external LLM API calls or SAT solver services; dual-SDK parity.
+
+
 
 
 

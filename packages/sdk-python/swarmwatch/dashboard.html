@@ -1693,6 +1693,10 @@
             <span class="status-indicator" id="auditDot" style="background: var(--success);"></span>
             <span id="auditText">AUDIT: ANCHORED (E0)</span>
           </div>
+          <div class="fleet-badge" id="verifierBadge" title="Bounded Verification Semantics & Explicit Counterexample Engine (ADR 0066)">
+            <span class="status-indicator" id="verifierDot" style="background: var(--success);"></span>
+            <span id="verifierText">VERIFIER: BOUNDED SAFE</span>
+          </div>
         </div>
 
 
@@ -4612,6 +4616,38 @@
       }
       refreshAuditStatus();
       setInterval(refreshAuditStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0066: Bounded Verification Semantics & Explicit Counterexample Engine
+      // -------------------------------------------------------------------
+      async function refreshVerifierStatus() {
+        var verifierDot = document.getElementById('verifierDot');
+        var verifierText = document.getElementById('verifierText');
+        try {
+          var res = await fetch('/api/v1/verifier/status');
+          if (res.ok) {
+            var data = await res.json();
+            var lastV = data.last_verdict || 'BOUNDED_SAFE';
+            var cov = Math.round((data.average_coverage_ratio || 1.0) * 100);
+            if (verifierDot) {
+              if (lastV === 'VIOLATED') {
+                verifierDot.style.background = 'var(--danger)';
+              } else if (lastV === 'INDETERMINATE') {
+                verifierDot.style.background = 'var(--warning)';
+              } else {
+                verifierDot.style.background = 'var(--success)';
+              }
+            }
+            if (verifierText) {
+              var shortV = lastV.replace('_', ' ');
+              verifierText.textContent = 'VERIFIER: ' + shortV + ' (' + cov + '%)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshVerifierStatus();
+      setInterval(refreshVerifierStatus, 10000);
+
 
 
       if (btnMfaModal) {

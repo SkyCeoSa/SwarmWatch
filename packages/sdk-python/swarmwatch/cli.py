@@ -390,7 +390,21 @@ def main(argv=None):
     audit_parser.add_argument("--since-epoch", type=int, default=0, help="Start epoch for chain audit (default: 0)")
     audit_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch verifier` subcommand (Seam 55 / ADR 0066)
+    verifier_parser = subparsers.add_parser("verifier", help="Bounded Verification Semantics & Explicit Counterexample Engine")
+    verifier_parser.add_argument("action", choices=["verify", "check-trace", "status"], default="status", nargs="?", help="Verifier action (verify, check-trace, status)")
+    verifier_parser.add_argument("--model-file", default=None, help="Path to JSON file specifying transition model")
+    verifier_parser.add_argument("--model-id", default="model_default", help="Model identifier string (default: 'model_default')")
+    verifier_parser.add_argument("--bound-k", type=int, default=15, help="Search depth bound k (default: 15)")
+    verifier_parser.add_argument("--max-states", type=int, default=10000, help="Exploration state cap (default: 10000)")
+    verifier_parser.add_argument("--timeout", type=float, default=1000.0, help="Search timeout in milliseconds (default: 1000.0)")
+    verifier_parser.add_argument("--trace-file", default=None, help="Path to JSON file containing counterexample trace for check-trace")
+    verifier_parser.add_argument("--property", default="NO_DEADLOCK", help="Property identifier or invariant type (default: 'NO_DEADLOCK')")
+    verifier_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
+    verifier_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -3499,6 +3513,120 @@ def main(argv=None):
                 print(f"  Latest Root:          {data.get('latest_root')}")
                 print(f"  Latest Digest:        {data.get('latest_digest')}")
                 print(f"  Storage Path:         {data.get('storage_path')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand == "verifier":
+        from swarmwatch.safety_verifier import (
+            global_safety_verifier,
+            VerificationLimits,
+            VerificationProperty,
+            BoundedVerdict,
+        )
+        tenant_id = args.tenant
+
+        if args.action == "verify":
+            model_dict: Dict[str, Any] = {}
+            if args.model_file:
+                with open(args.model_file, "r", encoding="utf-8") as f:
+                    model_dict = json.load(f)
+            else:
+                # Default canonical pipeline model
+                model_dict = {
+                    "initial_agent": "Planner",
+                    "final_agents": ["Publisher"],
+                    "transitions": [
+                        {"from_agent": "Planner", "to_agent": "Worker", "action_type": "DELEGATE", "token_cost": 200},
+                        {"from_agent": "Worker", "to_agent": "Publisher", "action_type": "SUBMIT", "token_cost": 150},
+                    ],
+                    "max_token_budget": 5000,
+                }
+            limits = VerificationLimits(
+                max_depth_k=args.bound_k,
+                max_states=args.max_states,
+                timeout_ms=args.timeout,
+            )
+            report = global_safety_verifier.verify(
+                model=model_dict,
+                limits=limits,
+                model_id=args.model_id,
+                tenant_id=tenant_id,
+            )
+            data = report.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                verdict_color = "\033[92m" if data.get("verdict") in ("BOUNDED_SAFE", "UNBOUNDED_PROVEN", "VACUOUS") else "\033[91m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH BOUNDED SAFETY VERIFICATION REPORT (ADR 0066)      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Model ID:             {data.get('model_id')}")
+                print(f"  Verdict:              {verdict_color}{data.get('verdict')}\033[0m")
+                print(f"  Depth Bound (k):      {data.get('bound_k')}")
+                print(f"  Depth Reached:        {data.get('depth_reached')}")
+                print(f"  States Explored:      {data.get('total_states_explored')}")
+                print(f"  Frontier Remaining:   {data.get('frontier_states_remaining')}")
+                cov_pct = round(data.get('state_coverage_ratio', 0.0) * 100, 1)
+                print(f"  State Coverage:       {cov_pct}%")
+                print(f"  Execution Time (ms):  {data.get('execution_time_ms')}")
+                print(f"  Diagnostic Reason:    {data.get('diagnostic_reason')}")
+                if data.get("violated_property"):
+                    print(f"  Violated Property:    \033[91m{data.get('violated_property')}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "check-trace":
+            if not args.trace_file:
+                print("Error: --trace-file required for check-trace", file=sys.stderr)
+                sys.exit(1)
+            with open(args.trace_file, "r", encoding="utf-8") as f:
+                trace_data = json.load(f)
+            model_dict = {}
+            if args.model_file:
+                with open(args.model_file, "r", encoding="utf-8") as f:
+                    model_dict = json.load(f)
+            else:
+                model_dict = {
+                    "initial_agent": "Planner",
+                    "final_agents": ["Publisher"],
+                    "transitions": [
+                        {"from_agent": "Planner", "to_agent": "Worker", "action_type": "DELEGATE", "token_cost": 200},
+                        {"from_agent": "Worker", "to_agent": "Publisher", "action_type": "SUBMIT", "token_cost": 150},
+                    ],
+                }
+            is_sound, diagnostic = global_safety_verifier.verify_trace(
+                model=model_dict,
+                property=args.property,
+                trace=trace_data if isinstance(trace_data, list) else trace_data.get("trace", []),
+            )
+            data = {"is_sound": is_sound, "diagnostic": diagnostic}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                status_str = "\033[92mSOUND & ADMISSIBLE\033[0m" if is_sound else "\033[91mREJECTED / INVALID\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH COUNTEREXAMPLE TRACE VALIDATION (ADR 0066)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Replay Verdict:       {status_str}")
+                if diagnostic:
+                    print(f"  Diagnostic:           {diagnostic}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if is_sound else 2)
+
+        elif args.action == "status":
+            data = global_safety_verifier.status(tenant_id=tenant_id if tenant_id != "default" else None)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SAFETY VERIFIER STATUS (ADR 0066)                  |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Verifications:  {data.get('total_verifications')}")
+                avg_cov = round(data.get('average_coverage_ratio', 1.0) * 100, 1)
+                print(f"  Avg State Coverage:   {avg_cov}%")
+                print(f"  Last Verdict:         {data.get('last_verdict') or 'None'}")
+                print(f"  Last Model ID:        {data.get('last_model_id') or 'None'}")
+                print(f"  Verdicts Breakdown:   {json.dumps(data.get('verdicts_breakdown', {}))}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

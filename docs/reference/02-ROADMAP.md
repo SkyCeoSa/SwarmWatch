@@ -441,8 +441,17 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Generates verifiable `MerkleAuditReceipt` packages proving turn inclusion without revealing adjacent payloads; strictly designated as Merkle audit receipts (not ZK proofs).
   - Dual-SDK parity across Python (`swarmwatch.audit_anchor`) and TypeScript (`@swarmwatch/sdk/src/audit_anchor.ts`) complying strictly with Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/audit/append-root`, `POST /api/v1/audit/issue-receipt`, `POST /api/v1/audit/verify-receipt`, `GET /api/v1/audit/chain`, `GET /api/v1/audit/status`), CLI subcommand (`swarmwatch audit append-root|issue-receipt|verify-receipt|chain|status`), and Web Console `#auditBadge` widget.
+- **Bounded Verification Semantics & Explicit Counterexample Engine (Seam 55 & ADR 0066 Dual-SDK Parity)**:
+  - Deep module `SafetyVerifier` replacing overbroad `VERIFIED` assertions with rigorous bounded verification semantics.
+  - Exhaustive bounded exploration reports `BOUNDED_SAFE` with depth $k$, assumptions, and state space coverage ratio ($|V_{\text{explored}}| / (|V_{\text{explored}}| + |V_{\text{frontier}}|)$).
+  - Search truncation by resource limits (`max_states`, `timeout_ms`) returns explicit `INDETERMINATE`.
+  - Complete state space closure returns `UNBOUNDED_PROVEN`; detected invariant violations return `VIOLATED` with a minimal counterexample trace.
+  - Independent trace validator `verify_trace(model, property, trace)` replaying counterexample transitions in $<100\mu\text{s}$.
+  - Dual-SDK parity across Python (`swarmwatch.safety_verifier`) and TypeScript (`@swarmwatch/sdk/src/safety_verifier.ts`) adhering strictly to Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/verifier/verify`, `POST /api/v1/verifier/check-trace`, `GET /api/v1/verifier/status`), CLI subcommand (`swarmwatch verifier verify|check-trace|status`), and Web Console `#verifierBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
+
 
 
 

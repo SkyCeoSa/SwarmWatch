@@ -398,6 +398,18 @@ __all__ = [
     "TenantQuota",
     "SafetyAuthority",
     "global_safety_authority",
+    "RootEpoch",
+    "MerkleAuditReceipt",
+    "AuditIntegrityError",
+    "AuditAnchor",
+    "global_audit_anchor",
+    "BoundedVerdict",
+    "VerificationProperty",
+    "VerificationLimits",
+    "TransitionStep",
+    "VerificationReport",
+    "SafetyVerifier",
+    "global_safety_verifier",
 ]
 
 
@@ -675,6 +687,16 @@ from swarmwatch.audit_anchor import (
     AuditAnchor,
     global_audit_anchor,
 )
+from swarmwatch.safety_verifier import (
+    BoundedVerdict,
+    VerificationProperty,
+    VerificationLimits,
+    TransitionStep,
+    VerificationReport,
+    SafetyVerifier,
+    global_safety_verifier,
+)
+
 
 
 

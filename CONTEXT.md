@@ -749,4 +749,23 @@ _Avoid_: Hook call, function callback, middleware run
 - **PostCrashChainOfCustody**: The invariant that an AuditAnchor recovering from a crash or restart must reconstruct and cryptographically verify the continuous hash chain from Genesis before accepting new root commitments.
   _Avoid_: Recovery boot, restart scan, integrity replay
 
+---
+
+### Bounded Verification Semantics & Explicit Counterexample Engine (Seam 55 / ADR 0066)
+- **SafetyVerifier**: The deterministic verification engine providing truthful bounded verification semantics and minimal counterexample generation without SAT solvers or external LLM API calls.
+  _Avoid_: Model checker bot, proof prover, theorem solver, validator script
+- **BoundedVerdict**: The discrete formal verdict (`BOUNDED_SAFE`, `VIOLATED`, `INDETERMINATE`, `UNBOUNDED_PROVEN`, `VACUOUS`) certified for a transition model within exploration bound $k$.
+  _Avoid_: Check result, pass flag, verification status, proof code
+- **BOUNDED_SAFE**: Verification verdict indicating the invariant holds strictly for all states reachable within depth $k$, while the exploration frontier remains open beyond $k$.
+  _Avoid_: Verified, completely safe, bug-free, unconditionally safe
+- **UNBOUNDED_PROVEN**: Verification verdict certifying that the entire reachable state space is exhaustively closed ($V_{\text{frontier}} = \emptyset$) at depth $d \le k$, proving the invariant for all possible executions.
+  _Avoid_: Totally verified, infinite proof, absolute guarantee
+- **StateSpaceCoverage**: The quantitative ratio ($|V_{\text{explored}}| / (|V_{\text{explored}}| + |V_{\text{frontier}}|)$) measuring the explored proportion of discovered reachable states.
+  _Avoid_: Exploration percent, scan ratio, test coverage
+- **CounterexampleTrace**: An ordered, minimal sequence of agent transitions leading directly from the initial configuration to an invariant violation state.
+  _Avoid_: Error log, failure path, bug trace, crash stack
+- **TraceValidation**: The sub-millisecond, independent replay verification (`verify_trace`) validating that each step of a counterexample trace is admissible in the transition system and terminates in a genuine invariant violation.
+  _Avoid_: Trace check, path replay, bug confirmation
+
+
 

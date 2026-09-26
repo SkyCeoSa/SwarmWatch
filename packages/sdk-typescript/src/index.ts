@@ -629,4 +629,21 @@ export {
   globalAuditAnchor,
 } from "./audit_anchor.ts";
 
+// Bounded Verification Semantics & Explicit Counterexample Engine (Seam 55 / ADR 0066)
+export type {
+  BoundedVerdictType,
+  VerificationProperty,
+  VerificationLimits,
+  TransitionStep,
+  VerificationReport,
+  VerifierStatus,
+} from "./safety_verifier.ts";
+export {
+  BoundedVerdict,
+  SafetyVerifier,
+  globalSafetyVerifier,
+} from "./safety_verifier.ts";
+
+
+
 
