@@ -419,7 +419,16 @@ __all__ = [
     "CompensationResult",
     "RemediationGovernor",
     "global_remediation_governor",
+    "LatticeVerdict",
+    "compare_vector_clocks",
+    "merge_vector_clocks",
+    "ReconciliationPlan",
+    "MergeResult",
+    "AuthorityReconciliationResult",
+    "MeshReconciler",
+    "global_mesh_reconciler",
 ]
+
 
 
 
@@ -717,6 +726,17 @@ from swarmwatch.remediation_governor import (
     RemediationGovernor,
     global_remediation_governor,
 )
+from swarmwatch.mesh_reconciler import (
+    LatticeVerdict,
+    compare_vector_clocks,
+    merge_vector_clocks,
+    ReconciliationPlan,
+    MergeResult,
+    AuthorityReconciliationResult,
+    MeshReconciler,
+    global_mesh_reconciler,
+)
+
 
 
 

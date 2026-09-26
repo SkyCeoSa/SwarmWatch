@@ -1701,6 +1701,10 @@
             <span class="status-indicator" id="remediationDot" style="background: var(--success);"></span>
             <span id="remediationText">REMEDIATION: GOVERNED (0)</span>
           </div>
+          <div class="fleet-badge" id="reconcilerBadge" title="Partition Reconciliation & Conflict Lattice Engine (ADR 0068)">
+            <span class="status-indicator" id="reconcilerDot" style="background: var(--success);"></span>
+            <span id="reconcilerText">RECONCILER: CONVERGED (0)</span>
+          </div>
         </div>
 
 
@@ -4675,6 +4679,37 @@
       }
       refreshRemediationStatus();
       setInterval(refreshRemediationStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0068: Partition Reconciliation & Conflict Lattice Engine
+      // -------------------------------------------------------------------
+      async function refreshReconcilerStatus() {
+        var reconcilerDot = document.getElementById('reconcilerDot');
+        var reconcilerText = document.getElementById('reconcilerText');
+        try {
+          var res = await fetch('/api/v1/reconciler/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'CONVERGED';
+            var activeConflicts = data.active_conflicts || 0;
+            var tripsPreserved = data.trips_preserved_count || 0;
+            if (reconcilerDot) {
+              if (activeConflicts > 0) {
+                reconcilerDot.style.background = 'var(--warning)';
+              } else if (tripsPreserved > 0) {
+                reconcilerDot.style.background = 'var(--danger)';
+              } else {
+                reconcilerDot.style.background = 'var(--success)';
+              }
+            }
+            if (reconcilerText) {
+              reconcilerText.textContent = 'RECONCILER: ' + st + ' (' + activeConflicts + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshReconcilerStatus();
+      setInterval(refreshReconcilerStatus, 10000);
 
 
 

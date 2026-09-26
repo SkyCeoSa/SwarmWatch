@@ -785,6 +785,25 @@ _Avoid_: Hook call, function callback, middleware run
 - **CompensationAction**: The idempotent, deterministic rollback routine restoring system invariants and neutralizing downstream side-effects of an applied remediation.
   _Avoid_: Undo script, rollback handler, revert hack
 
+---
+
+### Partition Reconciliation & Conflict Lattice Engine (Seam 57 / ADR 0068)
+- **MeshReconciler**: The deterministic reconciliation coordinator resolving divergence between partitioned gossip clusters and shard replicas.
+  _Avoid_: Rejoin bot, sync script, partition fixer, mesh merger
+- **ConflictLattice**: The deterministic partial order resolution lattice preserving provenance and causal integrity across concurrent partitioned spans.
+  _Avoid_: Conflict resolver, tie breaker, merge tree
+- **ReconciliationPlan**: The structured delta specification enumerating missing sequence intervals, diverging vector clocks, and detected state conflicts between peers.
+  _Avoid_: Diff list, sync instructions, update manifest
+- **MergeResult**: The deduplicated, causally ordered telemetry stream result binding converged spans, provenance forks, and sequence gap updates.
+  _Avoid_: Merged log, combined events, joined stream
+- **AuthorityReconciliationResult**: The authoritative safety state outcome strictly enforcing trip monotonicity and monotonic fencing epoch advancement across rejoined partitions.
+  _Avoid_: Safety status, authority verdict, sync decision
+- **ProvenanceRetainedSpan**: A causal telemetry span preserved alongside concurrent counterpart spans with explicit origin peer metadata during partition convergence.
+  _Avoid_: Conflict clone, fork span, duplicate copy
+- **TripMonotonicity**: The foundational safety invariant mandating that a circuit breaker trip recorded in any partition can never be silently cleared by a rejoining nominal peer.
+  _Avoid_: Permanent halt, sticky trip, latching check
+
+
 
 
 

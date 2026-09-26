@@ -29,6 +29,8 @@ class CanonicalDomainTag:
     STATE = "sw:state:v1"
     METRIC = "sw:metric:v1"
     REMEDIATION = "sw:rem:v1"
+    RECONCILER = "sw:rec:v1"
+
 
 
 def _utf16_sort_key(s: str) -> bytes:

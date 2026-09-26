@@ -222,6 +222,17 @@ from swarmwatch.remediation_governor import (
     RemediationGovernor,
     global_remediation_governor,
 )
+from swarmwatch.mesh_reconciler import (
+    LatticeVerdict,
+    compare_vector_clocks,
+    merge_vector_clocks,
+    ReconciliationPlan,
+    MergeResult,
+    AuthorityReconciliationResult,
+    MeshReconciler,
+    global_mesh_reconciler,
+)
+
 
 
 
@@ -655,6 +666,25 @@ class RemediationApplyRequest(BaseModel):
 class RemediationCompensateRequest(BaseModel):
     proposal_id: str
     reason: str = "Operator compensation request"
+
+
+class ReconcilerDiffRequest(BaseModel):
+    local_state: Dict[str, Any]
+    remote_state: Dict[str, Any]
+    tenant_id: str = "default"
+
+
+class ReconcilerMergeRequest(BaseModel):
+    local_events: List[Dict[str, Any]]
+    remote_events: List[Dict[str, Any]]
+    tenant_id: str = "default"
+
+
+class ReconcilerReconcileAuthorityRequest(BaseModel):
+    local_authority: Dict[str, Any]
+    remote_authority: Dict[str, Any]
+    tenant_id: str = "default"
+
 
 
 
@@ -5697,7 +5727,46 @@ def create_app(
         """Returns diagnostic statistics, active remediations, and proposal tallies."""
         return global_remediation_governor.status(tenant_id=tenant_id)
 
+    # -------------------------------------------------------------------------
+    # ADR 0068: Partition Reconciliation & Conflict Lattice Engine (Seam 57)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/reconciler/diff")
+    async def reconciler_diff_endpoint(req: ReconcilerDiffRequest):
+        """Analyzes vector clocks, divergent keys, and sequence intervals between replicas."""
+        plan = global_mesh_reconciler.diff(
+            local_state=req.local_state,
+            remote_state=req.remote_state,
+            tenant_id=req.tenant_id,
+        )
+        return plan.to_dict()
+
+    @app.post("/api/v1/reconciler/merge")
+    async def reconciler_merge_endpoint(req: ReconcilerMergeRequest):
+        """Merges telemetry streams, deduplicating events and retaining provenance for concurrent forks."""
+        result = global_mesh_reconciler.merge_evidence(
+            local_events=req.local_events,
+            remote_events=req.remote_events,
+            tenant_id=req.tenant_id,
+        )
+        return result.to_dict()
+
+    @app.post("/api/v1/reconciler/reconcile-authority")
+    async def reconciler_reconcile_authority_endpoint(req: ReconcilerReconcileAuthorityRequest):
+        """Reconciles safety authority states, enforcing trip monotonicity and epoch fencing."""
+        auth_res = global_mesh_reconciler.reconcile_authority(
+            local_authority=req.local_authority,
+            remote_authority=req.remote_authority,
+            tenant_id=req.tenant_id,
+        )
+        return auth_res.to_dict()
+
+    @app.get("/api/v1/reconciler/status")
+    async def reconciler_status_endpoint(tenant_id: Optional[str] = None):
+        """Returns diagnostic statistics of partition reconciliations."""
+        return global_mesh_reconciler.status(tenant_id=tenant_id)
+
     @app.websocket("/ws/swarm/{swarm_id}")
+
 
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):
         await ws_manager.connect(swarm_id, websocket)

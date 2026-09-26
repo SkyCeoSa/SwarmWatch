@@ -457,6 +457,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Idempotent deterministic compensation routines (`compensate()`) guaranteeing safe rollback of applied remediations.
   - Dual-SDK parity across Python (`swarmwatch.remediation_governor`) and TypeScript (`@swarmwatch/sdk/src/remediation_governor.ts`) complying strictly with Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/remediation/propose`, `POST /api/v1/remediation/authorize`, `POST /api/v1/remediation/apply`, `POST /api/v1/remediation/compensate`, `GET /api/v1/remediation/status`), CLI subcommand (`swarmwatch remediation propose|authorize|apply|compensate|status`), and Web Console `#remediationBadge` widget.
+- **Partition Reconciliation & Conflict Lattice Engine (Seam 57 & ADR 0068 Dual-SDK Parity)**:
+  - Deep module `MeshReconciler` safely rejoining partitioned gossip clusters and shard replicas without silent safety trip clearance.
+  - Strict trip monotonicity invariant: any partition reporting a `TRIPPED` state causes the converged state to be `TRIPPED` with monotonic fencing epoch advancement.
+  - Vector-clock partial ordering and deterministic conflict lattice preserving provenance metadata (`PROVENANCE_RETAINED`) for concurrent spans ($V_A \parallel V_B$) rather than silently dropping telemetry.
+  - Decouples eventual consistency gossip propagation from linearizable execution permit authority.
+  - Dual-SDK parity across Python (`swarmwatch.mesh_reconciler`) and TypeScript (`@swarmwatch/sdk/src/mesh_reconciler.ts`) strictly complying with Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/reconciler/diff`, `POST /api/v1/reconciler/merge`, `POST /api/v1/reconciler/reconcile-authority`, `GET /api/v1/reconciler/status`), CLI subcommand (`swarmwatch reconciler diff|merge|reconcile|status`), and Web Console `#reconcilerBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

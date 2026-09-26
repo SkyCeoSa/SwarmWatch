@@ -665,6 +665,21 @@ export {
   globalRemediationGovernor,
 } from "./remediation_governor.ts";
 
+// Partition Reconciliation & Conflict Lattice Engine (Seam 57 / ADR 0068)
+export type {
+  LatticeVerdictEnum,
+  ReconciliationPlan,
+  MergeResult,
+  AuthorityReconciliationResult,
+} from "./mesh_reconciler.ts";
+export {
+  LatticeVerdict,
+  compareVectorClocks,
+  mergeVectorClocks,
+  MeshReconciler,
+  globalMeshReconciler,
+} from "./mesh_reconciler.ts";
+
 
 
 

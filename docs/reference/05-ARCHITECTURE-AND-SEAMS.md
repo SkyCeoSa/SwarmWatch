@@ -305,6 +305,13 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#remediationBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Strict multi-tiered approval gating and blast radius constraints governing all self-healing mutations; proposals must pass precondition contracts before execution and postcondition invariants after mutation; commits must hold an authoritative monotonic fencing epoch; stale leaders presenting obsolete epochs are rejected fail-closed (`STALE_EPOCH`); every applied remediation possesses an idempotent compensation routine (`compensate`) guaranteeing safe rollback; sub-20 microsecond execution ($<20\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
+57. **Partition Reconciliation & Conflict Lattice Seam (ADR 0068 Dual-SDK Parity)**:
+    - Primitives (Python): `LatticeVerdict`, `ReconciliationPlan`, `MergeResult`, `AuthorityReconciliationResult`, `MeshReconciler`, `global_mesh_reconciler` (`mesh_reconciler.py`), server endpoints `POST /api/v1/reconciler/diff`, `POST /api/v1/reconciler/merge`, `POST /api/v1/reconciler/reconcile-authority`, `GET /api/v1/reconciler/status` (`server.py`), CLI subcommand `swarmwatch reconciler` (`cli.py`).
+    - Primitives (TypeScript): `LatticeVerdict`, `ReconciliationPlan`, `MergeResult`, `AuthorityReconciliationResult`, `MeshReconciler`, `globalMeshReconciler` (`mesh_reconciler.ts`), exported via `index.ts`.
+    - Primitives (Console): `#reconcilerBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Deterministic conflict lattice and vector-clock partial ordering safely rejoining partitioned gossip nodes and shard replicas; safety circuit breaker trips are strictly monotonic and can never silently clear upon rejoining (`TRIPPED` dominates `NOMINAL`); concurrent span claims retain provenance metadata (`PROVENANCE_RETAINED`) eliminating silent telemetry drops; linearizable safety authority remains strictly decoupled from eventual-consistency gossip; sub-25 microsecond execution ($<25\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
+
 
 
 

@@ -417,7 +417,20 @@ def main(argv=None):
     remediation_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
     remediation_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch reconciler` subcommand (Seam 57 / ADR 0068)
+    reconciler_parser = subparsers.add_parser("reconciler", help="Partition Reconciliation & Conflict Lattice Engine")
+    reconciler_parser.add_argument("action", choices=["diff", "merge", "reconcile", "status"], default="status", nargs="?", help="Reconciler action (diff, merge, reconcile, status)")
+    reconciler_parser.add_argument("--local-state-file", default=None, help="JSON file with local state/vector clock")
+    reconciler_parser.add_argument("--remote-state-file", default=None, help="JSON file with remote state/vector clock")
+    reconciler_parser.add_argument("--local-epoch", type=int, default=1, help="Local authority epoch (default: 1)")
+    reconciler_parser.add_argument("--remote-epoch", type=int, default=1, help="Remote authority epoch (default: 1)")
+    reconciler_parser.add_argument("--local-state", default="NOMINAL", choices=["NOMINAL", "TRIPPED", "DEGRADED"], help="Local authority state (default: NOMINAL)")
+    reconciler_parser.add_argument("--remote-state", default="NOMINAL", choices=["NOMINAL", "TRIPPED", "DEGRADED"], help="Remote authority state (default: NOMINAL)")
+    reconciler_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
+    reconciler_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -3772,9 +3785,80 @@ def main(argv=None):
                 print(f"  Tier Breakdown:       {json.dumps(data.get('by_tier', {}))}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
+
+    elif args.subcommand == "reconciler":
+        from swarmwatch.mesh_reconciler import (
+            LatticeVerdict,
+            global_mesh_reconciler,
+        )
+
+        tenant_id = getattr(args, "tenant", "default") or "default"
+
+        if args.action == "diff":
+            loc_s = {}
+            rem_s = {}
+            if args.local_state_file:
+                with open(args.local_state_file, "r", encoding="utf-8") as f:
+                    loc_s = json.load(f)
+            if args.remote_state_file:
+                with open(args.remote_state_file, "r", encoding="utf-8") as f:
+                    rem_s = json.load(f)
+            plan = global_mesh_reconciler.diff(loc_s, rem_s, tenant_id=tenant_id)
+            data = plan.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                v_color = "\033[92m" if data.get("verdict") == "IDENTICAL" else ("\033[93m" if data.get("verdict") in ("DOMINATES", "DOMINATED") else "\033[91m")
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PARTITION RECONCILIATION PLAN (ADR 0068)           |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Plan ID:              {data.get('plan_id')}")
+                print(f"  Lattice Verdict:      {v_color}{data.get('verdict')}\033[0m")
+                print(f"  Conflict Detected:    {data.get('conflict_detected')}")
+                print(f"  Divergent Keys:       {len(data.get('divergent_keys', []))} keys")
+                print(f"  Action Items:         {', '.join(data.get('action_items', []))}")
+                print(f"  Merged Vector Clock:  {json.dumps(data.get('merged_vector_clock', {}))}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "reconcile":
+            loc_auth = {"state": args.local_state, "epoch": args.local_epoch}
+            rem_auth = {"state": args.remote_state, "epoch": args.remote_epoch}
+            res = global_mesh_reconciler.reconcile_authority(loc_auth, rem_auth, tenant_id=tenant_id)
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                s_color = "\033[92m" if data.get("converged_state") == "NOMINAL" else "\033[91m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH AUTHORITY RECONCILIATION RESULT (ADR 0068)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Converged State:      {s_color}{data.get('converged_state')}\033[0m")
+                print(f"  Trip Monotonicity:    {data.get('trip_monotonicity_enforced')}")
+                print(f"  Reconciled Epoch:     {data.get('reconciled_epoch')}")
+                print(f"  Previous Epochs:      Local={data.get('previous_local_epoch')}, Remote={data.get('previous_remote_epoch')}")
+                print(f"  Reason:               {data.get('reason')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "status":
+            data = global_mesh_reconciler.status(tenant_id=tenant_id if tenant_id != "default" else None)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH MESH RECONCILER STATUS (ADR 0068)                  |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Reconciliations:       {data.get('total_reconciliations')}")
+                print(f"  Trips Preserved (Monotonic): {data.get('trips_preserved_count')}")
+                print(f"  Concurrent Spans Retained:   {data.get('concurrent_spans_retained')}")
+                print(f"  Status:                      {data.get('status')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 
 
