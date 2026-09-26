@@ -1709,6 +1709,10 @@
             <span class="status-indicator" id="privacyLedgerDot" style="background: var(--success);"></span>
             <span id="privacyLedgerText">PRIVACY: RELEASE FENCED (0)</span>
           </div>
+          <div class="fleet-badge" id="evolutionBadge" title="Migration Preservation & Partial Isomorphisms (ADR 0070)">
+            <span class="status-indicator" id="evolutionDot" style="background: var(--success);"></span>
+            <span id="evolutionText">SCHEMA: LOSSLESS PRESERVED</span>
+          </div>
         </div>
 
 
@@ -4743,6 +4747,35 @@
       }
       refreshPrivacyLedgerStatus();
       setInterval(refreshPrivacyLedgerStatus, 10500);
+
+      // -------------------------------------------------------------------
+      // ADR 0070: Migration Preservation & Partial Isomorphisms
+      // -------------------------------------------------------------------
+      async function refreshEvolutionStatus() {
+        var evolutionDot = document.getElementById('evolutionDot');
+        var evolutionText = document.getElementById('evolutionText');
+        try {
+          var res = await fetch('/api/v1/schema-evolution/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'PRESERVED';
+            var total = data.total_migrations_count !== undefined ? data.total_migrations_count : 0;
+            var lossy = data.lossy_migrations_count !== undefined ? data.lossy_migrations_count : 0;
+            if (evolutionDot) {
+              if (lossy > 0) {
+                evolutionDot.style.background = 'var(--accent)';
+              } else {
+                evolutionDot.style.background = 'var(--success)';
+              }
+            }
+            if (evolutionText) {
+              evolutionText.textContent = 'SCHEMA: ' + st + ' (' + total + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEvolutionStatus();
+      setInterval(refreshEvolutionStatus, 11000);
 
 
 

@@ -702,6 +702,32 @@ class PrivacyReleaseRequest(BaseModel):
     max_bound: Optional[float] = None
 
 
+class SchemaEvolutionPlanRequest(BaseModel):
+    source_version: str
+    target_version: str
+
+
+class SchemaEvolutionMigrateRequest(BaseModel):
+    payload: Dict[str, Any]
+    source_version: str
+    target_version: str
+    preserve_shadow: bool = True
+
+
+class SchemaEvolutionReverseRequest(BaseModel):
+    payload: Dict[str, Any]
+    source_version: str
+    target_version: str
+    preserved_delta: Optional[Dict[str, Any]] = None
+
+
+class SchemaEvolutionClassifyRequest(BaseModel):
+    source_version: str
+    target_version: str
+    payload: Optional[Dict[str, Any]] = None
+
+
+
 
 
 
@@ -5829,6 +5855,80 @@ def create_app(
         """Returns diagnostic statistics of the privacy release ledger."""
         from swarmwatch.privacy_ledger import global_privacy_release
         return global_privacy_release.status(tenant_id=tenant_id)
+
+    # -------------------------------------------------------------------------
+    # ADR 0070: Migration Preservation & Partial Isomorphisms (Seam 59)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/schema-evolution/plan")
+    async def schema_evolution_plan_endpoint(req: SchemaEvolutionPlanRequest):
+        """Plans schema evolution path and evaluates cumulative lossiness."""
+        from swarmwatch.schema_evolution import global_schema_evolution, SchemaEvolutionError
+        try:
+            plan = global_schema_evolution.plan(
+                source_version=req.source_version,
+                target_version=req.target_version,
+            )
+            return plan.to_dict()
+        except SchemaEvolutionError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.post("/api/v1/schema-evolution/migrate")
+    async def schema_evolution_migrate_endpoint(req: SchemaEvolutionMigrateRequest):
+        """Executes forward migration capturing PreservedDelta if lossy."""
+        from swarmwatch.schema_evolution import global_schema_evolution, SchemaEvolutionError
+        try:
+            res = global_schema_evolution.migrate(
+                payload=req.payload,
+                source_version=req.source_version,
+                target_version=req.target_version,
+                preserve_shadow=req.preserve_shadow,
+            )
+            return res.to_dict()
+        except SchemaEvolutionError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/schema-evolution/reverse")
+    async def schema_evolution_reverse_endpoint(req: SchemaEvolutionReverseRequest):
+        """Reverses schema migration back to target_version using PreservedDelta."""
+        from swarmwatch.schema_evolution import (
+            global_schema_evolution,
+            LossyMigrationError,
+            UnsupportedReverseMigrationError,
+            SchemaEvolutionError,
+        )
+        try:
+            res = global_schema_evolution.reverse(
+                payload=req.payload,
+                source_version=req.source_version,
+                target_version=req.target_version,
+                preserved_delta=req.preserved_delta,
+            )
+            return res.to_dict()
+        except LossyMigrationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except UnsupportedReverseMigrationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except SchemaEvolutionError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.post("/api/v1/schema-evolution/classify-loss")
+    async def schema_evolution_classify_loss_endpoint(req: SchemaEvolutionClassifyRequest):
+        """Pre-flight evaluation of schema evolution lossiness for a planned path and payload."""
+        from swarmwatch.schema_evolution import global_schema_evolution, SchemaEvolutionError
+        try:
+            return global_schema_evolution.classify_loss(
+                source_version=req.source_version,
+                target_version=req.target_version,
+                payload=req.payload,
+            )
+        except SchemaEvolutionError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/v1/schema-evolution/status")
+    async def schema_evolution_status_endpoint():
+        """Returns diagnostic statistics of schema evolution engine."""
+        from swarmwatch.schema_evolution import global_schema_evolution
+        return global_schema_evolution.status()
 
     @app.websocket("/ws/swarm/{swarm_id}")
 

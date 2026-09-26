@@ -427,6 +427,27 @@ __all__ = [
     "AuthorityReconciliationResult",
     "MeshReconciler",
     "global_mesh_reconciler",
+    "PrivacyBudgetExhaustedError",
+    "ReservationStatus",
+    "PrivacyReservation",
+    "PrivacyReleaseResult",
+    "CompositionAccountant",
+    "PrivacyRelease",
+    "global_privacy_release",
+    "sample_laplace",
+    "clip_value",
+    "LossyMigrationError",
+    "UnsupportedReverseMigrationError",
+    "SchemaEvolutionError",
+    "LossClassification",
+    "EvolutionAction",
+    "PreservedDelta",
+    "EvolutionRule",
+    "EvolutionStep",
+    "EvolutionPlan",
+    "MigrationResult",
+    "SchemaEvolution",
+    "global_schema_evolution",
 ]
 
 
@@ -747,6 +768,21 @@ from swarmwatch.privacy_ledger import (
     sample_laplace,
     clip_value,
 )
+from swarmwatch.schema_evolution import (
+    LossyMigrationError,
+    UnsupportedReverseMigrationError,
+    SchemaEvolutionError,
+    LossClassification,
+    EvolutionAction,
+    PreservedDelta,
+    EvolutionRule,
+    EvolutionStep,
+    EvolutionPlan,
+    MigrationResult,
+    SchemaEvolution,
+    global_schema_evolution,
+)
+
 
 
 

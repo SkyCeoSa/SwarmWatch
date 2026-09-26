@@ -444,6 +444,16 @@ def main(argv=None):
     privacy_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
     privacy_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch schema-evolution` subcommand (Seam 59 / ADR 0070)
+    evolution_parser = subparsers.add_parser("schema-evolution", aliases=["evolution"], help="Migration Preservation & Partial Isomorphisms Engine")
+    evolution_parser.add_argument("action", choices=["plan", "migrate", "reverse", "classify", "status"], default="status", nargs="?", help="Evolution action (plan, migrate, reverse, classify, status)")
+    evolution_parser.add_argument("--source", "-s", default="1.0.0", help="Source schema version (default: '1.0.0')")
+    evolution_parser.add_argument("--target", "-t", default="2.0.0", help="Target schema version (default: '2.0.0')")
+    evolution_parser.add_argument("--payload", "-p", default=None, help="JSON payload string to migrate or reverse")
+    evolution_parser.add_argument("--file", "-f", default=None, help="File path containing JSON payload")
+    evolution_parser.add_argument("--delta-file", default=None, help="File path containing JSON PreservedDelta for reverse migration")
+    evolution_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -3969,6 +3979,139 @@ def main(argv=None):
                 print(f"  Total Reservations:   {data.get('total_reservations')}")
                 print(f"  Total Spent Epsilon:  {data.get('total_spent_epsilon')}")
                 print(f"  Ledger Status:        {st_color}{data.get('status')}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("schema-evolution", "evolution"):
+        from swarmwatch.schema_evolution import (
+            global_schema_evolution,
+            LossyMigrationError,
+            UnsupportedReverseMigrationError,
+            SchemaEvolutionError,
+        )
+
+        if args.action == "plan":
+            try:
+                plan = global_schema_evolution.plan(args.source, args.target)
+                data = plan.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    c_color = "\033[92m" if data.get("overall_classification") == "LOSSLESS" else "\033[93m"
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH SCHEMA EVOLUTION PLAN (ADR 0070)                   |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Source Version:       {data.get('source_version')}")
+                    print(f"  Target Version:       {data.get('target_version')}")
+                    print(f"  Classification:       {c_color}{data.get('overall_classification')}\033[0m")
+                    print(f"  Steps Count:          {data.get('step_count')}")
+                    print(f"  Can Reverse No Delta: {data.get('can_reverse_without_delta')}")
+                    print(f"  Lossy Fields:         {', '.join(data.get('lossy_fields', [])) or 'None'}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "migrate":
+            payload = {}
+            if args.payload:
+                payload = json.loads(args.payload)
+            elif args.file:
+                with open(args.file, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            else:
+                payload = {"agent_id": "agent-01", "legacy_debug_trace": "trace_xyz", "confidence_score": 0.95}
+
+            try:
+                res = global_schema_evolution.migrate(payload, args.source, args.target)
+                data = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH SCHEMA MIGRATION RESULT (ADR 0070)                 |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Migration ID:         {data.get('migration_id')}")
+                    print(f"  Direction:            {data.get('direction')}")
+                    print(f"  Classification:       \033[92m{data.get('classification')}\033[0m")
+                    print(f"  Migrated Payload:     {json.dumps(data.get('migrated_payload', {}))}")
+                    if data.get("preserved_delta"):
+                        p_delta = data.get("preserved_delta", {})
+                        print(f"  Preserved Delta ID:   {p_delta.get('delta_id')} (Hash: {p_delta.get('delta_hash', '')[:16]}...)")
+                        print(f"  Removed Fields:       {json.dumps(p_delta.get('removed_fields', {}))}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "reverse":
+            payload = {}
+            if args.payload:
+                payload = json.loads(args.payload)
+            elif args.file:
+                with open(args.file, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            delta = None
+            if args.delta_file:
+                with open(args.delta_file, "r", encoding="utf-8") as f:
+                    delta = json.load(f)
+
+            try:
+                res = global_schema_evolution.reverse(payload, args.source, args.target, preserved_delta=delta)
+                data = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH SCHEMA REVERSE RESULT (ADR 0070)                   |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Migration ID:         {data.get('migration_id')}")
+                    print(f"  Restored Payload:     \033[92m{json.dumps(data.get('migrated_payload', {}))}\033[0m")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except (LossyMigrationError, UnsupportedReverseMigrationError) as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "classify":
+            payload = json.loads(args.payload) if args.payload else None
+            try:
+                data = global_schema_evolution.classify_loss(args.source, args.target, payload)
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH SCHEMA LOSS CLASSIFICATION (ADR 0070)              |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Source -> Target:     {data.get('source_version')} -> {data.get('target_version')}")
+                    print(f"  Classification:       \033[93m{data.get('overall_classification')}\033[0m")
+                    print(f"  Lossy Fields:         {', '.join(data.get('lossy_fields', [])) or 'None'}")
+                    print(f"  Can Reverse No Delta: {data.get('can_reverse_without_delta')}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "status":
+            data = global_schema_evolution.status()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SCHEMA EVOLUTION STATUS (ADR 0070)                 |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Status:               \033[92m{data.get('status')}\033[0m")
+                print(f"  Registered Steps:     {data.get('registered_steps_count')}")
+                print(f"  Registered Versions:  {data.get('registered_versions_count')}")
+                print(f"  Total Migrations:     {data.get('total_migrations_count')}")
+                print(f"  Lossless Count:       {data.get('lossless_migrations_count')}")
+                print(f"  Lossy Count:          {data.get('lossy_migrations_count')}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

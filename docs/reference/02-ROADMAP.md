@@ -470,7 +470,14 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual composition accountant supporting linear $\epsilon$-DP composition and advanced $(\epsilon, \delta)$-DP composition; fail-closed rejection with `PRIVACY_BUDGET_EXHAUSTED` upon budget depletion.
   - Calibrated Laplace noise injection with CSPRNG in production and deterministic seeded reproducibility for automated audit verification.
   - Dual-SDK parity across Python (`swarmwatch.privacy_ledger`) and TypeScript (`@swarmwatch/sdk/src/privacy_ledger.ts`) strictly complying with Node 22 type-stripping rules.
-  - Control plane REST endpoints (`POST /api/v1/privacy/reserve`, `POST /api/v1/privacy/release`, `GET /api/v1/privacy/remaining`, `GET /api/v1/privacy/status`), CLI subcommand (`swarmwatch privacy reserve|release|remaining|status`), and Web Console `#privacyLedgerBadge` widget.
+  - Control plane REST endpoints (`POST /api/v1/privacy-ledger/reserve`, `POST /api/v1/privacy-ledger/release`, `GET /api/v1/privacy-ledger/remaining`, `GET /api/v1/privacy-ledger/status`), CLI subcommand (`swarmwatch privacy-ledger reserve|release|remaining|status`), and Web Console `#privacyLedgerBadge` widget.
+- **Migration Preservation & Partial Isomorphisms (Seam 59 & ADR 0070 Dual-SDK Parity)**:
+  - Deep module `SchemaEvolution` replacing blanket reversible claims with versioned partial isomorphisms $(f, g, \Delta)$.
+  - Explicit loss classifications: `LOSSLESS` (true isomorphism, $\Delta = \emptyset$), `LOSSY_PRESERVED` (partial isomorphism, $\Delta \neq \emptyset$), and `IRREVERSIBLE`.
+  - Migration Preservation Invariant: forward migrations capture removed, truncated, or shadowed fields into `PreservedDelta` with canonical domain tag `sw:evo:v1`; reverse transformations faithfully restore original state using delta.
+  - Fail-closed reverse invariant: invoking reverse on a lossy migration without a valid `PreservedDelta` raises `LossyMigrationError` rather than silently fabricating defaults or dropping fields.
+  - Dual-SDK parity across Python (`swarmwatch.schema_evolution`) and TypeScript (`@swarmwatch/sdk/src/schema_evolution.ts`) strictly complying with Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/schema-evolution/plan`, `POST /api/v1/schema-evolution/migrate`, `POST /api/v1/schema-evolution/reverse`, `POST /api/v1/schema-evolution/classify-loss`, `GET /api/v1/schema-evolution/status`), CLI subcommand (`swarmwatch schema-evolution plan|migrate|reverse|classify|status`), and Web Console `#evolutionBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

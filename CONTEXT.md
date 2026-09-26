@@ -817,6 +817,21 @@ _Avoid_: Hook call, function callback, middleware run
 - **ClippedSensitivity**: The strict input bounding contract clamping numerical values to $[L_{\text{min}}, L_{\text{max}}]$ to mathematically bound global $L_1$ query sensitivity.
   _Avoid_: Min-max clamp, value truncation, range check
 
+---
+
+### Migration Preservation & Partial Isomorphisms (Seam 59 / ADR 0070)
+- **SchemaEvolution**: The deep module planning and executing versioned partial isomorphisms across schema definitions, guaranteeing faithful round-trips.
+  _Avoid_: Schema manager, data converter, migration runner, field transformer
+- **LossClassification**: The formal categorical fidelity of a schema migration step or plan: `LOSSLESS` (true isomorphism), `LOSSY_PRESERVED` (partial isomorphism with preservation delta), or `IRREVERSIBLE`.
+  _Avoid_: Loss type, fidelity grade, migration status
+- **PreservedDelta**: The cryptographic record of removed, truncated, downcasted, or shadowed fields required to execute faithful inverse state reconstruction.
+  _Avoid_: Undo buffer, backup delta, dropped fields cache, shadow tombstone
+- **EvolutionPlan**: A deterministic, shortest-path sequence of migration steps between two discrete schema versions with cumulative loss classification.
+  _Avoid_: Migration route, conversion pipeline, transform path
+- **PartialIsomorphism**: The mathematical mapping pair $(f, g, \Delta)$ where forward transformation $f$ produces $(y, \Delta)$ and inverse $g(y, \Delta)$ recovers original state $x$ identically.
+  _Avoid_: Reversible converter, two-way mapping, bidirectional adapter
+
+
 
 
 

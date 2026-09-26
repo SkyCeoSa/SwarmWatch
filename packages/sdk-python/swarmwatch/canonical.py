@@ -31,6 +31,7 @@ class CanonicalDomainTag:
     REMEDIATION = "sw:rem:v1"
     RECONCILER = "sw:rec:v1"
     PRIVACY = "sw:priv:v1"
+    EVOLUTION = "sw:evo:v1"
 
 
 

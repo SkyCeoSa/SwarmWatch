@@ -696,6 +696,29 @@ export {
   globalPrivacyRelease,
 } from "./privacy_ledger.ts";
 
+// Migration Preservation & Partial Isomorphisms (Seam 59 / ADR 0070)
+export type {
+  LossClassificationEnum,
+  EvolutionActionEnum,
+  PreservedDelta,
+  EvolutionRule,
+  EvolutionStep,
+  EvolutionPlan,
+  MigrationResult,
+} from "./schema_evolution.ts";
+export {
+  LossyMigrationError,
+  UnsupportedReverseMigrationError,
+  SchemaEvolutionError,
+  LossClassification,
+  EvolutionAction,
+  computeDeltaHash,
+  computeMigrationHash,
+  SchemaEvolution,
+  globalSchemaEvolution,
+} from "./schema_evolution.ts";
+
+
 
 
 
