@@ -735,3 +735,18 @@ _Avoid_: Hook call, function callback, middleware run
 - **EvidentiaryCompleteness**: Invariant requiring that missing causal ancestors or dropped sequence ranges permanently disqualify an execution trace from being certified as an intact causal DAG.
   _Avoid_: Fullness guarantee, unbroken check, proof intactness
 
+---
+
+### Durable Audit Anchor & Merkle Audit Receipt Engine (Seam 54 / ADR 0065)
+- **AuditAnchor**: The append-only durable root ledger and verification authority that prevents mutable roots and process restarts from rewriting historical execution telemetry.
+  _Avoid_: Proof keeper, root manager, tree database, log anchor
+- **RootEpoch**: An immutable record of an epoch's Merkle root, monotonically increasing epoch index, previous chain digest, new chain digest, and cryptographic signature.
+  _Avoid_: Epoch block, root snapshot, state commit
+- **MerkleAuditReceipt**: A cryptographically verifiable inclusion package containing leaf commitment, $O(\log n)$ sibling hashes, epoch root, chain digest, and cryptographic signature.
+  _Avoid_: ZK proof, zero knowledge certificate, inclusion token
+- **ChainDigest**: The rolling cryptographic hash link ($H_{chain}^{(e)} = \text{SHA256}(H_{chain}^{(e-1)} \parallel e \parallel R_e \parallel \text{tenant\_id})$) binding all historical epoch roots to Genesis.
+  _Avoid_: Ledger hash, block chain link, root checksum
+- **PostCrashChainOfCustody**: The invariant that an AuditAnchor recovering from a crash or restart must reconstruct and cryptographically verify the continuous hash chain from Genesis before accepting new root commitments.
+  _Avoid_: Recovery boot, restart scan, integrity replay
+
+

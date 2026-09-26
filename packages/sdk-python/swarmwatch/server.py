@@ -194,6 +194,15 @@ from swarmwatch.causal_ingress import (
     CausalIngress,
     global_causal_ingress,
 )
+from swarmwatch.audit_anchor import (
+    RootEpoch,
+    MerkleAuditReceipt,
+    VerificationResult,
+    AuditIntegrityError,
+    AuditAnchor,
+    global_audit_anchor,
+)
+
 
 
 
@@ -561,6 +570,24 @@ class IngressSubmitRequest(BaseModel):
 
 class IngressDrainRequest(BaseModel):
     batch_size: int = 100
+
+
+class AuditAppendRootRequest(BaseModel):
+    root_hash: str
+    tenant_id: str = "default-tenant"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AuditIssueReceiptRequest(BaseModel):
+    epoch: int
+    leaf_hash: str
+    audit_path: List[List[str]]
+    tenant_id: str = "default-tenant"
+
+
+class AuditVerifyReceiptRequest(BaseModel):
+    receipt: Dict[str, Any]
+
 
 
 
@@ -5458,6 +5485,52 @@ def create_app(
     async def ingress_status_endpoint(swarm_id: str = "default"):
         """Returns diagnostic buffer metrics for causal ingestion."""
         return global_causal_ingress.status(swarm_id=swarm_id)
+
+    # -------------------------------------------------------------------------
+    # ADR 0065: Durable Audit Anchor & Merkle Audit Receipt Engine (Seam 54)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/audit/append-root")
+    async def audit_append_root_endpoint(req: AuditAppendRootRequest):
+        """Appends a new Merkle root to the durable hash-chained epoch ledger."""
+        try:
+            epoch_obj = global_audit_anchor.append_root(
+                root_hash=req.root_hash,
+                tenant_id=req.tenant_id,
+                metadata=req.metadata,
+            )
+            return epoch_obj.to_dict()
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/audit/issue-receipt")
+    async def audit_issue_receipt_endpoint(req: AuditIssueReceiptRequest):
+        """Issues an authentic Merkle audit receipt proving leaf inclusion in an epoch root."""
+        try:
+            receipt = global_audit_anchor.issue_receipt(
+                epoch=req.epoch,
+                leaf_hash=req.leaf_hash,
+                audit_path=req.audit_path,
+                tenant_id=req.tenant_id,
+            )
+            return receipt.to_dict()
+        except (KeyError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/audit/verify-receipt")
+    async def audit_verify_receipt_endpoint(req: AuditVerifyReceiptRequest):
+        """Verifies a Merkle audit receipt against durable epoch history."""
+        res = global_audit_anchor.verify_receipt(req.receipt)
+        return res.to_dict()
+
+    @app.get("/api/v1/audit/chain")
+    async def audit_chain_endpoint(since_epoch: int = 0):
+        """Audits hash-chain continuity from Genesis (or since_epoch)."""
+        return global_audit_anchor.audit_chain(since_epoch=since_epoch)
+
+    @app.get("/api/v1/audit/status")
+    async def audit_status_endpoint(tenant_id: Optional[str] = None):
+        """Returns diagnostic status of the durable audit anchor."""
+        return global_audit_anchor.status(tenant_id=tenant_id)
 
     @app.websocket("/ws/swarm/{swarm_id}")
     async def websocket_endpoint(websocket: WebSocket, swarm_id: str):

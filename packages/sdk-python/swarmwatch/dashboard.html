@@ -1689,6 +1689,10 @@
             <span class="status-indicator" id="ingressDot" style="background: var(--success);"></span>
             <span id="ingressText">INGRESS: LOSS-AWARE (0 GAP)</span>
           </div>
+          <div class="fleet-badge" id="auditBadge" title="Durable Audit Anchor & Merkle Audit Receipt Engine (ADR 0065)">
+            <span class="status-indicator" id="auditDot" style="background: var(--success);"></span>
+            <span id="auditText">AUDIT: ANCHORED (E0)</span>
+          </div>
         </div>
 
 
@@ -4584,6 +4588,31 @@
       }
       refreshIngressStatus();
       setInterval(refreshIngressStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0065: Durable Audit Anchor & Merkle Audit Receipt Engine
+      // -------------------------------------------------------------------
+      async function refreshAuditStatus() {
+        var auditDot = document.getElementById('auditDot');
+        var auditText = document.getElementById('auditText');
+        try {
+          var res = await fetch('/api/v1/audit/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'ANCHORED';
+            var ep = data.latest_epoch !== undefined ? data.latest_epoch : 0;
+            if (auditDot) {
+              auditDot.style.background = st === 'ANCHORED' ? 'var(--success)' : 'var(--danger)';
+            }
+            if (auditText) {
+              auditText.textContent = 'AUDIT: ' + st + ' (E' + ep + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshAuditStatus();
+      setInterval(refreshAuditStatus, 10000);
+
 
       if (btnMfaModal) {
 

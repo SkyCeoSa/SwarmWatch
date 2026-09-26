@@ -376,7 +376,22 @@ def main(argv=None):
     ingress_parser.add_argument("--batch-size", type=int, default=100, help="Batch size for drain (default: 100)")
     ingress_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch audit` subcommand (Seam 54 / ADR 0065)
+    audit_parser = subparsers.add_parser("audit", help="Durable Audit Anchor & Merkle Audit Receipt Engine")
+    audit_parser.add_argument("action", choices=["append-root", "issue-receipt", "verify-receipt", "chain", "status"], default="status", nargs="?", help="Audit action (append-root, issue-receipt, verify-receipt, chain, status)")
+    audit_parser.add_argument("--root-hash", default=None, help="Merkle root hash to append (64 hex chars)")
+    audit_parser.add_argument("--epoch", type=int, default=None, help="Target epoch number for receipt issuance")
+    audit_parser.add_argument("--leaf-hash", default=None, help="Target leaf hash for receipt issuance")
+    audit_parser.add_argument("--sibling-hash", default=None, help="Sibling hash for single-step receipt path")
+    audit_parser.add_argument("--direction", choices=["left", "right"], default="right", help="Sibling position for receipt path (default: right)")
+    audit_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
+    audit_parser.add_argument("--tenant", "-t", default="default-tenant", help="Tenant ID (default: 'default-tenant')")
+    audit_parser.add_argument("--metadata", default=None, help="JSON metadata string for root commitment")
+    audit_parser.add_argument("--since-epoch", type=int, default=0, help="Start epoch for chain audit (default: 0)")
+    audit_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -3350,9 +3365,146 @@ def main(argv=None):
                 print(f"  Critical Delivery:    {data.get('critical_delivery_ratio'):.1%}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
+
+    elif args.subcommand == "audit":
+        from swarmwatch.audit_anchor import global_audit_anchor, MerkleAuditReceipt
+        tenant_id = args.tenant or "default-tenant"
+
+        if args.action == "append-root":
+            if not args.root_hash:
+                print("Error: --root-hash required for append-root", file=sys.stderr)
+                sys.exit(1)
+            meta = {}
+            if args.metadata:
+                try:
+                    meta = json.loads(args.metadata)
+                except Exception:
+                    meta = {"raw": args.metadata}
+            epoch_obj = global_audit_anchor.append_root(
+                root_hash=args.root_hash,
+                tenant_id=tenant_id,
+                metadata=meta,
+            )
+            data = epoch_obj.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH AUDIT ANCHOR: ROOT EPOCH COMMITTED (ADR 0065)      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Epoch:                {data.get('epoch')}")
+                print(f"  Root Hash:            {data.get('root_hash')}")
+                print(f"  Chain Digest:         {data.get('chain_digest')}")
+                print(f"  Prev Chain Digest:    {data.get('prev_chain_digest')}")
+                print(f"  Tenant ID:            {data.get('tenant_id')}")
+                print(f"  Signature:            {data.get('signature')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "issue-receipt":
+            if args.epoch is None or not args.leaf_hash:
+                print("Error: --epoch and --leaf-hash required for issue-receipt", file=sys.stderr)
+                sys.exit(1)
+            path = []
+            if args.sibling_hash:
+                path.append((args.direction, args.sibling_hash))
+            try:
+                receipt = global_audit_anchor.issue_receipt(
+                    epoch=args.epoch,
+                    leaf_hash=args.leaf_hash,
+                    audit_path=path,
+                    tenant_id=tenant_id,
+                )
+                data = receipt.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH MERKLE AUDIT RECEIPT ISSUED (ADR 0065)             |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Receipt ID:           {data.get('receipt_id')}")
+                    print(f"  Epoch:                {data.get('epoch')}")
+                    print(f"  Leaf Hash:            {data.get('leaf_hash')}")
+                    print(f"  Root Hash:            {data.get('root_hash')}")
+                    print(f"  Chain Digest:         {data.get('chain_digest')}")
+                    print(f"  Signature:            {data.get('signature')}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "verify-receipt":
+            if not args.receipt_json:
+                print("Error: --receipt-json required for verify-receipt", file=sys.stderr)
+                sys.exit(1)
+            try:
+                if os.path.exists(args.receipt_json):
+                    with open(args.receipt_json, "r", encoding="utf-8") as f:
+                        rcpt_data = json.load(f)
+                else:
+                    rcpt_data = json.loads(args.receipt_json)
+                res = global_audit_anchor.verify_receipt(rcpt_data)
+                data = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    status_str = "\033[92mVALID\033[0m" if res.valid else "\033[91mINVALID\033[0m"
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH MERKLE AUDIT RECEIPT VERIFICATION (ADR 0065)       |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Verification Result:  {status_str}")
+                    print(f"  Epoch:                {res.epoch}")
+                    print(f"  Leaf Hash:            {res.leaf_hash}")
+                    print(f"  Root Hash:            {res.root_hash}")
+                    if res.reason:
+                        print(f"  Failure Reason:       {res.reason}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0 if res.valid else 2)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "chain":
+            data = global_audit_anchor.audit_chain(since_epoch=args.since_epoch)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                status_str = "\033[92mVALID\033[0m" if data.get('valid') else "\033[91mCORRUPTED\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH AUDIT CHAIN INTEGRITY AUDIT (ADR 0065)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Chain Status:         {status_str}")
+                print(f"  Total Epochs:         {data.get('total_epochs')}")
+                print(f"  Latest Epoch:         {data.get('latest_epoch')}")
+                print(f"  Genesis Hash:         {data.get('genesis_hash')}")
+                print(f"  Latest Digest:        {data.get('latest_digest')}")
+                if data.get('errors'):
+                    print(f"  Errors:               {data.get('errors')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if data.get('valid') else 2)
+
+        elif args.action == "status":
+            data = global_audit_anchor.status(tenant_id=tenant_id)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DURABLE AUDIT ANCHOR STATUS (ADR 0065)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Status:               \033[92m{data.get('status')}\033[0m")
+                print(f"  Total Epochs:         {data.get('total_epochs')}")
+                print(f"  Latest Epoch:         {data.get('latest_epoch')}")
+                print(f"  Genesis Hash:         {data.get('genesis_hash')}")
+                print(f"  Latest Root:          {data.get('latest_root')}")
+                print(f"  Latest Digest:        {data.get('latest_digest')}")
+                print(f"  Storage Path:         {data.get('storage_path')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 
 

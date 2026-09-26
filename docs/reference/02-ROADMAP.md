@@ -434,6 +434,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dedicated priority headroom guaranteeing 100% delivery ratio for `CRITICAL` spans (circuit breaker trips, honeypot events, policy interventions) under buffer saturation.
   - Dual-SDK parity across Python (`swarmwatch.causal_ingress`) and TypeScript (`@swarmwatch/sdk/src/causal_ingress.ts`) adhering strictly to Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/ingress/submit`, `POST /api/v1/ingress/drain`, `GET /api/v1/ingress/completeness/{swarm_id}`, `GET /api/v1/ingress/status`), CLI subcommand (`swarmwatch ingress submit|drain|completeness|status`), and Web Console `#ingressBadge` widget.
+- **Durable Audit Anchor & Merkle Audit Receipt Engine (Seam 54 & ADR 0065 Dual-SDK Parity)**:
+  - Deep module `AuditAnchor` preventing mutable roots and process restarts from rewriting historical telemetry.
+  - Append-only cryptographic hash chain linking root epochs from Genesis ($H_{chain}^{(e)} = \text{SHA256}(H_{chain}^{(e-1)} \parallel e \parallel R_e \parallel \text{tenant\_id})$).
+  - Survives process crashes and restarts with automatic post-crash chain of custody verification.
+  - Generates verifiable `MerkleAuditReceipt` packages proving turn inclusion without revealing adjacent payloads; strictly designated as Merkle audit receipts (not ZK proofs).
+  - Dual-SDK parity across Python (`swarmwatch.audit_anchor`) and TypeScript (`@swarmwatch/sdk/src/audit_anchor.ts`) complying strictly with Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/audit/append-root`, `POST /api/v1/audit/issue-receipt`, `POST /api/v1/audit/verify-receipt`, `GET /api/v1/audit/chain`, `GET /api/v1/audit/status`), CLI subcommand (`swarmwatch audit append-root|issue-receipt|verify-receipt|chain|status`), and Web Console `#auditBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

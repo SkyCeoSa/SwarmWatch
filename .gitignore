@@ -20,6 +20,7 @@ venv/
 *.db-shm
 *.sqlite
 *.sqlite3
+*.jsonl
 
 # Node / Frontend
 node_modules/

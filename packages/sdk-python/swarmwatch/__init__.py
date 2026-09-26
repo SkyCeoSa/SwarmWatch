@@ -667,6 +667,15 @@ from swarmwatch.causal_ingress import (
     CausalIngress,
     global_causal_ingress,
 )
+from swarmwatch.audit_anchor import (
+    RootEpoch,
+    MerkleAuditReceipt,
+    VerificationResult,
+    AuditIntegrityError,
+    AuditAnchor,
+    global_audit_anchor,
+)
+
 
 
 

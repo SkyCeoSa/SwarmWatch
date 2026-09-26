@@ -614,3 +614,19 @@ export {
   globalCausalIngress,
 } from "./causal_ingress.ts";
 
+// Durable Audit Anchor & Merkle Audit Receipt Engine (Seam 54 / ADR 0065)
+export type {
+  RootEpochOptions,
+  MerkleAuditReceiptOptions,
+  VerificationResultOptions,
+} from "./audit_anchor.ts";
+export {
+  AuditIntegrityError,
+  RootEpoch,
+  MerkleAuditReceipt,
+  VerificationResult,
+  AuditAnchor,
+  globalAuditAnchor,
+} from "./audit_anchor.ts";
+
+

@@ -287,6 +287,13 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#ingressBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Prioritized, bounded ingestion queue with monotonic per-stream sequence numbering and explicit gap accounting; guarantees 100% preservation of `CRITICAL` safety trips and security interventions under queue saturation; enforces the evidentiary completeness rule where missing sequences or unanchored parent spans permanently degrade trace status to `INCOMPLETE`; sub-microsecond enqueue latency ($<1\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
+54. **Durable Audit Anchor & Merkle Audit Receipt Engine Seam (ADR 0065 Dual-SDK Parity)**:
+    - Primitives (Python): `RootEpoch`, `MerkleAuditReceipt`, `VerificationResult`, `AuditAnchor`, `global_audit_anchor` (`audit_anchor.py`), server endpoints `POST /api/v1/audit/append-root`, `POST /api/v1/audit/issue-receipt`, `POST /api/v1/audit/verify-receipt`, `GET /api/v1/audit/chain`, `GET /api/v1/audit/status` (`server.py`), CLI subcommand `swarmwatch audit` (`cli.py`).
+    - Primitives (TypeScript): `RootEpoch`, `MerkleAuditReceipt`, `VerificationResult`, `AuditAnchor`, `globalAuditAnchor` (`audit_anchor.ts`), exported via `index.ts`.
+    - Primitives (Console): `#auditBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Append-only cryptographic hash chain linking root epochs from Genesis ($H_{chain}^{(e)} = \text{SHA256}(H_{chain}^{(e-1)} \parallel e \parallel R_e \parallel \text{tenant\_id})$); historical epochs persist across system crashes and restarts with automatic post-crash chain of custody verification; mathematical Merkle inclusion receipts independently verifiable without revealing adjacent payloads; strictly designated as Merkle audit receipts (not ZK proofs); sub-25 microsecond proof verification ($<25\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
+
 
 
 
