@@ -1705,6 +1705,10 @@
             <span class="status-indicator" id="reconcilerDot" style="background: var(--success);"></span>
             <span id="reconcilerText">RECONCILER: CONVERGED (0)</span>
           </div>
+          <div class="fleet-badge" id="privacyLedgerBadge" title="Privacy Release Ledger & Differential Privacy Accountant (ADR 0069)">
+            <span class="status-indicator" id="privacyLedgerDot" style="background: var(--success);"></span>
+            <span id="privacyLedgerText">PRIVACY: RELEASE FENCED (0)</span>
+          </div>
         </div>
 
 
@@ -4710,6 +4714,35 @@
       }
       refreshReconcilerStatus();
       setInterval(refreshReconcilerStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0069: Privacy Release Ledger & Differential Privacy Accountant
+      // -------------------------------------------------------------------
+      async function refreshPrivacyLedgerStatus() {
+        var privacyLedgerDot = document.getElementById('privacyLedgerDot');
+        var privacyLedgerText = document.getElementById('privacyLedgerText');
+        try {
+          var res = await fetch('/api/v1/privacy-ledger/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'CONVERGED';
+            var releases = data.total_releases !== undefined ? data.total_releases : 0;
+            var constrained = data.budget_constrained_count !== undefined ? data.budget_constrained_count : 0;
+            if (privacyLedgerDot) {
+              if (constrained > 0 || st === 'BUDGET_CONSTRAINED') {
+                privacyLedgerDot.style.background = 'var(--danger)';
+              } else {
+                privacyLedgerDot.style.background = 'var(--success)';
+              }
+            }
+            if (privacyLedgerText) {
+              privacyLedgerText.textContent = 'PRIVACY: RELEASE FENCED (' + releases + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshPrivacyLedgerStatus();
+      setInterval(refreshPrivacyLedgerStatus, 10500);
 
 
 

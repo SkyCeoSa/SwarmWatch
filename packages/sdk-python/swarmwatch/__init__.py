@@ -736,6 +736,17 @@ from swarmwatch.mesh_reconciler import (
     MeshReconciler,
     global_mesh_reconciler,
 )
+from swarmwatch.privacy_ledger import (
+    PrivacyBudgetExhaustedError,
+    ReservationStatus,
+    PrivacyReservation,
+    PrivacyReleaseResult,
+    CompositionAccountant,
+    PrivacyRelease,
+    global_privacy_release,
+    sample_laplace,
+    clip_value,
+)
 
 
 

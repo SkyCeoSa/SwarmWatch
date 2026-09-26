@@ -464,6 +464,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Decouples eventual consistency gossip propagation from linearizable execution permit authority.
   - Dual-SDK parity across Python (`swarmwatch.mesh_reconciler`) and TypeScript (`@swarmwatch/sdk/src/mesh_reconciler.ts`) strictly complying with Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/reconciler/diff`, `POST /api/v1/reconciler/merge`, `POST /api/v1/reconciler/reconcile-authority`, `GET /api/v1/reconciler/status`), CLI subcommand (`swarmwatch reconciler diff|merge|reconcile|status`), and Web Console `#reconcilerBadge` widget.
+- **Privacy Release Ledger & Differential Privacy Accountant (Seam 58 & ADR 0069 Dual-SDK Parity)**:
+  - Deep module `PrivacyRelease` establishing a formal privacy budget reservation ledger bounding repeated-query telemetry leakage across multi-tenant boundaries.
+  - Specified adjacency and clipped sensitivity ($L_1$) guaranteeing bounded sensitivity $\Delta f \le L_{\text{max}} - L_{\text{min}}$.
+  - Dual composition accountant supporting linear $\epsilon$-DP composition and advanced $(\epsilon, \delta)$-DP composition; fail-closed rejection with `PRIVACY_BUDGET_EXHAUSTED` upon budget depletion.
+  - Calibrated Laplace noise injection with CSPRNG in production and deterministic seeded reproducibility for automated audit verification.
+  - Dual-SDK parity across Python (`swarmwatch.privacy_ledger`) and TypeScript (`@swarmwatch/sdk/src/privacy_ledger.ts`) strictly complying with Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/privacy/reserve`, `POST /api/v1/privacy/release`, `GET /api/v1/privacy/remaining`, `GET /api/v1/privacy/status`), CLI subcommand (`swarmwatch privacy reserve|release|remaining|status`), and Web Console `#privacyLedgerBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

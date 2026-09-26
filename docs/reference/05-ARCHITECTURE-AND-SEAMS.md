@@ -311,6 +311,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#reconcilerBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Deterministic conflict lattice and vector-clock partial ordering safely rejoining partitioned gossip nodes and shard replicas; safety circuit breaker trips are strictly monotonic and can never silently clear upon rejoining (`TRIPPED` dominates `NOMINAL`); concurrent span claims retain provenance metadata (`PROVENANCE_RETAINED`) eliminating silent telemetry drops; linearizable safety authority remains strictly decoupled from eventual-consistency gossip; sub-25 microsecond execution ($<25\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
+58. **Privacy Release Ledger & Differential Privacy Accountant Seam (ADR 0069 Dual-SDK Parity)**:
+    - Primitives (Python): `PrivacyReservation`, `PrivacyReleaseResult`, `CompositionAccountant`, `PrivacyReleaseLedger`, `global_privacy_release` (`privacy_ledger.py`), server endpoints `POST /api/v1/privacy/reserve`, `POST /api/v1/privacy/release`, `GET /api/v1/privacy/remaining`, `GET /api/v1/privacy/status` (`server.py`), CLI subcommand `swarmwatch privacy` (`cli.py`).
+    - Primitives (TypeScript): `PrivacyReservation`, `PrivacyReleaseResult`, `CompositionAccountant`, `PrivacyReleaseLedger`, `globalPrivacyRelease` (`privacy_ledger.ts`), exported via `index.ts`.
+    - Primitives (Console): `#privacyLedgerBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Bounding repeated-query telemetry leakage across multi-tenant boundaries; telemetry exports occur only when tenant's remaining privacy budget permits; inputs clipped strictly within configured sensitivity bounds $[L_{\text{min}}, L_{\text{max}}]$ guaranteeing bounded $L_1$ sensitivity $\Delta f \le L_{\text{max}} - L_{\text{min}}$; calibrated Laplace noise perturbation; dual composition accounting (linear $\epsilon$-DP and advanced $(\epsilon, \delta)$-DP); CSPRNG in production, deterministic seeded reproducibility for audit verification; sub-25 microsecond execution ($<25\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
 
 
 

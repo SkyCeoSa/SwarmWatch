@@ -30,6 +30,7 @@ class CanonicalDomainTag:
     METRIC = "sw:metric:v1"
     REMEDIATION = "sw:rem:v1"
     RECONCILER = "sw:rec:v1"
+    PRIVACY = "sw:priv:v1"
 
 
 

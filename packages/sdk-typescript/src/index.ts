@@ -680,6 +680,23 @@ export {
   globalMeshReconciler,
 } from "./mesh_reconciler.ts";
 
+// Privacy Release Ledger & Differential Privacy Accountant (Seam 58 / ADR 0069)
+export type {
+  ReservationStatusEnum,
+  PrivacyReservation,
+  PrivacyReleaseResult,
+} from "./privacy_ledger.ts";
+export {
+  PrivacyBudgetExhaustedError,
+  ReservationStatus,
+  sampleLaplace,
+  clipValue,
+  CompositionAccountant,
+  PrivacyRelease,
+  globalPrivacyRelease,
+} from "./privacy_ledger.ts";
+
+
 
 
 

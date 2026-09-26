@@ -429,6 +429,21 @@ def main(argv=None):
     reconciler_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
     reconciler_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch privacy-ledger` subcommand (Seam 58 / ADR 0069)
+    privacy_parser = subparsers.add_parser("privacy-ledger", help="Privacy Release Ledger & Differential Privacy Accountant")
+    privacy_parser.add_argument("action", choices=["reserve", "release", "remaining", "status"], default="status", nargs="?", help="Privacy action (reserve, release, remaining, status)")
+    privacy_parser.add_argument("--epsilon", type=float, default=1.0, help="Epsilon budget to reserve or spend (default: 1.0)")
+    privacy_parser.add_argument("--delta", type=float, default=0.0, help="Delta budget to reserve or spend (default: 0.0)")
+    privacy_parser.add_argument("--sensitivity", type=float, default=1.0, help="Query sensitivity L1 (default: 1.0)")
+    privacy_parser.add_argument("--query-id", default=None, help="Query identifier")
+    privacy_parser.add_argument("--reservation-id", default=None, help="Reservation permit identifier for release")
+    privacy_parser.add_argument("--value", type=float, default=None, help="Scalar numerical value to release")
+    privacy_parser.add_argument("--noise-seed", type=int, default=None, help="Deterministic RNG seed for audit reproducibility")
+    privacy_parser.add_argument("--min-bound", type=float, default=None, help="Lower clipping bound")
+    privacy_parser.add_argument("--max-bound", type=float, default=None, help="Upper clipping bound")
+    privacy_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
+    privacy_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -3853,6 +3868,107 @@ def main(argv=None):
                 print(f"  Trips Preserved (Monotonic): {data.get('trips_preserved_count')}")
                 print(f"  Concurrent Spans Retained:   {data.get('concurrent_spans_retained')}")
                 print(f"  Status:                      {data.get('status')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("privacy-ledger", "privacy-release"):
+        from swarmwatch.privacy_ledger import (
+            global_privacy_release,
+            PrivacyBudgetExhaustedError,
+        )
+
+        tenant_id = getattr(args, "tenant", "default") or "default"
+
+        if args.action == "reserve":
+            try:
+                res = global_privacy_release.reserve(
+                    tenant_id=tenant_id,
+                    epsilon=args.epsilon,
+                    delta=args.delta,
+                    sensitivity=args.sensitivity,
+                    query_id=args.query_id,
+                )
+                data = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH PRIVACY BUDGET RESERVATION (ADR 0069)              |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Reservation ID:       {data.get('reservation_id')}")
+                    print(f"  Tenant ID:            {data.get('tenant_id')}")
+                    print(f"  Query ID:             {data.get('query_id')}")
+                    print(f"  Epsilon Reserved:     {data.get('epsilon')}")
+                    print(f"  Delta Reserved:       {data.get('delta')}")
+                    print(f"  Sensitivity:          {data.get('sensitivity')}")
+                    print(f"  Status:               \033[92m{data.get('status')}\033[0m")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except PrivacyBudgetExhaustedError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "release":
+            if not args.reservation_id:
+                print("Error: --reservation-id is required for release action", file=sys.stderr)
+                sys.exit(1)
+            raw_val = args.value if args.value is not None else 0.0
+            try:
+                rel = global_privacy_release.release(
+                    reservation_id=args.reservation_id,
+                    raw_value=raw_val,
+                    noise_seed=args.noise_seed,
+                    min_bound=args.min_bound,
+                    max_bound=args.max_bound,
+                )
+                data = rel.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH DIFFERENTIAL PRIVACY RELEASE (ADR 0069)            |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Release ID:           {data.get('release_id')}")
+                    print(f"  Reservation ID:       {data.get('reservation_id')}")
+                    print(f"  Raw (Clipped):        {data.get('raw_clipped')}")
+                    print(f"  Perturbed Value:      \033[92m{data.get('perturbed_value')}\033[0m")
+                    print(f"  Noise Injected:       {data.get('noise_added')}")
+                    print(f"  Remaining Epsilon:    {data.get('remaining_epsilon')}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "remaining":
+            data = global_privacy_release.remaining(tenant_id=tenant_id)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH TENANT PRIVACY BUDGET REMAINING (ADR 0069)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Tenant ID:            {tenant_id}")
+                print(f"  Remaining Epsilon:    \033[92m{data.get('remaining_epsilon')}\033[0m / {data.get('total_epsilon')}")
+                print(f"  Remaining Delta:      {data.get('remaining_delta')} / {data.get('total_delta')}")
+                print(f"  Spent Epsilon:        {data.get('spent_epsilon')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "status":
+            data = global_privacy_release.status(tenant_id=tenant_id if tenant_id != "default" else None)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                st_color = "\033[92m" if data.get("status") == "CONVERGED" else "\033[91m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PRIVACY RELEASE LEDGER STATUS (ADR 0069)           |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Active Tenants:       {data.get('active_tenants')}")
+                print(f"  Total Releases:       {data.get('total_releases')}")
+                print(f"  Total Reservations:   {data.get('total_reservations')}")
+                print(f"  Total Spent Epsilon:  {data.get('total_spent_epsilon')}")
+                print(f"  Ledger Status:        {st_color}{data.get('status')}\033[0m")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

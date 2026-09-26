@@ -686,6 +686,22 @@ class ReconcilerReconcileAuthorityRequest(BaseModel):
     tenant_id: str = "default"
 
 
+class PrivacyReserveRequest(BaseModel):
+    tenant_id: str = "default"
+    epsilon: float
+    delta: float = 0.0
+    sensitivity: float = 1.0
+    query_id: Optional[str] = None
+
+
+class PrivacyReleaseRequest(BaseModel):
+    reservation_id: str
+    raw_value: Union[float, List[float], Dict[str, float]]
+    noise_seed: Optional[int] = None
+    min_bound: Optional[float] = None
+    max_bound: Optional[float] = None
+
+
 
 
 
@@ -5764,6 +5780,55 @@ def create_app(
     async def reconciler_status_endpoint(tenant_id: Optional[str] = None):
         """Returns diagnostic statistics of partition reconciliations."""
         return global_mesh_reconciler.status(tenant_id=tenant_id)
+
+    # -------------------------------------------------------------------------
+    # ADR 0069: Privacy Release Ledger & Differential Privacy Accountant (Seam 58)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/privacy-ledger/reserve")
+    async def privacy_reserve_endpoint(req: PrivacyReserveRequest):
+        """Reserves privacy budget prior to query evaluation."""
+        from swarmwatch.privacy_ledger import global_privacy_release, PrivacyBudgetExhaustedError
+        try:
+            reservation = global_privacy_release.reserve(
+                tenant_id=req.tenant_id,
+                epsilon=req.epsilon,
+                delta=req.delta,
+                sensitivity=req.sensitivity,
+                query_id=req.query_id,
+            )
+            return reservation.to_dict()
+        except PrivacyBudgetExhaustedError as e:
+            raise HTTPException(status_code=429, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/privacy-ledger/release")
+    async def privacy_release_endpoint(req: PrivacyReleaseRequest):
+        """Applies calibrated Laplace perturbation and commits budget consumption."""
+        from swarmwatch.privacy_ledger import global_privacy_release
+        try:
+            res = global_privacy_release.release(
+                reservation_id=req.reservation_id,
+                raw_value=req.raw_value,
+                noise_seed=req.noise_seed,
+                min_bound=req.min_bound,
+                max_bound=req.max_bound,
+            )
+            return res.to_dict()
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/privacy-ledger/remaining")
+    async def privacy_remaining_endpoint(tenant_id: str = "default"):
+        """Returns the remaining and total privacy budget for a tenant."""
+        from swarmwatch.privacy_ledger import global_privacy_release
+        return global_privacy_release.remaining(tenant_id=tenant_id)
+
+    @app.get("/api/v1/privacy-ledger/status")
+    async def privacy_status_endpoint(tenant_id: Optional[str] = None):
+        """Returns diagnostic statistics of the privacy release ledger."""
+        from swarmwatch.privacy_ledger import global_privacy_release
+        return global_privacy_release.status(tenant_id=tenant_id)
 
     @app.websocket("/ws/swarm/{swarm_id}")
 

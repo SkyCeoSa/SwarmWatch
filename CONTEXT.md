@@ -803,6 +803,20 @@ _Avoid_: Hook call, function callback, middleware run
 - **TripMonotonicity**: The foundational safety invariant mandating that a circuit breaker trip recorded in any partition can never be silently cleared by a rejoining nominal peer.
   _Avoid_: Permanent halt, sticky trip, latching check
 
+---
+
+### Privacy Release Ledger & Differential Privacy Accountant (Seam 58 / ADR 0069)
+- **PrivacyRelease**: The deep module coordinating tenant privacy budget reservations, sensitivity clipping, and composition accounting.
+  _Avoid_: Privacy proxy, anonymizer wrapper, noise injector, DP service
+- **PrivacyReservation**: An ephemeral cryptographically bound reservation permit reserving $\epsilon$ and $\delta$ privacy budget prior to query evaluation.
+  _Avoid_: Budget hold, query ticket, privacy permit
+- **PrivacyReleaseResult**: The release output binding clipped and perturbed query results, injected Laplace noise, and remaining tenant privacy budget.
+  _Avoid_: Anonymized output, noisy response, sanitized data
+- **CompositionAccountant**: The mathematical tracking engine computing cumulative privacy loss over multiple queries under linear and advanced $(\epsilon, \delta)$ composition theorems.
+  _Avoid_: Budget counter, spend tracker, epsilon tally
+- **ClippedSensitivity**: The strict input bounding contract clamping numerical values to $[L_{\text{min}}, L_{\text{max}}]$ to mathematically bound global $L_1$ query sensitivity.
+  _Avoid_: Min-max clamp, value truncation, range check
+
 
 
 
