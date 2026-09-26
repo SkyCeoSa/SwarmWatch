@@ -454,6 +454,19 @@ def main(argv=None):
     evolution_parser.add_argument("--delta-file", default=None, help="File path containing JSON PreservedDelta for reverse migration")
     evolution_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    # `swarmwatch acceptance` subcommand (Seam 60 / ADR 0071)
+    acceptance_parser = subparsers.add_parser("acceptance", help="Enterprise Acceptance Harness & Multi-Dimensional Release Verification Gate")
+    acceptance_parser.add_argument("action", choices=["run", "attest", "audit-ui", "verify", "status"], default="status", nargs="?", help="Acceptance action (run, attest, audit-ui, verify, status)")
+    acceptance_parser.add_argument("--profile", "-p", choices=["quick", "standard", "production", "enterprise"], default="production", help="Evaluation profile (default: production)")
+    acceptance_parser.add_argument("--checks", "-c", default=None, help="Comma-separated check IDs or gates to run")
+    acceptance_parser.add_argument("--html-path", default=None, help="Path to dashboard.html artifact for UI craft audit")
+    acceptance_parser.add_argument("--report-file", default=None, help="JSON file containing AcceptanceReport to attest")
+    acceptance_parser.add_argument("--attestation-file", default=None, help="JSON file containing AcceptanceAttestation to verify")
+    acceptance_parser.add_argument("--signer", default="SwarmWatch Enterprise Release Gatekeeper", help="Signer identity string")
+    acceptance_parser.add_argument("--secret-key", default=None, help="Secret HMAC key for signing or verification")
+    acceptance_parser.add_argument("--strict", action="store_true", help="Exit code 1 if any gate is rejected")
+    acceptance_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
+
     args = parser.parse_args(argv)
 
 
@@ -4112,6 +4125,163 @@ def main(argv=None):
                 print(f"  Total Migrations:     {data.get('total_migrations_count')}")
                 print(f"  Lossless Count:       {data.get('lossless_migrations_count')}")
                 print(f"  Lossy Count:          {data.get('lossy_migrations_count')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "acceptance":
+        from swarmwatch.acceptance import (
+            global_acceptance_harness,
+            AcceptanceGateViolationError,
+            AttestationVerificationError,
+            AcceptanceReport,
+            AcceptanceAttestation,
+            GateSummary,
+            GateCheckResult,
+            AcceptanceStatus,
+        )
+
+        custom_checks = [c.strip() for c in args.checks.split(",")] if args.checks else None
+
+        if args.action == "run":
+            report = global_acceptance_harness.run(
+                profile=args.profile,
+                custom_checks=custom_checks,
+                html_path=args.html_path,
+            )
+            data = report.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                st_color = "\033[92mCERTIFIED\033[0m" if report.status == "CERTIFIED" else "\033[91mREJECTED\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ENTERPRISE ACCEPTANCE HARNESS (ADR 0071)           |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Report ID:      {report.report_id}")
+                print(f"  Profile:        {report.profile.upper()}")
+                print(f"  Status:         {st_color}")
+                print(f"  Overall Score:  {report.overall_score * 100:.1f}%")
+                print(f"  Execution Time: {report.duration_ms:.2f} ms")
+                print(f"  Report Hash:    {report.report_hash[:20]}...")
+                print("+---------------------------------------------------------------+")
+                print("  GATE BREAKDOWN:")
+                for g_name, g_sum in report.gates.items():
+                    pass_str = "\033[92mPASS\033[0m" if g_sum.passed else "\033[91mFAIL\033[0m"
+                    print(f"    - {g_name.upper():<16} [{pass_str}]  Score: {g_sum.score*100:.0f}%  ({g_sum.checks_passed}/{g_sum.checks_run} checks)")
+                    for v in g_sum.violations:
+                        print(f"        \033[91m! {v}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+
+            if args.strict and report.status != "CERTIFIED":
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "attest":
+            report_obj = None
+            if args.report_file:
+                with open(args.report_file, "r", encoding="utf-8") as f:
+                    r = json.load(f)
+                    gates = {k: GateSummary(**v) for k, v in r.get("gates", {}).items()}
+                    checks = [GateCheckResult(**c) for c in r.get("checks", [])]
+                    report_obj = AcceptanceReport(
+                        report_id=r["report_id"],
+                        profile=r["profile"],
+                        status=r["status"],
+                        overall_score=r["overall_score"],
+                        gates=gates,
+                        checks=checks,
+                        executed_at=r["executed_at"],
+                        duration_ms=r["duration_ms"],
+                        report_hash=r.get("report_hash", ""),
+                    )
+            else:
+                report_obj = global_acceptance_harness.run(profile=args.profile, custom_checks=custom_checks, html_path=args.html_path)
+
+            try:
+                attestation = global_acceptance_harness.attest(
+                    report=report_obj,
+                    signer_identity=args.signer,
+                    secret_key=args.secret_key,
+                )
+                data = attestation.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH ACCEPTANCE ATTESTATION RECEIPT (ADR 0071)          |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Attestation ID:   {attestation.attestation_id}")
+                    print(f"  Report ID:        {attestation.report_id}")
+                    print(f"  Status:           \033[92m{attestation.status}\033[0m")
+                    print(f"  Signer:           {attestation.signer_identity}")
+                    print(f"  Certified Gates:  {', '.join(attestation.certified_gates)}")
+                    print(f"  Attestation Hash: {attestation.attestation_hash}")
+                    print(f"  Signature:        {attestation.signature[:24]}...")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "audit-ui":
+            data = global_acceptance_harness.audit_dashboard_artifact(html_path=args.html_path)
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                res_str = "\033[92mCOMPLIANT (100% CRAFT FLOOR)\033[0m" if data.get("compliant") else "\033[91mNON-COMPLIANT\033[0m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DASHBOARD UI CRAFT AUDIT (ADR 0071)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Audit Verdict:    {res_str}")
+                print(f"  Total Badges:     {data.get('total_badges', 0)}")
+                print(f"  Violations:       {len(data.get('violations', []))}")
+                for v in data.get("violations", []):
+                    print(f"    \033[91m! {v}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if data.get("compliant") else 1)
+
+        elif args.action == "verify":
+            if not args.attestation_file:
+                print("Error: --attestation-file is required for verify action", file=sys.stderr)
+                sys.exit(1)
+            with open(args.attestation_file, "r", encoding="utf-8") as f:
+                a = json.load(f)
+            attestation_obj = AcceptanceAttestation(
+                attestation_id=a["attestation_id"],
+                report_id=a["report_id"],
+                report_hash=a["report_hash"],
+                profile=a["profile"],
+                status=a["status"],
+                certified_gates=a["certified_gates"],
+                attested_at=a["attested_at"],
+                signer_identity=a["signer_identity"],
+                attestation_hash=a["attestation_hash"],
+                signature=a.get("signature", ""),
+            )
+            try:
+                is_valid = global_acceptance_harness.verify_attestation(attestation_obj, secret_key=args.secret_key)
+                if args.format == "json":
+                    print(json.dumps({"verified": is_valid, "attestation_id": attestation_obj.attestation_id}, indent=2))
+                else:
+                    print(f"\n[Attestation Verification] ID '{attestation_obj.attestation_id}': \033[92mVALID\033[0m\n")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "status":
+            data = global_acceptance_harness.status()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ACCEPTANCE HARNESS STATUS (ADR 0071)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Status:             \033[92m{data.get('status')}\033[0m")
+                print(f"  Total Runs:         {data.get('total_runs')}")
+                print(f"  Certified Runs:     {data.get('certified_runs')}")
+                print(f"  Rejected Runs:      {data.get('rejected_runs')}")
+                print(f"  Registered Gates:   {data.get('registered_gates_count')}")
+                print(f"  Latest Report ID:   {data.get('latest_report_id') or 'None'}")
+                print(f"  Latest Attestation: {data.get('latest_attestation_id') or 'None'}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

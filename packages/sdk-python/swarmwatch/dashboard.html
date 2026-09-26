@@ -1562,7 +1562,7 @@
           <span class="fleet-backend-tag" id="fleetBackendTag">RESP2 (127.0.0.1:6379)</span>
           <div class="fleet-badge leader-badge" id="fleetLeaderBadge" title="Distributed Cluster Leader (ADR 0035)">
             <span class="status-indicator" id="fleetLeaderDot"></span>
-            <span id="fleetLeaderText">LEADER [srv-node-local]</span>
+            <span id="fleetLeaderText">LEADER [SRV-NODE-LOCAL]</span>
           </div>
           <span class="fleet-backend-tag" id="fleetNodesCountTag" title="Registered Active Cluster Server Nodes">1 Node</span>
           <span class="fleet-badge archived" id="fleetArchiveStatusBadge" style="display: none;" title="Swarm Cold Storage Status (ADR 0036)">COLD ARCHIVE</span>
@@ -1579,7 +1579,7 @@
           </div>
           <div class="fleet-badge" id="otlpGatewayBadge" title="OpenTelemetry OTLP Ingestion Gateway (ADR 0038)">
             <span class="status-indicator" id="otlpDot" style="background: var(--accent);"></span>
-            <span id="otlpText">OTLP: /v1/traces</span>
+            <span id="otlpText">OTLP: /V1/TRACES</span>
           </div>
           <div class="fleet-badge" id="sseStatusBadge" title="Server-Sent Events (SSE) Stream (ADR 0039)">
             <span class="status-indicator" id="sseDot" style="background: var(--text-muted);"></span>
@@ -1627,7 +1627,7 @@
           </div>
           <div class="fleet-badge" id="dpBadge" title="Differential Privacy & Cryptographic State Anonymization (ADR 0049)">
             <span class="status-indicator" id="dpDot" style="background: var(--success);"></span>
-            <span id="dpText">DP: PROTECTED (ε=1.0)</span>
+            <span id="dpText">DP: PROTECTED (EPS=1.0)</span>
           </div>
           <div class="fleet-badge" id="forecastBadge" title="Predictive Multi-Agent Failure Forecasting & Early-Warning Entropy Martingales (ADR 0050)">
             <span class="status-indicator" id="forecastDot" style="background: var(--success);"></span>
@@ -1643,7 +1643,7 @@
           </div>
           <div class="fleet-badge" id="modelCheckBadge" title="Bounded Model Checking & Multi-Agent Invariant Verification (ADR 0053)">
             <span class="status-indicator" id="modelCheckDot" style="background: var(--success);"></span>
-            <span id="modelCheckText">BMC: VERIFIED (k=10)</span>
+            <span id="modelCheckText">BMC: VERIFIED (K=10)</span>
           </div>
           <div class="fleet-badge" id="topologyHealBadge" title="Autonomous Dynamic Topology Healing & Auto-Patching (ADR 0054)">
             <span class="status-indicator" id="topologyHealDot" style="background: var(--success);"></span>
@@ -1667,7 +1667,7 @@
           </div>
           <div class="fleet-badge" id="epistemicBadge" title="Dynamic Multi-Agent Epistemic Logic & Knowledge Base State Synchronization (ADR 0059)">
             <span class="status-indicator" id="epistemicDot" style="background: var(--success);"></span>
-            <span id="epistemicText">EPISTEMIC: OK (0 claims)</span>
+            <span id="epistemicText">EPISTEMIC: OK (0 CLAIMS)</span>
           </div>
           <div class="fleet-badge" id="zkProofBadge" title="Zero-Knowledge Causal Proof Generation & Cryptographic Audit (ADR 0060)">
             <span class="status-indicator" id="zkProofDot" style="background: var(--success);"></span>
@@ -1712,6 +1712,10 @@
           <div class="fleet-badge" id="evolutionBadge" title="Migration Preservation & Partial Isomorphisms (ADR 0070)">
             <span class="status-indicator" id="evolutionDot" style="background: var(--success);"></span>
             <span id="evolutionText">SCHEMA: LOSSLESS PRESERVED</span>
+          </div>
+          <div class="fleet-badge" id="acceptanceBadge" title="Enterprise Acceptance Harness & Multi-Dimensional Release Verification Gate (ADR 0071)">
+            <span class="status-indicator" id="acceptanceDot" style="background: var(--success);"></span>
+            <span id="acceptanceText">ACCEPTANCE: CERTIFIED (6/6)</span>
           </div>
         </div>
 
@@ -4776,6 +4780,37 @@
       }
       refreshEvolutionStatus();
       setInterval(refreshEvolutionStatus, 11000);
+
+      async function refreshAcceptanceStatus() {
+        var acceptanceDot = document.getElementById('acceptanceDot');
+        var acceptanceText = document.getElementById('acceptanceText');
+        try {
+          var res = await fetch('/api/v1/acceptance/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'NOMINAL';
+            if (acceptanceDot) {
+              if (st === 'CERTIFIED') {
+                acceptanceDot.style.background = 'var(--success)';
+              } else if (st === 'REJECTED') {
+                acceptanceDot.style.background = 'var(--danger)';
+              } else {
+                acceptanceDot.style.background = 'var(--accent)';
+              }
+            }
+            if (acceptanceText) {
+              var countStr = st === 'CERTIFIED' ? '6/6' : (st === 'REJECTED' ? 'FAIL' : '0/6');
+              var badgeStr = ('ACCEPTANCE: ' + st + ' (' + countStr + ')').toUpperCase();
+              if (badgeStr.length > 30) {
+                badgeStr = ('ACCEPTANCE: ' + st).toUpperCase();
+              }
+              acceptanceText.textContent = badgeStr;
+            }
+          }
+        } catch (e) {}
+      }
+      refreshAcceptanceStatus();
+      setInterval(refreshAcceptanceStatus, 12000);
 
 
 

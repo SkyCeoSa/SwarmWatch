@@ -323,6 +323,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#evolutionBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Replaces blanket reversible claims with versioned partial isomorphisms $(f, g, \Delta)$; migrations explicitly declare `LOSSLESS`, `LOSSY_PRESERVED`, or `IRREVERSIBLE`; forward migrations capture deleted, truncated, or shadowed fields into canonically hashed `PreservedDelta` (`sw:evo:v1`); reverse transformations faithfully restore original state when delta is provided; reverse migrations fail closed (`LossyMigrationError`) when delta is omitted on lossy paths; sub-25 microsecond execution ($<25\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
+60. **Enterprise Acceptance Harness & Multi-Dimensional Release Verification Gate Seam (ADR 0071 Dual-SDK Parity)**:
+    - Primitives (Python): `AcceptanceGate`, `GateResult`, `AcceptanceReport`, `AcceptanceAttestation`, `AcceptanceHarness`, `global_acceptance_harness` (`acceptance.py`), server endpoints `POST /api/v1/acceptance/run`, `POST /api/v1/acceptance/attest`, `POST /api/v1/acceptance/verify-attestation`, `GET /api/v1/acceptance/audit-ui`, `GET /api/v1/acceptance/status` (`server.py`), CLI subcommand `swarmwatch acceptance` (`cli.py`).
+    - Primitives (TypeScript): `AcceptanceGate`, `GateResult`, `AcceptanceReport`, `AcceptanceAttestation`, `AcceptanceHarness`, `globalAcceptanceHarness` (`acceptance.ts`), exported via `index.ts`.
+    - Primitives (Console): `#acceptanceBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Multi-dimensional evaluation across Security, Interoperability, Loss, Latency, Dual-SDK Parity, and UI Craft; any gate regression triggers immediate fail-closed rejection (`ACCEPTANCE_REJECTED`); programmatic AST inspection of raw `dashboard.html` asserts palette `#080B11`, zero emojis, no neon glows, tabular numbers, and badge text length $\le 30$ chars uppercase; canonically hashed attestation receipts (`sw:acc:v1`); zero external LLM API calls; dual-SDK parity.
+
 
 
 

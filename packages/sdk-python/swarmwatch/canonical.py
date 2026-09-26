@@ -32,6 +32,7 @@ class CanonicalDomainTag:
     RECONCILER = "sw:rec:v1"
     PRIVACY = "sw:priv:v1"
     EVOLUTION = "sw:evo:v1"
+    ACCEPTANCE = "sw:acc:v1"
 
 
 

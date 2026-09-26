@@ -718,6 +718,29 @@ export {
   globalSchemaEvolution,
 } from "./schema_evolution.ts";
 
+// Enterprise Acceptance Harness & Multi-Dimensional Release Gate (Seam 60 / ADR 0071)
+export type {
+  AcceptanceGateNameEnum,
+  AcceptanceStatusEnum,
+  AcceptanceProfileEnum,
+  GateCheckResult,
+  GateSummary,
+  AcceptanceReportOptions,
+  AcceptanceAttestationOptions,
+} from "./acceptance.ts";
+export {
+  AcceptanceGateName,
+  AcceptanceStatus,
+  AcceptanceProfile,
+  AcceptanceError,
+  AttestationVerificationError,
+  AcceptanceReport,
+  AcceptanceAttestation,
+  AcceptanceHarness,
+  globalAcceptanceHarness,
+} from "./acceptance.ts";
+
+
 
 
 

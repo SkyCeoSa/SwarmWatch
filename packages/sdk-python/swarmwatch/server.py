@@ -727,6 +727,24 @@ class SchemaEvolutionClassifyRequest(BaseModel):
     payload: Optional[Dict[str, Any]] = None
 
 
+class AcceptanceRunRequest(BaseModel):
+    profile: Optional[str] = "production"
+    custom_checks: Optional[List[str]] = None
+    html_path: Optional[str] = None
+
+
+class AcceptanceAttestRequest(BaseModel):
+    report: Optional[Dict[str, Any]] = None
+    signer_identity: Optional[str] = "SwarmWatch Enterprise Release Gatekeeper"
+    secret_key: Optional[str] = None
+
+
+class AcceptanceVerifyAttestationRequest(BaseModel):
+    attestation: Dict[str, Any]
+    secret_key: Optional[str] = None
+
+
+
 
 
 
@@ -5929,6 +5947,110 @@ def create_app(
         """Returns diagnostic statistics of schema evolution engine."""
         from swarmwatch.schema_evolution import global_schema_evolution
         return global_schema_evolution.status()
+
+    # -------------------------------------------------------------------------
+    # ADR 0071: Enterprise Acceptance Harness (Seam 60)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/acceptance/run")
+    async def acceptance_run_endpoint(req: AcceptanceRunRequest):
+        """Executes acceptance harness across configured gates and scenario matrix."""
+        from swarmwatch.acceptance import global_acceptance_harness
+        report = global_acceptance_harness.run(
+            profile=req.profile or "production",
+            custom_checks=req.custom_checks,
+            html_path=req.html_path,
+        )
+        return report.to_dict()
+
+    @app.post("/api/v1/acceptance/attest")
+    async def acceptance_attest_endpoint(req: AcceptanceAttestRequest):
+        """Issues cryptographically signed attestation receipt for certified acceptance report."""
+        from swarmwatch.acceptance import (
+            global_acceptance_harness,
+            AcceptanceReport,
+            GateSummary,
+            GateCheckResult,
+            AcceptanceError,
+        )
+        try:
+            if req.report:
+                # Reconstruct report object
+                r = req.report
+                gates = {k: GateSummary(**v) for k, v in r.get("gates", {}).items()}
+                checks = [GateCheckResult(**c) for c in r.get("checks", [])]
+                report_obj = AcceptanceReport(
+                    report_id=r["report_id"],
+                    profile=r["profile"],
+                    status=r["status"],
+                    overall_score=r["overall_score"],
+                    gates=gates,
+                    checks=checks,
+                    executed_at=r["executed_at"],
+                    duration_ms=r["duration_ms"],
+                    report_hash=r.get("report_hash", ""),
+                )
+            else:
+                if not global_acceptance_harness._reports_history:
+                    report_obj = global_acceptance_harness.run()
+                else:
+                    report_obj = global_acceptance_harness._reports_history[-1]
+
+            attest = global_acceptance_harness.attest(
+                report=report_obj,
+                signer_identity=req.signer_identity or "SwarmWatch Enterprise Release Gatekeeper",
+                secret_key=req.secret_key,
+            )
+            return attest.to_dict()
+        except AcceptanceError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/acceptance/verify-attestation")
+    async def acceptance_verify_attestation_endpoint(req: AcceptanceVerifyAttestationRequest):
+        """Cryptographically verifies canonical hash integrity and signature of an attestation receipt."""
+        from swarmwatch.acceptance import (
+            global_acceptance_harness,
+            AcceptanceAttestation,
+            AttestationVerificationError,
+        )
+        try:
+            a = req.attestation
+            attestation_obj = AcceptanceAttestation(
+                attestation_id=a["attestation_id"],
+                report_id=a["report_id"],
+                report_hash=a["report_hash"],
+                profile=a["profile"],
+                status=a["status"],
+                certified_gates=a["certified_gates"],
+                attested_at=a["attested_at"],
+                signer_identity=a["signer_identity"],
+                attestation_hash=a["attestation_hash"],
+                signature=a.get("signature", ""),
+            )
+            is_valid = global_acceptance_harness.verify_attestation(
+                attestation=attestation_obj,
+                secret_key=req.secret_key,
+            )
+            return {
+                "verified": is_valid,
+                "attestation_id": attestation_obj.attestation_id,
+            }
+        except AttestationVerificationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/acceptance/audit-ui")
+    async def acceptance_audit_ui_endpoint(path: Optional[str] = None):
+        """Audits the physical dashboard.html artifact for Impeccable craft floor compliance."""
+        from swarmwatch.acceptance import global_acceptance_harness
+        return global_acceptance_harness.audit_dashboard_artifact(html_path=path)
+
+    @app.get("/api/v1/acceptance/status")
+    async def acceptance_status_endpoint():
+        """Returns operational metrics and recent certification status of acceptance harness."""
+        from swarmwatch.acceptance import global_acceptance_harness
+        return global_acceptance_harness.status()
+
 
     @app.websocket("/ws/swarm/{swarm_id}")
 

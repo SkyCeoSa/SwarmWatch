@@ -478,6 +478,13 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Fail-closed reverse invariant: invoking reverse on a lossy migration without a valid `PreservedDelta` raises `LossyMigrationError` rather than silently fabricating defaults or dropping fields.
   - Dual-SDK parity across Python (`swarmwatch.schema_evolution`) and TypeScript (`@swarmwatch/sdk/src/schema_evolution.ts`) strictly complying with Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/schema-evolution/plan`, `POST /api/v1/schema-evolution/migrate`, `POST /api/v1/schema-evolution/reverse`, `POST /api/v1/schema-evolution/classify-loss`, `GET /api/v1/schema-evolution/status`), CLI subcommand (`swarmwatch schema-evolution plan|migrate|reverse|classify|status`), and Web Console `#evolutionBadge` widget.
+- **Enterprise Acceptance Harness & Multi-Dimensional Release Verification Gate (Seam 60 & ADR 0071 Dual-SDK Parity)**:
+  - Deep module `AcceptanceHarness` providing multi-dimensional verification across Security, Interoperability, Loss, Latency, Parity, and UI Craft.
+  - Acceptance Invariant: release candidates fail closed (`ACCEPTANCE_REJECTED`) if any gate regresses or fails threshold checks.
+  - Programmatic AST/regex inspection of `dashboard.html` artifact asserting palette `#080B11`, zero emojis, no neon glow shadows, monospace numbers, and all badge lengths $\le 30$ chars uppercase.
+  - Cryptographically hashed attestation receipts (`AcceptanceAttestation`) with domain tag `sw:acc:v1`.
+  - Dual-SDK parity across Python (`swarmwatch.acceptance`) and TypeScript (`@swarmwatch/sdk/src/acceptance.ts`) strictly complying with Node 22 type-stripping rules.
+  - Control plane REST endpoints (`POST /api/v1/acceptance/run`, `POST /api/v1/acceptance/attest`, `POST /api/v1/acceptance/verify-attestation`, `GET /api/v1/acceptance/audit-ui`, `GET /api/v1/acceptance/status`), CLI subcommand (`swarmwatch acceptance run|attest|audit-ui|status`), and Web Console `#acceptanceBadge` widget.
 - **Complete Test Coverage**:
   - Full local test suite passing 100% across Python and TypeScript runtimes.
 

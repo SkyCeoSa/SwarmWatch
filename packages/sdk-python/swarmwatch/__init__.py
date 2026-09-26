@@ -448,6 +448,18 @@ __all__ = [
     "MigrationResult",
     "SchemaEvolution",
     "global_schema_evolution",
+    "AcceptanceError",
+    "AcceptanceGateViolationError",
+    "AttestationVerificationError",
+    "AcceptanceGateName",
+    "AcceptanceStatus",
+    "AcceptanceProfile",
+    "GateCheckResult",
+    "GateSummary",
+    "AcceptanceReport",
+    "AcceptanceAttestation",
+    "AcceptanceHarness",
+    "global_acceptance_harness",
 ]
 
 
@@ -782,6 +794,21 @@ from swarmwatch.schema_evolution import (
     SchemaEvolution,
     global_schema_evolution,
 )
+from swarmwatch.acceptance import (
+    AcceptanceError,
+    AcceptanceGateViolationError,
+    AttestationVerificationError,
+    AcceptanceGateName,
+    AcceptanceStatus,
+    AcceptanceProfile,
+    GateCheckResult,
+    GateSummary,
+    AcceptanceReport,
+    AcceptanceAttestation,
+    AcceptanceHarness,
+    global_acceptance_harness,
+)
+
 
 
 

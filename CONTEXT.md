@@ -831,6 +831,21 @@ _Avoid_: Hook call, function callback, middleware run
 - **PartialIsomorphism**: The mathematical mapping pair $(f, g, \Delta)$ where forward transformation $f$ produces $(y, \Delta)$ and inverse $g(y, \Delta)$ recovers original state $x$ identically.
   _Avoid_: Reversible converter, two-way mapping, bidirectional adapter
 
+---
+
+### Enterprise Acceptance Harness & Multi-Dimensional Release Verification Gate (Seam 60 / ADR 0071)
+- **AcceptanceHarness**: The deep module coordinating multi-dimensional release verification across Security, Interoperability, Loss, Latency, Parity, and UI Craft gates.
+  _Avoid_: Release checker, test runner, validator, gatekeeper
+- **AcceptanceGate**: A discrete evaluation dimension (`SECURITY`, `INTEROPERABILITY`, `LOSS`, `LATENCY`, `PARITY`, `UI_CRAFT`) enforcing binary pass/fail criteria and quantitative thresholds.
+  _Avoid_: Test phase, quality check, criterion
+- **AcceptanceReport**: The comprehensive, structured diagnostic evaluation output enumerating scenario outcomes, gate scores, and detailed violation manifests.
+  _Avoid_: Test summary, run output, audit dump
+- **AcceptanceAttestation**: An immutable, canonically signed cryptographic receipt (`sw:acc:v1`) certifying that a specific software release candidate passed all acceptance gates.
+  _Avoid_: Signature file, stamp, approval token, certificate
+- **AcceptanceProfile**: A named configuration preset (`quick`, `standard`, `production`, `enterprise`) defining the scenario matrix and strictness levels for acceptance gates.
+  _Avoid_: Run mode, test env, suite config
+
+
 
 
 
