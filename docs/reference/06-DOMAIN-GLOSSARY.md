@@ -1436,6 +1436,31 @@ _Avoid_: Partition error, split-brain drop, cluster disconnect
 State read verified against a quorum of nodes ($Q_{\text{read}} \ge \lfloor N / 2 \rfloor + 1$) verifying that the reading node's epoch is current and no subsequent epoch has been established.
 _Avoid_: Fresh read, cluster get, live query
 
+---
+
+### Downstream Effect Protocol & 2PC Outcome-Unknown Reconciliation (Seam 62 / ADR 0073)
+
+**DownstreamEffectBoundary**:
+The deep module coordinating downstream effect dispatch, timeout fail-closed outcome-unknown isolation, and active reconciliation probes across network boundaries.
+_Avoid_: Effect dispatcher, RPC wrapper, API proxy, downstream gateway
+
+**OutcomeUnknown**:
+The explicit fail-closed operational state assumed when a network timeout, socket reset, or server error occurs during in-flight mutation before receiving downstream acknowledgment.
+_Avoid_: Timeout error, unknown failure, aborted action, pending request
+
+**DownstreamIdempotencyContract**:
+The explicit contract declaration specifying whether a target downstream endpoint enforces atomic deduplication (`DOWNSTREAM_FENCED`) or is uncoordinated (`UNCOORDINATED`).
+_Avoid_: API type, retry mode, deduplication flag
+
+**ReconciliationProbe**:
+An active idempotent query to downstream services determining whether an in-flight mutation was executed or never arrived, transitioning state out of `OUTCOME_UNKNOWN`.
+_Avoid_: Status poller, health check, retry probe, lookup query
+
+**UncoordinatedRetryBlocked**:
+The safety invariant preventing blind retries against uncoordinated downstream APIs when in `OUTCOME_UNKNOWN` state.
+_Avoid_: Retry limit, blocked call, duplicate error
+
+
 
 
 

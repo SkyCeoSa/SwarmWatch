@@ -335,6 +335,13 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#consensusBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Formal Replicated State Machine (RSM) quorum model $Q \ge \lfloor N / 2 \rfloor + 1$ ensuring consensus-backed linearizable safety permit reservation, commit, release, trip, and rearm; minority partitions strictly fail-closed (`MINORITY_PARTITION`); split-brain leaders holding obsolete epochs are fenced out fail-closed (`STALE_EPOCH`); reads verified linearizable across quorum ($Q_{\text{read}} \ge \lfloor N / 2 \rfloor + 1$); sub-50 microsecond execution ($<50\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
+62. **Downstream Effect Protocol & 2PC Outcome-Unknown Reconciliation Seam (ADR 0073 Dual-SDK Parity)**:
+    - Primitives (Python): `EffectPhase`, `DownstreamIdempotencyContract`, `DownstreamReceipt`, `EffectPreparation`, `DispatchResult`, `AcknowledgeResult`, `ReconciliationResult`, `DownstreamEffectBoundary`, `global_downstream_effect_boundary` (`downstream_effect.py`), server endpoints `POST /api/v1/downstream-effects/prepare`, `POST /api/v1/downstream-effects/dispatch`, `POST /api/v1/downstream-effects/acknowledge`, `POST /api/v1/downstream-effects/reconcile`, `GET /api/v1/downstream-effects/{effect_id}`, `GET /api/v1/downstream-effects/status` (`server.py`), CLI subcommand `swarmwatch downstream` (`cli.py`).
+    - Primitives (TypeScript): `EffectPhase`, `DownstreamIdempotencyContract`, `DownstreamReceipt`, `EffectPreparation`, `DispatchResult`, `AcknowledgeResult`, `ReconciliationResult`, `DownstreamEffectBoundary`, `globalDownstreamEffectBoundary` (`downstream_effect.ts`), exported via `index.ts`.
+    - Primitives (Console): `#downstreamBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Explicit 2-phase commit semantics across downstream boundaries eliminating false exactly-once claims; network timeouts and transport errors fail-closed into `OUTCOME_UNKNOWN`; uncoordinated downstream APIs strictly reject blind retries (`UncoordinatedRetryBlockedError`); downstream-fenced APIs retry under identical idempotency key and epoch fence; active reconciliation probes determine final commit status; in-memory transitions $<25\mu\text{s}$ (audit SLO $<250\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
+
 
 
 

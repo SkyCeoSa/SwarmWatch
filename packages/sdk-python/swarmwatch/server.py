@@ -236,6 +236,20 @@ from swarmwatch.mesh_reconciler import (
     MeshReconciler,
     global_mesh_reconciler,
 )
+from swarmwatch.downstream_effect import (
+    EffectPhase,
+    DownstreamIdempotencyContract,
+    UncoordinatedRetryBlockedError,
+    StaleEpochError,
+    EffectNotFoundError,
+    DownstreamReceipt,
+    EffectPreparation,
+    DispatchResult,
+    AcknowledgeResult,
+    ReconciliationResult,
+    DownstreamEffectBoundary,
+    global_downstream_effect_boundary,
+)
 
 
 
@@ -746,6 +760,39 @@ class AcceptanceAttestRequest(BaseModel):
 class AcceptanceVerifyAttestationRequest(BaseModel):
     attestation: Dict[str, Any]
     secret_key: Optional[str] = None
+
+
+class DownstreamPrepareRequest(BaseModel):
+    tenant_id: str = "default"
+    effect_key: str
+    target_uri: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    epoch: int = 1
+    contract: str = "DOWNSTREAM_FENCED"
+    idempotency_key: Optional[str] = None
+
+
+class DownstreamDispatchRequest(BaseModel):
+    effect_id: str
+    mock_downstream_status: Optional[str] = "SUCCESS"
+    mock_confirmation_id: Optional[str] = None
+
+
+class DownstreamAcknowledgeRequest(BaseModel):
+    effect_id: str
+    downstream_confirmation_id: str
+    result_digest: str
+    latency_ms: float = 0.0
+    epoch: Optional[int] = None
+
+
+class DownstreamReconcileRequest(BaseModel):
+    effect_id: str
+    mock_probe_found: bool = True
+    mock_probe_status: str = "COMMITTED"
+    mock_downstream_id: Optional[str] = None
+    mock_probe_digest: Optional[str] = None
+
 
 
 
@@ -5680,6 +5727,99 @@ def create_app(
     async def effect_status_endpoint(tenant_id: str = "default"):
         """Returns diagnostic ledger metrics."""
         return global_effect_ledger.status(tenant_id=tenant_id)
+
+    # Seam 62: Downstream Effect Protocol & 2PC Outcome-Unknown Reconciliation
+    @app.post("/api/v1/downstream-effects/prepare")
+    async def downstream_prepare_endpoint(req: DownstreamPrepareRequest):
+        """Prepares a downstream effect with deterministic idempotency key and epoch."""
+        try:
+            prep = global_downstream_effect_boundary.prepare(
+                tenant_id=req.tenant_id,
+                effect_key=req.effect_key,
+                target_uri=req.target_uri,
+                payload=req.payload,
+                epoch=req.epoch,
+                contract=req.contract,
+                idempotency_key=req.idempotency_key,
+            )
+            return prep.to_dict()
+        except StaleEpochError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+
+    @app.post("/api/v1/downstream-effects/dispatch")
+    async def downstream_dispatch_endpoint(req: DownstreamDispatchRequest):
+        """Dispatches an effect across the downstream boundary with fail-closed OUTCOME_UNKNOWN semantics."""
+        try:
+            def dispatch_fn(effect):
+                if req.mock_downstream_status == "TIMEOUT":
+                    raise TimeoutError("Downstream network timeout")
+                elif req.mock_downstream_status == "RESET":
+                    raise ConnectionResetError("Connection reset by peer")
+                return {
+                    "status": "dispatched",
+                    "confirmation_id": req.mock_confirmation_id or f"mock_{effect.effect_id}",
+                }
+
+            res = global_downstream_effect_boundary.dispatch(req.effect_id, dispatch_fn)
+            return res.to_dict()
+        except UncoordinatedRetryBlockedError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except StaleEpochError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except EffectNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.post("/api/v1/downstream-effects/acknowledge")
+    async def downstream_acknowledge_endpoint(req: DownstreamAcknowledgeRequest):
+        """Acknowledges explicit downstream receipt, committing the effect."""
+        try:
+            receipt = DownstreamReceipt(
+                downstream_confirmation_id=req.downstream_confirmation_id,
+                result_digest=req.result_digest,
+                latency_ms=req.latency_ms,
+            )
+            res = global_downstream_effect_boundary.acknowledge(
+                effect_id=req.effect_id,
+                receipt=receipt,
+                epoch=req.epoch,
+            )
+            return res.to_dict()
+        except StaleEpochError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except EffectNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.post("/api/v1/downstream-effects/reconcile")
+    async def downstream_reconcile_endpoint(req: DownstreamReconcileRequest):
+        """Executes active reconciliation probe against the downstream target."""
+        try:
+            def probe_fn(effect_id, idem_key):
+                if not req.mock_probe_found:
+                    return {"found": False}
+                return {
+                    "found": True,
+                    "status": req.mock_probe_status,
+                    "downstream_id": req.mock_downstream_id or f"recon_{effect_id}",
+                    "digest": req.mock_probe_digest or "sha256:reconciled",
+                }
+
+            res = global_downstream_effect_boundary.reconcile(req.effect_id, probe_fn)
+            return res.to_dict()
+        except EffectNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.get("/api/v1/downstream-effects/status")
+    async def downstream_status_endpoint():
+        """Returns operational summary of the downstream effect boundary."""
+        return global_downstream_effect_boundary.get_status()
+
+    @app.get("/api/v1/downstream-effects/{effect_id}")
+    async def downstream_get_effect_endpoint(effect_id: str):
+        """Retrieves details of a specific downstream effect."""
+        effect = global_downstream_effect_boundary.get_effect(effect_id)
+        if not effect:
+            raise HTTPException(status_code=404, detail=f"Effect {effect_id} not found")
+        return effect.to_dict()
 
     @app.post("/api/v1/ingress/submit")
     async def ingress_submit_endpoint(req: IngressSubmitRequest):

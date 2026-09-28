@@ -826,6 +826,21 @@ from swarmwatch.consensus_authority import (
     ConsensusAuthorityBinding,
     global_consensus_authority,
 )
+from swarmwatch.downstream_effect import (
+    EffectPhase,
+    DownstreamIdempotencyContract,
+    UncoordinatedRetryBlockedError,
+    StaleEpochError,
+    EffectNotFoundError,
+    DownstreamReceipt,
+    EffectPreparation,
+    DispatchResult,
+    AcknowledgeResult,
+    ReconciliationResult,
+    DownstreamEffectBoundary,
+    global_downstream_effect_boundary,
+)
+
 
 
 

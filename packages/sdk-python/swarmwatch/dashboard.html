@@ -1721,6 +1721,10 @@
             <span class="status-indicator" id="consensusDot" style="background: var(--success);"></span>
             <span id="consensusText">CONSENSUS: QUORUM COMMITTED</span>
           </div>
+          <div class="fleet-badge" id="downstreamBadge" title="Downstream Effect Protocol & 2PC Outcome-Unknown (ADR 0073)">
+            <span class="status-indicator" id="downstreamDot" style="background: var(--success);"></span>
+            <span id="downstreamText">DOWNSTREAM: RECONCILED</span>
+          </div>
         </div>
 
 
@@ -4843,6 +4847,28 @@
       }
       refreshConsensusStatus();
       setInterval(refreshConsensusStatus, 10000);
+
+      async function refreshDownstreamStatus() {
+        var downstreamDot = document.getElementById('downstreamDot');
+        var downstreamText = document.getElementById('downstreamText');
+        try {
+          var res = await fetch('/api/v1/downstream-effects/status');
+          if (res.ok) {
+            var data = await res.json();
+            var unkCount = data.outcome_unknown_count || 0;
+            if (downstreamDot) {
+              downstreamDot.style.background = unkCount > 0 ? 'var(--warning)' : 'var(--success)';
+            }
+            if (downstreamText) {
+              var badgeStr = unkCount > 0 ? ('DOWNSTREAM: ' + unkCount + ' UNKNOWN') : 'DOWNSTREAM: RECONCILED';
+              downstreamText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshDownstreamStatus();
+      setInterval(refreshDownstreamStatus, 10000);
+
 
 
 

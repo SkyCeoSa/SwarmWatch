@@ -477,6 +477,20 @@ def main(argv=None):
     consensus_parser.add_argument("--reason", default="cli_consensus_action", help="Reason for trip or release")
     consensus_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    downstream_parser = subparsers.add_parser("downstream", help="Downstream Effect Protocol & 2PC Outcome-Unknown (ADR 0073)")
+    downstream_parser.add_argument("action", choices=["prepare", "dispatch", "ack", "reconcile", "status"], default="status", nargs="?", help="Action (prepare, dispatch, ack, reconcile, status)")
+    downstream_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
+    downstream_parser.add_argument("--effect-key", default="cli:effect:sample", help="Target effect key")
+    downstream_parser.add_argument("--target-uri", default="https://api.mock/action", help="Target service URI")
+    downstream_parser.add_argument("--payload", default="{}", help="JSON payload")
+    downstream_parser.add_argument("--epoch", type=int, default=1, help="Monotonic fencing epoch")
+    downstream_parser.add_argument("--contract", choices=["DOWNSTREAM_FENCED", "UNCOORDINATED"], default="DOWNSTREAM_FENCED", help="Idempotency contract")
+    downstream_parser.add_argument("--effect-id", default=None, help="Effect ID to dispatch, ack, or reconcile")
+    downstream_parser.add_argument("--confirmation-id", default="tx_cli_ack", help="Downstream confirmation ID")
+    downstream_parser.add_argument("--digest", default="sha256:ack", help="Result digest")
+    downstream_parser.add_argument("--found", action="store_true", default=True, help="Reconciliation probe found flag")
+    downstream_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -4385,6 +4399,117 @@ def main(argv=None):
                 print(f"  Tenant ID:          {committed.get('tenant_id')}")
                 print(f"  Tenant State:       {committed.get('state')}")
                 print(f"  Available Cost:     ${committed.get('available_cost', 0.0):.4f}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "downstream":
+        from swarmwatch.downstream_effect import (
+            global_downstream_effect_boundary,
+            DownstreamReceipt,
+            StaleEpochError,
+            UncoordinatedRetryBlockedError,
+            EffectNotFoundError,
+        )
+
+        if args.action == "prepare":
+            try:
+                payload_dict = json.loads(args.payload)
+            except Exception:
+                payload_dict = {"raw": args.payload}
+            prep = global_downstream_effect_boundary.prepare(
+                tenant_id=args.tenant,
+                effect_key=args.effect_key,
+                target_uri=args.target_uri,
+                payload=payload_dict,
+                epoch=args.epoch,
+                contract=args.contract,
+            )
+            data = prep.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"[Downstream Effect] Prepared {prep.effect_id} (Key: {prep.idempotency_key}, Epoch: {prep.epoch}, Status: {prep.status})")
+            sys.exit(0)
+
+        elif args.action == "dispatch":
+            if not args.effect_id:
+                print("Error: --effect-id is required for dispatch.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                res = global_downstream_effect_boundary.dispatch(
+                    args.effect_id,
+                    lambda eff: {"ok": True, "confirmation_id": args.confirmation_id},
+                )
+                data = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    status_colored = "\033[92mDISPATCHED\033[0m" if not res.is_outcome_unknown else "\033[93mOUTCOME_UNKNOWN\033[0m"
+                    print(f"[Downstream Effect] Dispatched {res.effect_id} -> {status_colored}")
+                sys.exit(0 if not res.is_outcome_unknown else 1)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "ack":
+            if not args.effect_id:
+                print("Error: --effect-id is required for ack.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                receipt = DownstreamReceipt(
+                    downstream_confirmation_id=args.confirmation_id,
+                    result_digest=args.digest,
+                )
+                res = global_downstream_effect_boundary.acknowledge(
+                    effect_id=args.effect_id,
+                    receipt=receipt,
+                    epoch=args.epoch,
+                )
+                data = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print(f"\033[92m[Downstream Effect] Effect {res.effect_id} COMMITTED (Confirmation: {receipt.downstream_confirmation_id})\033[0m")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "reconcile":
+            if not args.effect_id:
+                print("Error: --effect-id is required for reconcile.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                def probe_fn(eid, idem):
+                    if args.found:
+                        return {"found": True, "downstream_id": args.confirmation_id, "digest": args.digest}
+                    return {"found": False}
+
+                res = global_downstream_effect_boundary.reconcile(args.effect_id, probe_fn)
+                data = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    st = f"\033[92m{res.status}\033[0m" if res.status == "COMMITTED" else f"\033[91m{res.status}\033[0m"
+                    print(f"[Downstream Effect] Reconciled {res.effect_id} -> {st} (Attempts: {res.probe_attempts})")
+                sys.exit(0 if res.reconciled else 1)
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "status":
+            status = global_downstream_effect_boundary.get_status()
+            if args.format == "json":
+                print(json.dumps(status, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DOWNSTREAM EFFECT BOUNDARY (ADR 0073)              |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Tracked Effects:    {status.get('total_effects', 0)}")
+                print(f"  Prepared (Unsent):        {status.get('prepared_count', 0)}")
+                print(f"  In-Flight Dispatched:     {status.get('dispatched_count', 0)}")
+                print(f"  Committed (Verified):     \033[92m{status.get('committed_count', 0)}\033[0m")
+                print(f"  Outcome Unknown (Fence):  \033[93m{status.get('outcome_unknown_count', 0)}\033[0m")
+                print(f"  Aborted / Reconciled:     \033[91m{status.get('aborted_count', 0)}\033[0m")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

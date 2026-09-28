@@ -197,7 +197,7 @@ class TelemetryTransport:
         if self._loop and not self._loop.is_closed():
             self._loop.close()
 
-    def flush(self, timeout: float = 2.0) -> None:
+    def flush(self, timeout: float = 10.0) -> None:
         """
         Synchronously flushes all pending spans currently in the queue and worker batch.
         """

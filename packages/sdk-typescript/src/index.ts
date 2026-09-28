@@ -758,6 +758,28 @@ export {
   globalConsensusAuthority,
 } from "./consensus_authority.ts";
 
+// Downstream Effect Protocol & 2PC Outcome-Unknown Reconciliation (Seam 62 / ADR 0073)
+export type {
+  EffectPhaseType,
+  DownstreamIdempotencyContractType,
+  PrepareOptions,
+} from "./downstream_effect.ts";
+export {
+  EffectPhase,
+  DownstreamIdempotencyContract,
+  UncoordinatedRetryBlockedError,
+  StaleEpochError,
+  EffectNotFoundError,
+  DownstreamReceipt,
+  EffectPreparation,
+  DispatchResult,
+  AcknowledgeResult,
+  ReconciliationResult,
+  DownstreamEffectBoundary,
+  globalDownstreamEffectBoundary,
+} from "./downstream_effect.ts";
+
+
 
 
 

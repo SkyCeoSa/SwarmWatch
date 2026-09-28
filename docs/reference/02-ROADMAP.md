@@ -492,18 +492,28 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Linearizable read state verification over quorum reads ($Q_{\text{read}} \ge \lfloor N / 2 \rfloor + 1$).
   - Dual-SDK parity across Python (`swarmwatch.consensus_authority`) and TypeScript (`@swarmwatch/sdk/src/consensus_authority.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/consensus/reserve`, `POST /api/v1/consensus/commit`, `POST /api/v1/consensus/release`, `POST /api/v1/consensus/trip`, `POST /api/v1/consensus/rearm`, `GET /api/v1/consensus/state/{tenant_id}`, `GET /api/v1/consensus/status`), CLI subcommand (`swarmwatch consensus reserve|commit|release|trip|rearm|status`), and Web Console `#consensusBadge` widget.
-- **Upcoming Roadmap (Seams 62–70+)**:
-  - **Seam 62**: Downstream Effect Protocol & 2PC Outcome-Unknown Reconciliation (ADR 0073).
-  - **Seam 63**: Deterministic Cryptographic Nonce & Idempotency Key Vault (ADR 0074).
-  - **Seam 64**: Formal SMT Model Checking Bridge (Z3 / CVC5) (ADR 0075).
-  - **Seam 65**: Comprehensive Multi-Agent Blast Radius & Cascading Fault Containment (ADR 0076).
-  - **Seam 66**: High-Fidelity Multi-Agent Trace Reconstruction & Causal Backtracking (ADR 0077).
-  - **Seam 67**: Dynamic Epistemic Trust Scoring & Reputation Decay (ADR 0078).
-  - **Seam 68**: Multi-Tenant Differential Privacy Budget Pooling & Cross-Tenant Analytics (ADR 0079).
-  - **Seam 69**: Distributed Sharded Causal Ingestion Mesh & Adaptive Backpressure (ADR 0080).
-  - **Seam 70**: Autonomous Self-Healing Remediation Verifier & Canary Rollout Gate (ADR 0081).
+- **Downstream Effect Protocol & 2PC Outcome-Unknown Reconciliation (Seam 62 & ADR 0073 Dual-SDK Parity)**:
+  - Deep module `DownstreamEffectBoundary` implementing formal 2-phase commit semantics across external downstream network boundaries.
+  - Explicit 5-state lifecycle (`PREPARED`, `DISPATCHED`, `COMMITTED`, `OUTCOME_UNKNOWN`, `ABORTED`).
+  - Zero false exactly-once claims: network timeouts, drops, or transport failures fail closed into `OUTCOME_UNKNOWN`.
+  - Uncoordinated downstream services strictly block blind retries fail closed (`UncoordinatedRetryBlockedError`).
+  - Downstream-fenced services enforce retry with identical idempotency key and monotonic epoch fence.
+  - Active reconciliation probe protocol (`reconcile()`) executing idempotent status queries to verify commit or abort.
+  - Dual-SDK parity across Python (`swarmwatch.downstream_effect`) and TypeScript (`@swarmwatch/sdk/src/downstream_effect.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/downstream-effects/prepare`, `POST /api/v1/downstream-effects/dispatch`, `POST /api/v1/downstream-effects/acknowledge`, `POST /api/v1/downstream-effects/reconcile`, `GET /api/v1/downstream-effects/{effect_id}`, `GET /api/v1/downstream-effects/status`), CLI subcommand (`swarmwatch downstream prepare|dispatch|ack|reconcile|status`), and Web Console `#downstreamBadge` widget.
+- **Upcoming Roadmap (Seams 63–70+)**:
+  - **Seam 63**: Critical Evidence Spool (ADR 0074 / NIST SP 800-53 Write-Ahead Journal).
+  - **Seam 64**: Independent Root Witness (ADR 0075 / Asymmetric Checkpoint Signer).
+  - **Seam 65**: Tenant Identity Boundary & Attenuated Capability Tokens (ADR 0076).
+  - **Seam 66**: Effect-Aware Compensation Algebra (ADR 0077 / Reversible/Compensatable/Irreversible).
+  - **Seam 67**: Durable Dataset-Level Privacy Accountant (ADR 0078 / Quorum (ε,δ) Ledger).
+  - **Seam 68**: Protocol Interoperability Lab (ADR 0079 / OTLP/gRPC Conformance Matrix).
+  - **Seam 69**: Verifiable Release Provenance (ADR 0080 / Signed Artifact DAG).
+  - **Seam 70**: Datacenter Failure Exercise (ADR 0081 / Region Loss Fault Injection).
+  - **Seam 71+**: Autonomous Action Gateway (ADR 0082 / Governed Downstream Agent Execution).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (492 tests) and TypeScript (390 tests) runtimes (882 total tests).
+  - Full local test suite passing 100% across Python (502 tests) and TypeScript (397 tests) runtimes (899 total tests).
+
 
 
 
