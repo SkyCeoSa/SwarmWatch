@@ -125,7 +125,18 @@ flowchart TD
 
 ---
 
-## ۵. نتیجه‌گیری و گام بعدی عملیاتی (Next Immediate Action)
+## ۵. ساختار مخزن نامزدها و شواهد میدانی (The Research Nominees Vault)
+کلیه نامزدها و مستندات میدانی در پوشه `docs/research_iran/vault/` به تفکیک دوره‌ها آرشیو شده‌اند:
+- [**`ROUND_01_SHORT_TERM_NOMINEES.md`**](file:///C:/Users/skyrocket/.gemini/antigravity/scratch/swarmwatch/docs/research_iran/vault/ROUND_01_SHORT_TERM_NOMINEES.md): شناسنامه و نمرات تفصیلی تمام ۱۰۰ ایده دور اول
+- [**`ROUND_02_MEDIUM_TERM_NOMINEES.md`**](file:///C:/Users/skyrocket/.gemini/antigravity/scratch/swarmwatch/docs/research_iran/vault/ROUND_02_MEDIUM_TERM_NOMINEES.md): شناسنامه و نمرات تفصیلی تمام ۱۰۰ ایده دور دوم
+- [**`ROUND_03_LONG_TERM_EVERGREEN_NOMINEES.md`**](file:///C:/Users/skyrocket/.gemini/antigravity/scratch/swarmwatch/docs/research_iran/vault/ROUND_03_LONG_TERM_EVERGREEN_NOMINEES.md): شناسنامه و نمرات تفصیلی تمام ۱۰۰ ایده دور سوم
+- [**`ROUND_04_YOUTUBE_AND_COMMUNITY_FIELD_EVIDENCE.md`**](file:///C:/Users/skyrocket/.gemini/antigravity/scratch/swarmwatch/docs/research_iran/vault/ROUND_04_YOUTUBE_AND_COMMUNITY_FIELD_EVIDENCE.md): شواهد میدانی استخراج‌شده از ویدیوها و کامنت‌های کاربران
+- [**`ROUND_05_FREELANCE_MARKET_MONETIZATION_EVIDENCE.md`**](file:///C:/Users/skyrocket/.gemini/antigravity/scratch/swarmwatch/docs/research_iran/vault/ROUND_05_FREELANCE_MARKET_MONETIZATION_EVIDENCE.md): شواهد مالی و مبالغ پرداختی قراردادها در پلتفرم‌های فریلنسری ایران
+- [**`MASTER_NOMINEES_ARCHIVE.json`**](file:///C:/Users/skyrocket/.gemini/antigravity/scratch/swarmwatch/docs/research_iran/vault/MASTER_NOMINEES_ARCHIVE.json): پایگاه داده ساختاریافته ماشین‌خوان از تمامی ۳۰۰ کاندیدا
+
+---
+
+## ۶. نتیجه‌گیری و گام بعدی عملیاتی (Next Immediate Action)
 پژوهش بازار ایران با بالاترین استاندارد تحلیلی و عبور از مسلخ وکیل مدافع شیطان در هر ۳ لوپ زمانی تکمیل شد:
 - **لوپ اول (کوتاه‌مدت):** ثبت ۱۰۰ ایده، شناسایی فرصت‌های داغ دایرکت و قیمت‌گذاری ترب.
 - **لوپ دوم (میان‌مدت):** ثبت ۱۰۰ ایده، شناسایی تقاضاهای اثبات‌شده انبارداری چندکاناله و سامانه مودیان.

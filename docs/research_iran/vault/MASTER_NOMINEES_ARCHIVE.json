@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "total_rounds": 3,
+    "total_candidates": 300,
+    "generated_at": "2026-09-28T13:00:00Z",
+    "methodology": "Devils Advocate 4-Gate Execution Crucible"
+  },
+  "rounds": {
+    "round_1_short_term": {
+      "duration": "30_days",
+      "count": 100,
+      "survivors": 6
+    },
+    "round_2_medium_term": {
+      "duration": "90_to_180_days",
+      "count": 100,
+      "survivors": 5
+    },
+    "round_3_long_term_evergreen": {
+      "duration": "1_to_2_years",
+      "count": 100,
+      "survivors": 5
+    }
+  },
+  "top_10_champions": [
+    {
+      "rank": 1,
+      "name": "MultiSync Hub & Torob Guard",
+      "score": 48.1,
+      "category": "E-Commerce Ops"
+    },
+    {
+      "rank": 2,
+      "name": "Moadian Universal Fiscal Bridge",
+      "score": 47.7,
+      "category": "Tax & Accounting"
+    },
+    {
+      "rank": 3,
+      "name": "Multi-PSP Payment Switcher & Shield",
+      "score": 47.6,
+      "category": "Payment Infra"
+    },
+    {
+      "rank": 4,
+      "name": "FakeReceipt Shield & OCR API",
+      "score": 47.3,
+      "category": "Anti-Fraud"
+    },
+    {
+      "rank": 5,
+      "name": "Divar Deal-Hunter & Arbitrage",
+      "score": 46.4,
+      "category": "Market Intelligence"
+    },
+    {
+      "rank": 6,
+      "name": "Omnichannel Pattern SMS Router",
+      "score": 45.8,
+      "category": "Messaging"
+    },
+    {
+      "rank": 7,
+      "name": "Iran AI Reverse Proxy Gateway",
+      "score": 45.0,
+      "category": "Developer Infra"
+    },
+    {
+      "rank": 8,
+      "name": "Persian B2B RAG Knowledge Hub",
+      "score": 44.7,
+      "category": "Enterprise Support"
+    },
+    {
+      "rank": 9,
+      "name": "CrossPost Telegram-to-Bale/Eitaa",
+      "score": 44.6,
+      "category": "Social Media"
+    },
+    {
+      "rank": 10,
+      "name": "B2B Industrial Machinery Alerts",
+      "score": 44.4,
+      "category": "B2B Procurement"
+    }
+  ]
+}
