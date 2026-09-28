@@ -232,6 +232,7 @@ export class SafetyAuthority {
     costEstimate: number = 0.0,
     tokensEstimate: number = 0,
     timeoutMs: number = 5000.0,
+    permitId?: string,
   ): SafetyPermit {
     // 1. Fail-closed partition check
     if (this._failClosedPartitionMode) {
@@ -307,12 +308,12 @@ export class SafetyAuthority {
     quota.reservedCost += costEstimate;
     quota.reservedTokens += tokensEstimate;
 
-    const permitId = `pmt-${crypto.randomBytes(6).toString("hex")}`;
+    const finalPermitId = permitId || `pmt-${crypto.randomBytes(6).toString("hex")}`;
     const now = Date.now() / 1000.0;
     const expiresAt = now + Math.max(100.0, timeoutMs) / 1000.0;
 
     const permit = new SafetyPermit({
-      permitId,
+      permitId: finalPermitId,
       tenantId,
       epoch: this._epoch,
       action,
@@ -323,7 +324,7 @@ export class SafetyAuthority {
       expiresAt,
     });
 
-    this._activePermits.set(permitId, permit);
+    this._activePermits.set(finalPermitId, permit);
     return permit;
   }
 
@@ -392,8 +393,12 @@ export class SafetyAuthority {
     return this._epoch;
   }
 
-  public rearm(tenantId?: string): number {
-    this._epoch += 1;
+  public rearm(tenantId?: string, newEpoch?: number): number {
+    if (newEpoch !== undefined && newEpoch > this._epoch) {
+      this._epoch = newEpoch;
+    } else {
+      this._epoch += 1;
+    }
     if (tenantId) {
       const quota = this.getOrCreateQuota(tenantId);
       quota.state = AuthorityState.NOMINAL;

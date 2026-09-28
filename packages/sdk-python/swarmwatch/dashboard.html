@@ -1717,6 +1717,10 @@
             <span class="status-indicator" id="acceptanceDot" style="background: var(--success);"></span>
             <span id="acceptanceText">ACCEPTANCE: CERTIFIED (6/6)</span>
           </div>
+          <div class="fleet-badge" id="consensusBadge" title="Consensus Authority Binding & Linearizable Quorum Fencing (ADR 0072)">
+            <span class="status-indicator" id="consensusDot" style="background: var(--success);"></span>
+            <span id="consensusText">CONSENSUS: QUORUM COMMITTED</span>
+          </div>
         </div>
 
 
@@ -4811,6 +4815,34 @@
       }
       refreshAcceptanceStatus();
       setInterval(refreshAcceptanceStatus, 12000);
+
+      // ADR 0072: Consensus Authority Binding & Linearizable Quorum Fencing
+      // -------------------------------------------------------------------
+      async function refreshConsensusStatus() {
+        var consensusDot = document.getElementById('consensusDot');
+        var consensusText = document.getElementById('consensusText');
+        try {
+          var res = await fetch('/api/v1/consensus/status');
+          if (res.ok) {
+            var data = await res.json();
+            var hasQuorum = Boolean(data.has_quorum);
+            if (consensusDot) {
+              consensusDot.style.background = hasQuorum ? 'var(--success)' : 'var(--danger)';
+            }
+            if (consensusText) {
+              var ep = data.epoch !== undefined ? data.epoch : 1;
+              var qStr = hasQuorum ? 'QUORUM OK' : 'SPLIT BRAIN';
+              var badgeStr = ('CONSENSUS: ' + qStr + ' (E' + ep + ')').toUpperCase();
+              if (badgeStr.length > 30) {
+                badgeStr = ('CONSENSUS: ' + qStr).toUpperCase();
+              }
+              consensusText.textContent = badgeStr;
+            }
+          }
+        } catch (e) {}
+      }
+      refreshConsensusStatus();
+      setInterval(refreshConsensusStatus, 10000);
 
 
 

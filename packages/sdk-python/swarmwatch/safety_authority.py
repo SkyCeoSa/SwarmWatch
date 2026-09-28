@@ -224,6 +224,7 @@ class SafetyAuthority:
         cost_estimate: float = 0.0,
         tokens_estimate: int = 0,
         timeout_ms: float = 5000.0,
+        permit_id: Optional[str] = None,
     ) -> SafetyPermit:
         """
         Atomically requests and reserves an execution permit under the current epoch.
@@ -299,7 +300,8 @@ class SafetyAuthority:
             quota.reserved_cost += cost_estimate
             quota.reserved_tokens += tokens_estimate
 
-            permit_id = f"pmt-{uuid.uuid4().hex[:12]}"
+            if not permit_id:
+                permit_id = f"pmt-{uuid.uuid4().hex[:12]}"
             now = time.time()
             expires_at = now + (max(100.0, timeout_ms) / 1000.0)
 
@@ -397,12 +399,15 @@ class SafetyAuthority:
             self._active_permits.clear()
             return self._epoch
 
-    def rearm(self, tenant_id: Optional[str] = None) -> int:
+    def rearm(self, tenant_id: Optional[str] = None, new_epoch: Optional[int] = None) -> int:
         """
         Re-arms the safety authority back to NOMINAL, incrementing fencing epoch.
         """
         with self._lock:
-            self._epoch += 1
+            if new_epoch is not None and int(new_epoch) > self._epoch:
+                self._epoch = int(new_epoch)
+            else:
+                self._epoch += 1
             if tenant_id:
                 quota = self.get_or_create_quota(tenant_id)
                 quota.state = AuthorityState.NOMINAL

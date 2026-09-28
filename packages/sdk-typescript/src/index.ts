@@ -740,6 +740,24 @@ export {
   globalAcceptanceHarness,
 } from "./acceptance.ts";
 
+// Consensus Authority Binding & Linearizable Quorum Fencing (Seam 61 / ADR 0072)
+export type {
+  ConsensusPermitStatusEnum,
+  ConsensusLogEntryOptions,
+  ConsensusPermitResultOptions,
+  CommittedTenantStateOptions,
+} from "./consensus_authority.ts";
+export {
+  ConsensusPermitStatus,
+  ConsensusLogEntry,
+  ConsensusPermitResult,
+  CommittedTenantState,
+  ConsensusTripResult,
+  ConsensusRearmResult,
+  ConsensusAuthorityBinding,
+  globalConsensusAuthority,
+} from "./consensus_authority.ts";
+
 
 
 

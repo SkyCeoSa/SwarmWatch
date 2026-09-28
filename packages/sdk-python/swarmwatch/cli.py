@@ -467,6 +467,16 @@ def main(argv=None):
     acceptance_parser.add_argument("--strict", action="store_true", help="Exit code 1 if any gate is rejected")
     acceptance_parser.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Output format (default: terminal)")
 
+    consensus_parser = subparsers.add_parser("consensus", help="Consensus Authority Binding & Linearizable Quorum Fencing")
+    consensus_parser.add_argument("action", choices=["reserve", "commit", "release", "trip", "rearm", "status"], default="status", nargs="?", help="Consensus action (reserve, commit, release, trip, rearm, status)")
+    consensus_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID (default: 'default')")
+    consensus_parser.add_argument("--action-name", default="agent_turn", help="Agent action name")
+    consensus_parser.add_argument("--cost", type=float, default=0.0, help="Estimated cost budget")
+    consensus_parser.add_argument("--tokens", type=int, default=0, help="Estimated token budget")
+    consensus_parser.add_argument("--permit-id", default=None, help="Permit ID to commit or release")
+    consensus_parser.add_argument("--reason", default="cli_consensus_action", help="Reason for trip or release")
+    consensus_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -4282,6 +4292,99 @@ def main(argv=None):
                 print(f"  Registered Gates:   {data.get('registered_gates_count')}")
                 print(f"  Latest Report ID:   {data.get('latest_report_id') or 'None'}")
                 print(f"  Latest Attestation: {data.get('latest_attestation_id') or 'None'}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "consensus":
+        from swarmwatch.consensus_authority import global_consensus_authority
+
+        if args.action == "reserve":
+            res = global_consensus_authority.reserve(
+                tenant_id=args.tenant,
+                action=args.action_name,
+                cost_estimate=args.cost,
+                tokens_estimate=args.tokens,
+            )
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                verdict = "\033[92mACCEPTED\033[0m" if res.is_accepted else f"\033[91m{res.status}\033[0m"
+                print(f"[Consensus Authority] Permit: {res.permit_id} -> {verdict} (Epoch: {res.epoch}, Quorum: {res.quorum_achieved})")
+            sys.exit(0 if res.is_accepted else 1)
+
+        elif args.action == "commit":
+            if not args.permit_id:
+                print("Error: --permit-id is required for commit.", file=sys.stderr)
+                sys.exit(1)
+            res = global_consensus_authority.commit(
+                permit_id=args.permit_id,
+                actual_cost=args.cost,
+                actual_tokens=args.tokens,
+            )
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"[Consensus Authority] Permit {res.permit_id} committed (Quorum: {res.quorum_achieved})")
+            sys.exit(0 if res.is_accepted else 1)
+
+        elif args.action == "release":
+            if not args.permit_id:
+                print("Error: --permit-id is required for release.", file=sys.stderr)
+                sys.exit(1)
+            res = global_consensus_authority.release(
+                permit_id=args.permit_id,
+                reason=args.reason,
+            )
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"[Consensus Authority] Permit {res.permit_id} released (Quorum: {res.quorum_achieved})")
+            sys.exit(0 if res.is_accepted else 1)
+
+        elif args.action == "trip":
+            res = global_consensus_authority.trip(
+                tenant_id=args.tenant,
+                reason=args.reason,
+            )
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\033[91m[SwarmWatch] Consensus Circuit TRIPPED for tenant {args.tenant} (Epoch: {res.epoch}, Quorum: {res.quorum_achieved})\033[0m")
+            sys.exit(0 if res.tripped else 1)
+
+        elif args.action == "rearm":
+            res = global_consensus_authority.rearm(
+                tenant_id=args.tenant,
+            )
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"\033[92m[SwarmWatch] Consensus Circuit RE-ARMED for tenant {args.tenant} (New Epoch: {res.new_epoch}, Quorum: {res.quorum_achieved})\033[0m")
+            sys.exit(0 if res.rearmed else 1)
+
+        elif args.action == "status":
+            status = global_consensus_authority.export_status()
+            committed = global_consensus_authority.read_committed(args.tenant).to_dict()
+            data = {"cluster_status": status, "committed_state": committed}
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CONSENSUS AUTHORITY BINDING (ADR 0072)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Node ID:            {status.get('node_id')}")
+                print(f"  Epoch / Term:       {status.get('epoch')} / {status.get('term')}")
+                print(f"  Committed Index:    {status.get('committed_index')}")
+                print(f"  Quorum Required:    {status.get('quorum_required')}")
+                print(f"  Has Quorum:         \033[92m{status.get('has_quorum')}\033[0m")
+                print(f"  Cluster Nodes:      {', '.join(status.get('cluster_nodes', []))}")
+                print(f"  Tenant ID:          {committed.get('tenant_id')}")
+                print(f"  Tenant State:       {committed.get('state')}")
+                print(f"  Available Cost:     ${committed.get('available_cost', 0.0):.4f}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

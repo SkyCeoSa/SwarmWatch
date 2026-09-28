@@ -329,6 +329,13 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#acceptanceBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Multi-dimensional evaluation across Security, Interoperability, Loss, Latency, Dual-SDK Parity, and UI Craft; any gate regression triggers immediate fail-closed rejection (`ACCEPTANCE_REJECTED`); programmatic AST inspection of raw `dashboard.html` asserts palette `#080B11`, zero emojis, no neon glows, tabular numbers, and badge text length $\le 30$ chars uppercase; canonically hashed attestation receipts (`sw:acc:v1`); zero external LLM API calls; dual-SDK parity.
 
+61. **Consensus Authority Binding & Linearizable Quorum Fencing Seam (ADR 0072 Dual-SDK Parity)**:
+    - Primitives (Python): `ConsensusPermitStatus`, `ConsensusLogEntry`, `ConsensusPermitResult`, `CommittedTenantState`, `ConsensusTripResult`, `ConsensusRearmResult`, `ConsensusAuthorityBinding`, `global_consensus_authority` (`consensus_authority.py`), server endpoints `POST /api/v1/consensus/reserve`, `POST /api/v1/consensus/commit`, `POST /api/v1/consensus/release`, `POST /api/v1/consensus/trip`, `POST /api/v1/consensus/rearm`, `GET /api/v1/consensus/state/{tenant_id}`, `GET /api/v1/consensus/status` (`server.py`), CLI subcommand `swarmwatch consensus` (`cli.py`).
+    - Primitives (TypeScript): `ConsensusPermitStatus`, `ConsensusLogEntry`, `ConsensusPermitResult`, `CommittedTenantState`, `ConsensusTripResult`, `ConsensusRearmResult`, `ConsensusAuthorityBinding`, `globalConsensusAuthority` (`consensus_authority.ts`), exported via `index.ts`.
+    - Primitives (Console): `#consensusBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Formal Replicated State Machine (RSM) quorum model $Q \ge \lfloor N / 2 \rfloor + 1$ ensuring consensus-backed linearizable safety permit reservation, commit, release, trip, and rearm; minority partitions strictly fail-closed (`MINORITY_PARTITION`); split-brain leaders holding obsolete epochs are fenced out fail-closed (`STALE_EPOCH`); reads verified linearizable across quorum ($Q_{\text{read}} \ge \lfloor N / 2 \rfloor + 1$); sub-50 microsecond execution ($<50\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
+
 
 
 

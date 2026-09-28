@@ -177,6 +177,10 @@ from swarmwatch.safety_authority import (
     SafetyAuthority,
     global_safety_authority,
 )
+from swarmwatch.consensus_authority import (
+    global_consensus_authority,
+    ConsensusAuthorityBinding,
+)
 from swarmwatch.effect_ledger import (
     ClaimStatus,
     EffectReceipt,
@@ -5559,6 +5563,64 @@ def create_app(
     async def safety_status_endpoint(tenant_id: str = "default"):
         """Returns comprehensive authoritative status and active permit counts."""
         return global_safety_authority.status(tenant_id=tenant_id)
+
+    @app.get("/api/v1/consensus/status")
+    async def consensus_status_endpoint():
+        """Returns cluster consensus health, quorum metrics, and RSM state."""
+        return global_consensus_authority.export_status()
+
+    @app.get("/api/v1/consensus/read-committed")
+    async def consensus_read_committed_endpoint(tenant_id: str = "default"):
+        """Returns linearizable state reflected up to highest quorum-committed index."""
+        return global_consensus_authority.read_committed(tenant_id).to_dict()
+
+    @app.post("/api/v1/consensus/reserve")
+    async def consensus_reserve_endpoint(req: SafetyReserveRequest):
+        """Atomically proposes and quorum-commits an execution permit reservation."""
+        res = global_consensus_authority.reserve(
+            tenant_id=req.tenant_id,
+            action=req.action,
+            cost_estimate=req.cost_estimate,
+            tokens_estimate=req.tokens_estimate,
+            timeout_ms=req.timeout_ms,
+        )
+        return res.to_dict()
+
+    @app.post("/api/v1/consensus/commit")
+    async def consensus_commit_endpoint(req: SafetyCommitRequest):
+        """Quorum-commits execution outcome and settles budget."""
+        res = global_consensus_authority.commit(
+            permit_id=req.permit_id,
+            actual_cost=req.actual_cost,
+            actual_tokens=req.actual_tokens,
+        )
+        return res.to_dict()
+
+    @app.post("/api/v1/consensus/release")
+    async def consensus_release_endpoint(req: SafetyReleaseRequest):
+        """Releases an unexecuted permit reservation back to quota."""
+        res = global_consensus_authority.release(
+            permit_id=req.permit_id,
+            reason=req.reason,
+        )
+        return res.to_dict()
+
+    @app.post("/api/v1/consensus/trip")
+    async def consensus_trip_endpoint(req: SafetyTripRequest):
+        """Quorum-trips the tenant circuit breaker."""
+        res = global_consensus_authority.trip(
+            tenant_id=req.tenant_id,
+            reason=req.reason,
+        )
+        return res.to_dict()
+
+    @app.post("/api/v1/consensus/rearm")
+    async def consensus_rearm_endpoint(req: SafetyRearmRequest):
+        """Quorum-rearms tenant circuit and advances monotonic epoch."""
+        res = global_consensus_authority.rearm(
+            tenant_id=req.tenant_id,
+        )
+        return res.to_dict()
 
     @app.post("/api/v1/effects/claim")
     async def effect_claim_endpoint(req: EffectClaimRequest):

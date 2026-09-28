@@ -460,6 +460,14 @@ __all__ = [
     "AcceptanceAttestation",
     "AcceptanceHarness",
     "global_acceptance_harness",
+    "ConsensusPermitStatus",
+    "ConsensusLogEntry",
+    "ConsensusPermitResult",
+    "CommittedTenantState",
+    "ConsensusTripResult",
+    "ConsensusRearmResult",
+    "ConsensusAuthorityBinding",
+    "global_consensus_authority",
 ]
 
 
@@ -807,6 +815,16 @@ from swarmwatch.acceptance import (
     AcceptanceAttestation,
     AcceptanceHarness,
     global_acceptance_harness,
+)
+from swarmwatch.consensus_authority import (
+    ConsensusPermitStatus,
+    ConsensusLogEntry,
+    ConsensusPermitResult,
+    CommittedTenantState,
+    ConsensusTripResult,
+    ConsensusRearmResult,
+    ConsensusAuthorityBinding,
+    global_consensus_authority,
 )
 
 

@@ -845,6 +845,20 @@ _Avoid_: Hook call, function callback, middleware run
 - **AcceptanceProfile**: A named configuration preset (`quick`, `standard`, `production`, `enterprise`) defining the scenario matrix and strictness levels for acceptance gates.
   _Avoid_: Run mode, test env, suite config
 
+---
+
+### Consensus Authority Binding & Linearizable Quorum Fencing (Seam 61 / ADR 0072)
+- **ConsensusAuthorityBinding**: The deep module binding execution permits and tenant budgets to a linearizable replicated state machine requiring majority quorum consensus.
+  _Avoid_: Cluster coordinator, leader election wrapper, consensus proxy, distributed lock manager
+- **QuorumCommitment**: The formal guarantee that a permit reservation, commitment, circuit trip, or re-arm is acknowledged by a majority quorum $Q \ge \lfloor N / 2 \rfloor + 1$ before state mutation.
+  _Avoid_: Majority vote, cluster ack, multi-node approval
+- **ConsensusPermitResult**: The cryptographic outcome of a proposed permit operation detailing quorum attainment, committed log index, and monotonic epoch.
+  _Avoid_: Permit response, reservation status, decision object
+- **MinorityFailClosed**: The strict distributed safety invariant mandating that any node in a minority network partition immediately rejects mutation requests without corrupting state.
+  _Avoid_: Split-brain drop, partition timeout, disconnect error
+- **LinearizableReadState**: An authoritative tenant budget and trip evaluation reflecting only state up to the highest quorum-committed index.
+  _Avoid_: Cached state, uncommitted read, dirty read
+
 
 
 

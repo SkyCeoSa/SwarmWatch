@@ -485,8 +485,26 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Cryptographically hashed attestation receipts (`AcceptanceAttestation`) with domain tag `sw:acc:v1`.
   - Dual-SDK parity across Python (`swarmwatch.acceptance`) and TypeScript (`@swarmwatch/sdk/src/acceptance.ts`) strictly complying with Node 22 type-stripping rules.
   - Control plane REST endpoints (`POST /api/v1/acceptance/run`, `POST /api/v1/acceptance/attest`, `POST /api/v1/acceptance/verify-attestation`, `GET /api/v1/acceptance/audit-ui`, `GET /api/v1/acceptance/status`), CLI subcommand (`swarmwatch acceptance run|attest|audit-ui|status`), and Web Console `#acceptanceBadge` widget.
+- **Consensus Authority Binding & Linearizable Quorum Fencing (Seam 61 & ADR 0072 Dual-SDK Parity)**:
+  - Deep module `ConsensusAuthorityBinding` implementing formal Replicated State Machine (RSM) quorum model $Q \ge \lfloor N / 2 \rfloor + 1$.
+  - Consensus-backed linearizable safety permit reservation, commit, release, trip, and rearm.
+  - Minority partitions strictly fail closed (`MINORITY_PARTITION`); split-brain leaders presenting stale epochs are rejected fail closed (`STALE_EPOCH`).
+  - Linearizable read state verification over quorum reads ($Q_{\text{read}} \ge \lfloor N / 2 \rfloor + 1$).
+  - Dual-SDK parity across Python (`swarmwatch.consensus_authority`) and TypeScript (`@swarmwatch/sdk/src/consensus_authority.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/consensus/reserve`, `POST /api/v1/consensus/commit`, `POST /api/v1/consensus/release`, `POST /api/v1/consensus/trip`, `POST /api/v1/consensus/rearm`, `GET /api/v1/consensus/state/{tenant_id}`, `GET /api/v1/consensus/status`), CLI subcommand (`swarmwatch consensus reserve|commit|release|trip|rearm|status`), and Web Console `#consensusBadge` widget.
+- **Upcoming Roadmap (Seams 62–70+)**:
+  - **Seam 62**: Downstream Effect Protocol & 2PC Outcome-Unknown Reconciliation (ADR 0073).
+  - **Seam 63**: Deterministic Cryptographic Nonce & Idempotency Key Vault (ADR 0074).
+  - **Seam 64**: Formal SMT Model Checking Bridge (Z3 / CVC5) (ADR 0075).
+  - **Seam 65**: Comprehensive Multi-Agent Blast Radius & Cascading Fault Containment (ADR 0076).
+  - **Seam 66**: High-Fidelity Multi-Agent Trace Reconstruction & Causal Backtracking (ADR 0077).
+  - **Seam 67**: Dynamic Epistemic Trust Scoring & Reputation Decay (ADR 0078).
+  - **Seam 68**: Multi-Tenant Differential Privacy Budget Pooling & Cross-Tenant Analytics (ADR 0079).
+  - **Seam 69**: Distributed Sharded Causal Ingestion Mesh & Adaptive Backpressure (ADR 0080).
+  - **Seam 70**: Autonomous Self-Healing Remediation Verifier & Canary Rollout Gate (ADR 0081).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python and TypeScript runtimes.
+  - Full local test suite passing 100% across Python (492 tests) and TypeScript (390 tests) runtimes (882 total tests).
+
 
 
 

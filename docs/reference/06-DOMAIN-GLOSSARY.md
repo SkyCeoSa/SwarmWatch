@@ -1416,6 +1416,27 @@ _Avoid_: Signature file, stamp, approval token, certificate
 A named configuration preset (`quick`, `standard`, `production`, `enterprise`) defining the scenario matrix and strictness levels for acceptance gates.
 _Avoid_: Run mode, test env, suite config
 
+---
+
+### Consensus Authority Binding & Linearizable Quorum Fencing (Seam 61 / ADR 0072)
+
+**ConsensusAuthorityBinding**:
+The deep module coordinating quorum-based replication of `SafetyAuthority` transitions across a cluster of $N$ nodes using a replicated state machine (RSM) log and monotonic fencing epochs.
+_Avoid_: Raft wrapper, consensus manager, cluster coordinator, quorum proxy
+
+**QuorumCommitment**:
+The state where an operation (reserve, commit, release, trip, rearm) has been acknowledged by a strict majority of nodes $Q \ge \lfloor N / 2 \rfloor + 1$ before state transition is exposed as committed.
+_Avoid_: Majority write, cluster sync, node approval
+
+**MinorityFailClosed**:
+The fundamental safety invariant whereby any node or partition possessing fewer than a strict quorum of nodes immediately fails closed with `MINORITY_PARTITION` rather than issuing permits or mutations.
+_Avoid_: Partition error, split-brain drop, cluster disconnect
+
+**LinearizableReadState**:
+State read verified against a quorum of nodes ($Q_{\text{read}} \ge \lfloor N / 2 \rfloor + 1$) verifying that the reading node's epoch is current and no subsequent epoch has been established.
+_Avoid_: Fresh read, cluster get, live query
+
+
 
 
 
