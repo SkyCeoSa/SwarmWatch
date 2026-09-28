@@ -1725,6 +1725,10 @@
             <span class="status-indicator" id="downstreamDot" style="background: var(--success);"></span>
             <span id="downstreamText">DOWNSTREAM: RECONCILED</span>
           </div>
+          <div class="fleet-badge" id="evidenceBadge" title="Critical Evidence Spool & NIST SP 800-53 Write-Ahead Journal (ADR 0074)">
+            <span class="status-indicator" id="evidenceDot" style="background: var(--success);"></span>
+            <span id="evidenceText">EVIDENCE: SPOOL COMMITTED</span>
+          </div>
         </div>
 
 
@@ -4868,6 +4872,27 @@
       }
       refreshDownstreamStatus();
       setInterval(refreshDownstreamStatus, 10000);
+
+      async function refreshEvidenceStatus() {
+        var evidenceDot = document.getElementById('evidenceDot');
+        var evidenceText = document.getElementById('evidenceText');
+        try {
+          var res = await fetch('/api/v1/evidence/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'ACTIVE';
+            if (evidenceDot) {
+              evidenceDot.style.background = st === 'ACTIVE' ? 'var(--success)' : 'var(--danger)';
+            }
+            if (evidenceText) {
+              var badgeStr = st === 'ACTIVE' ? 'EVIDENCE: SPOOL COMMITTED' : ('EVIDENCE: ' + st);
+              evidenceText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEvidenceStatus();
+      setInterval(refreshEvidenceStatus, 10000);
 
 
 

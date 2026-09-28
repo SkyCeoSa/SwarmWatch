@@ -873,6 +873,20 @@ _Avoid_: Hook call, function callback, middleware run
 - **UncoordinatedRetryBlocked**: The safety invariant preventing blind retries against uncoordinated downstream APIs when in `OUTCOME_UNKNOWN` state.
   _Avoid_: Retry limit, blocked call, duplicate error
 
+---
+
+### Critical Evidence Spool & NIST SP 800-53 Write-Ahead Journal (Seam 63 / ADR 0074)
+- **EvidenceSpool**: The dedicated, write-ahead journal and buffer isolating safety-critical evidence (circuit trips, Byzantine quarantines, emergency halts, fence revocations, audit anchors) from general operational telemetry.
+  _Avoid_: Audit logger, trip recorder, log buffer, event sink
+- **DualTierDurability**: The formal architectural separation between Tier 0 (fail-closed, zero-drop safety evidence persisted via write-ahead journal) and Tier 1 (loss-aware, bounded operational telemetry with explicit drop accounting).
+  _Avoid_: Two-level logging, split telemetry, priority queue
+- **WriteAheadJournal**: An append-only durable journal using fixed framing, monotonic uint64 sequence numbers, CRC32 checksums, and continuous SHA-256 hash chains.
+  _Avoid_: Log file, transaction log, disk file, audit trace
+- **FailClosedAdmission**: The invariant halting execution with `EVIDENCE_JOURNAL_FULL` when safety journal storage capacity is exhausted, preventing unmonitored agent operation.
+  _Avoid_: Drop policy, rate limit, buffer overflow drop, silent discard
+- **CompletenessReceipt**: An immutable audit certificate proving contiguous, non-repudiable presence of all safety events in range $[1, N]$ with zero dropped critical records under NIST SP 800-53 Rev 5.
+  _Avoid_: Audit report, check result, verification log
+
 
 
 

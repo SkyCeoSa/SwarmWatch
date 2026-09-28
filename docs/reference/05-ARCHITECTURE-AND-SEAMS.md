@@ -341,6 +341,12 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#downstreamBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Explicit 2-phase commit semantics across downstream boundaries eliminating false exactly-once claims; network timeouts and transport errors fail-closed into `OUTCOME_UNKNOWN`; uncoordinated downstream APIs strictly reject blind retries (`UncoordinatedRetryBlockedError`); downstream-fenced APIs retry under identical idempotency key and epoch fence; active reconciliation probes determine final commit status; in-memory transitions $<25\mu\text{s}$ (audit SLO $<250\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
+63. **Critical Evidence Spool & NIST SP 800-53 Write-Ahead Journal Seam (ADR 0074 Dual-SDK Parity)**:
+    - Primitives (Python): `EvidenceRecordType`, `EvidenceSpoolFullException`, `EvidenceCorruptionException`, `SequenceGapException`, `JournalReceipt`, `FlushResult`, `RecoveryResult`, `CompletenessReceipt`, `EvidenceSpoolStatus`, `EvidenceRecord`, `EvidenceSpool`, `global_evidence_spool` (`evidence_spool.py`), server endpoints `POST /api/v1/evidence/offer`, `POST /api/v1/evidence/flush`, `POST /api/v1/evidence/recover`, `GET /api/v1/evidence/completeness`, `GET /api/v1/evidence/status` (`server.py`), CLI subcommand `swarmwatch evidence` (`cli.py`).
+    - Primitives (TypeScript): `EvidenceRecordType`, `EvidenceSpoolFullException`, `EvidenceCorruptionException`, `SequenceGapException`, `computeCrc32`, `EvidenceRecord`, `EvidenceSpool`, `globalEvidenceSpool` (`evidence_spool.ts`), exported via `index.ts`.
+    - Primitives (Console): `#evidenceBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Dual-tier durability separating Tier 0 (fail-closed, zero-drop safety-critical evidence) from Tier 1 (loss-aware, bounded operational telemetry); write-ahead journal (`EvidenceJournal`) with fixed framing, strictly monotonic uint64 sequence numbers, CRC32 checksums, and continuous SHA-256 hash chains (`sw:evid:v1`); capacity saturation or disk backpressure strictly halts fail-closed (`EVIDENCE_JOURNAL_FULL`); crash recovery replay verifies sequential continuity (`SEQUENCE_GAP_DETECTED`) and hash chain integrity (`CORRUPT_RECORD_HASH`); audit completeness receipts certify zero dropped critical records under NIST SP 800-53 Rev 5 (AU-4, AU-9, SC-7); in-memory execution $<150\mu\text{s}$ (audit SLO $<250\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
+
 
 
 

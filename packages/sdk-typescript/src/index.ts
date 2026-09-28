@@ -779,6 +779,27 @@ export {
   globalDownstreamEffectBoundary,
 } from "./downstream_effect.ts";
 
+// Critical Evidence Spool & NIST SP 800-53 Write-Ahead Journal (Seam 63 / ADR 0074)
+export type {
+  EvidenceRecordTypeEnum,
+  JournalReceipt,
+  FlushResult,
+  RecoveryResult,
+  CompletenessReceipt,
+  EvidenceSpoolStatus,
+  EvidenceRecordData,
+} from "./evidence_spool.ts";
+export {
+  EvidenceRecordType,
+  EvidenceSpoolFullException,
+  EvidenceCorruptionException,
+  SequenceGapException,
+  computeCrc32,
+  EvidenceRecord,
+  EvidenceSpool,
+  globalEvidenceSpool,
+} from "./evidence_spool.ts";
+
 
 
 

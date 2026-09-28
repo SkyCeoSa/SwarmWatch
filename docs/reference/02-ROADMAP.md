@@ -501,8 +501,16 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Active reconciliation probe protocol (`reconcile()`) executing idempotent status queries to verify commit or abort.
   - Dual-SDK parity across Python (`swarmwatch.downstream_effect`) and TypeScript (`@swarmwatch/sdk/src/downstream_effect.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/downstream-effects/prepare`, `POST /api/v1/downstream-effects/dispatch`, `POST /api/v1/downstream-effects/acknowledge`, `POST /api/v1/downstream-effects/reconcile`, `GET /api/v1/downstream-effects/{effect_id}`, `GET /api/v1/downstream-effects/status`), CLI subcommand (`swarmwatch downstream prepare|dispatch|ack|reconcile|status`), and Web Console `#downstreamBadge` widget.
-- **Upcoming Roadmap (Seams 63–70+)**:
-  - **Seam 63**: Critical Evidence Spool (ADR 0074 / NIST SP 800-53 Write-Ahead Journal).
+- **Critical Evidence Spool & NIST SP 800-53 Write-Ahead Journal (Seam 63 & ADR 0074 Dual-SDK Parity)**:
+  - Deep module `EvidenceSpool` providing a dedicated, durable write-ahead journal (`EvidenceJournal`) for safety-critical evidence (circuit trips, Byzantine quarantines, emergency halts, fence revocations, audit anchors).
+  - Dual-tier durability: complete isolation between Tier 0 (fail-closed, zero-drop safety evidence) and Tier 1 (loss-aware, bounded operational telemetry).
+  - Write-ahead journal with fixed framing, monotonic uint64 sequence numbers, CRC32 checksums, and continuous SHA-256 hash chains (`sw:evid:v1`).
+  - Capacity saturation or disk backpressure strictly halts fail-closed (`EVIDENCE_JOURNAL_FULL`), preventing unmonitored agent mutations.
+  - Crash recovery replay (`recover()`) validating sequential continuity (`SEQUENCE_GAP_DETECTED`) and hash chain integrity (`CORRUPT_RECORD_HASH`).
+  - Audit completeness receipt (`completeness()`) certifying contiguous persistence with zero dropped critical records under NIST SP 800-53 Rev 5 (AU-4, AU-9, SC-7).
+  - Dual-SDK parity across Python (`swarmwatch.evidence_spool`) and TypeScript (`@swarmwatch/sdk/src/evidence_spool.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/evidence/offer`, `POST /api/v1/evidence/flush`, `POST /api/v1/evidence/recover`, `GET /api/v1/evidence/completeness`, `GET /api/v1/evidence/status`), CLI subcommand (`swarmwatch evidence offer|flush|recover|completeness|status`), and Web Console `#evidenceBadge` widget.
+- **Upcoming Roadmap (Seams 64–70+)**:
   - **Seam 64**: Independent Root Witness (ADR 0075 / Asymmetric Checkpoint Signer).
   - **Seam 65**: Tenant Identity Boundary & Attenuated Capability Tokens (ADR 0076).
   - **Seam 66**: Effect-Aware Compensation Algebra (ADR 0077 / Reversible/Compensatable/Irreversible).
@@ -512,7 +520,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - **Seam 70**: Datacenter Failure Exercise (ADR 0081 / Region Loss Fault Injection).
   - **Seam 71+**: Autonomous Action Gateway (ADR 0082 / Governed Downstream Agent Execution).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (502 tests) and TypeScript (397 tests) runtimes (899 total tests).
+  - Full local test suite passing 100% across Python (515 tests) and TypeScript (410 tests) runtimes (925 total tests).
 
 
 

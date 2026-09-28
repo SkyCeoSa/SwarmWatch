@@ -491,6 +491,15 @@ def main(argv=None):
     downstream_parser.add_argument("--found", action="store_true", default=True, help="Reconciliation probe found flag")
     downstream_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    evidence_parser = subparsers.add_parser("evidence", help="Critical Evidence Spool & NIST SP 800-53 Write-Ahead Journal (ADR 0074)")
+    evidence_parser.add_argument("action", choices=["offer", "flush", "recover", "completeness", "status"], default="status", nargs="?", help="Action (offer, flush, recover, completeness, status)")
+    evidence_parser.add_argument("--tenant", "-t", default="default", help="Tenant ID")
+    evidence_parser.add_argument("--agent-id", default="agent-guard", help="Agent principal ID")
+    evidence_parser.add_argument("--record-type", choices=["SAFETY_TRIP", "POLICY_BREACH", "BYZANTINE_QUARANTINE", "EMERGENCY_HALT", "FENCE_REVOCATION", "AUDIT_ANCHOR"], default="SAFETY_TRIP", help="Evidence record type")
+    evidence_parser.add_argument("--payload", default="{}", help="JSON payload")
+    evidence_parser.add_argument("--journal-path", default=None, help="Journal file path for spooling/recovery")
+    evidence_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -4510,6 +4519,91 @@ def main(argv=None):
                 print(f"  Committed (Verified):     \033[92m{status.get('committed_count', 0)}\033[0m")
                 print(f"  Outcome Unknown (Fence):  \033[93m{status.get('outcome_unknown_count', 0)}\033[0m")
                 print(f"  Aborted / Reconciled:     \033[91m{status.get('aborted_count', 0)}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "evidence":
+        from swarmwatch.evidence_spool import (
+            global_evidence_spool,
+            EvidenceRecordType,
+            EvidenceSpoolFullException,
+            EvidenceCorruptionException,
+            SequenceGapException,
+        )
+        if args.journal_path:
+            global_evidence_spool._journal_path = args.journal_path
+        if args.action == "offer":
+            try:
+                payload_dict = json.loads(args.payload)
+            except Exception:
+                payload_dict = {"raw": args.payload}
+            try:
+                receipt = global_evidence_spool.offer(
+                    record_type=args.record_type,
+                    tenant_id=args.tenant,
+                    agent_id=args.agent_id,
+                    payload=payload_dict,
+                )
+                data = receipt.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print(f"\033[92m[Critical Evidence] Offered record #{receipt.sequence_number} ({args.record_type}) | Hash: {receipt.record_hash[:16]}... | Persisted: {receipt.persisted}\033[0m")
+                sys.exit(0)
+            except EvidenceSpoolFullException as e:
+                print(f"\033[91m[Critical Evidence Error] {e}\033[0m", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "flush":
+            res = global_evidence_spool.flush()
+            data = res.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print(f"[Critical Evidence] Flushed {res.flushed_count} records ({res.bytes_written} bytes) | Head Seq: {res.head_sequence_number}")
+            sys.exit(0)
+        elif args.action == "recover":
+            try:
+                res = global_evidence_spool.recover(journal_path=args.journal_path)
+                data = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(data, indent=2))
+                else:
+                    print(f"\033[92m[Critical Evidence] Recovered {res.recovered_count} records (Seq {res.first_sequence_number}..{res.last_sequence_number}) | Intact: {res.is_intact}\033[0m")
+                sys.exit(0)
+            except Exception as e:
+                print(f"\033[91m[Critical Evidence Recovery Error] {e}\033[0m", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "completeness":
+            receipt = global_evidence_spool.completeness(tenant_id=args.tenant if args.tenant != "default" else None)
+            data = receipt.to_dict()
+            if args.format == "json":
+                print(json.dumps(data, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CRITICAL EVIDENCE COMPLETENESS (NIST SP 800-53)    |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Tenant ID:            {receipt.tenant_id}")
+                print(f"  Sequence Contiguous:  \033[92m{receipt.verified_contiguous}\033[0m (Seq {receipt.start_sequence_number}..{receipt.end_sequence_number})")
+                print(f"  Total Records:        {receipt.total_records}")
+                print(f"  Dropped Critical:     \033[92m{receipt.dropped_critical_count}\033[0m (Zero-Drop Invariant)")
+                print(f"  Compliance Standard:  {receipt.compliance_standard}")
+                print(f"  Head Hash:            {receipt.head_hash[:32]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "status":
+            st = global_evidence_spool.status().to_dict()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CRITICAL EVIDENCE SPOOL (ADR 0074)                 |")
+                print("+---------------------------------------------------------------+")
+                status_color = "\033[92mACTIVE\033[0m" if st.get("status") == "ACTIVE" else "\033[91mSATURATED\033[0m"
+                print(f"  Status:               {status_color}")
+                print(f"  Record Count:         {st.get('record_count', 0):,} / {st.get('max_capacity', 0):,}")
+                print(f"  Head Sequence:        #{st.get('head_sequence_number', 0)}")
+                print(f"  Unflushed Records:    {st.get('unflushed_count', 0)}")
+                print(f"  Dropped Telemetry:    {st.get('dropped_telemetry_count', 0)} (Tier 1 Loss-Aware)")
+                print(f"  Journal Path:         {st.get('journal_file_path') or 'IN_MEMORY'}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

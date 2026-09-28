@@ -794,6 +794,22 @@ class DownstreamReconcileRequest(BaseModel):
     mock_probe_digest: Optional[str] = None
 
 
+class EvidenceOfferRequest(BaseModel):
+    record_type: str = "SAFETY_TRIP"
+    tenant_id: str = "default"
+    agent_id: str = "agent-guard"
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    record_id: Optional[str] = None
+
+
+class EvidenceFlushRequest(BaseModel):
+    pass
+
+
+class EvidenceRecoverRequest(BaseModel):
+    journal_path: Optional[str] = None
+
+
 
 
 
@@ -5820,6 +5836,62 @@ def create_app(
         if not effect:
             raise HTTPException(status_code=404, detail=f"Effect {effect_id} not found")
         return effect.to_dict()
+
+    # Seam 63: Critical Evidence Spool (ADR 0074)
+    @app.post("/api/v1/evidence/offer")
+    async def evidence_offer_endpoint(req: EvidenceOfferRequest):
+        """Offers a critical safety record to the write-ahead journal; fails closed with 503 if capacity full."""
+        from swarmwatch.evidence_spool import global_evidence_spool, EvidenceSpoolFullException
+        try:
+            receipt = global_evidence_spool.offer(
+                record_type=req.record_type,
+                tenant_id=req.tenant_id,
+                agent_id=req.agent_id,
+                payload=req.payload,
+                record_id=req.record_id,
+            )
+            return receipt.to_dict()
+        except EvidenceSpoolFullException as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/evidence/flush")
+    async def evidence_flush_endpoint(req: Optional[EvidenceFlushRequest] = None):
+        """Flushes buffered records to durable write-ahead journal."""
+        from swarmwatch.evidence_spool import global_evidence_spool
+        res = global_evidence_spool.flush()
+        return res.to_dict()
+
+    @app.post("/api/v1/evidence/recover")
+    async def evidence_recover_endpoint(req: Optional[EvidenceRecoverRequest] = None):
+        """Replays journal from disk, verifying CRC32 and cryptographic hash chain continuity."""
+        from swarmwatch.evidence_spool import (
+            global_evidence_spool,
+            EvidenceCorruptionException,
+            SequenceGapException,
+        )
+        try:
+            target_path = req.journal_path if req else None
+            res = global_evidence_spool.recover(journal_path=target_path)
+            return res.to_dict()
+        except (EvidenceCorruptionException, SequenceGapException) as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/evidence/completeness")
+    async def evidence_completeness_endpoint(tenant_id: Optional[str] = None):
+        """Produces a cryptographic completeness receipt certifying contiguous persistence of safety records."""
+        from swarmwatch.evidence_spool import global_evidence_spool
+        receipt = global_evidence_spool.completeness(tenant_id=tenant_id)
+        return receipt.to_dict()
+
+    @app.get("/api/v1/evidence/status")
+    async def evidence_status_endpoint():
+        """Returns the real-time operational status of the critical evidence spool."""
+        from swarmwatch.evidence_spool import global_evidence_spool
+        return global_evidence_spool.status().to_dict()
 
     @app.post("/api/v1/ingress/submit")
     async def ingress_submit_endpoint(req: IngressSubmitRequest):

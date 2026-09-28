@@ -20,6 +20,7 @@ export const CanonicalDomainTag = {
   PRIVACY: "sw:priv:v1",
   EVOLUTION: "sw:evo:v1",
   ACCEPTANCE: "sw:acc:v1",
+  EVIDENCE: "sw:evid:v1",
 } as const;
 
 export type CanonicalDomainTagEnum = typeof CanonicalDomainTag[keyof typeof CanonicalDomainTag];

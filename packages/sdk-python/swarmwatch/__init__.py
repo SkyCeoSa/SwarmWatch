@@ -840,6 +840,20 @@ from swarmwatch.downstream_effect import (
     DownstreamEffectBoundary,
     global_downstream_effect_boundary,
 )
+from swarmwatch.evidence_spool import (
+    EvidenceRecordType,
+    EvidenceSpoolFullException,
+    EvidenceCorruptionException,
+    SequenceGapException,
+    JournalReceipt,
+    FlushResult,
+    RecoveryResult,
+    CompletenessReceipt,
+    EvidenceSpoolStatus,
+    EvidenceRecord,
+    EvidenceSpool,
+    global_evidence_spool,
+)
 
 
 
