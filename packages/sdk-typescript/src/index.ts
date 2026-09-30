@@ -800,6 +800,30 @@ export {
   globalEvidenceSpool,
 } from "./evidence_spool.ts";
 
+// Independent Root Witness & Public-Key Chains (Seam 64 / ADR 0075)
+export {
+  WitnessError,
+  RollbackAttackError,
+  ConsistencyVerificationError,
+  SplitBrainForkError,
+  KeyRotationError,
+  base64UrlEncode,
+  base64UrlDecode,
+  WitnessKeyManager,
+  leafHash,
+  nodeHash,
+  mth,
+  consistencyProof,
+  verifyConsistencyProof,
+  LeafReceipt,
+  SignedCheckpoint,
+  ConsistencyProof,
+  KeyRotationRecord,
+  WitnessStatus,
+  RootWitness,
+  globalRootWitness,
+} from "./root_witness.ts";
+
 
 
 

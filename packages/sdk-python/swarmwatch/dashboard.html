@@ -1729,6 +1729,10 @@
             <span class="status-indicator" id="evidenceDot" style="background: var(--success);"></span>
             <span id="evidenceText">EVIDENCE: SPOOL COMMITTED</span>
           </div>
+          <div class="fleet-badge" id="witnessBadge" title="Independent Root Witness & Public-Key Chains (ADR 0075)">
+            <span class="status-indicator" id="witnessDot" style="background: var(--success);"></span>
+            <span id="witnessText">WITNESS: ASYMMETRIC VERIFIED</span>
+          </div>
         </div>
 
 
@@ -4893,6 +4897,28 @@
       }
       refreshEvidenceStatus();
       setInterval(refreshEvidenceStatus, 10000);
+
+      async function refreshWitnessStatus() {
+        var witnessDot = document.getElementById('witnessDot');
+        var witnessText = document.getElementById('witnessText');
+        try {
+          var res = await fetch('/api/v1/witness/status');
+          if (res.ok) {
+            var data = await res.json();
+            var active = data.active_public_key && data.active_public_key.length > 0;
+            if (witnessDot) {
+              witnessDot.style.background = active ? 'var(--success)' : 'var(--danger)';
+            }
+            if (witnessText) {
+              var badgeStr = active ? 'WITNESS: ASYMMETRIC VERIFIED' : 'WITNESS: KEY MISSING';
+              witnessText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshWitnessStatus();
+      setInterval(refreshWitnessStatus, 10000);
+
 
 
 

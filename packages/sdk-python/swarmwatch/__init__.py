@@ -468,6 +468,46 @@ __all__ = [
     "ConsensusRearmResult",
     "ConsensusAuthorityBinding",
     "global_consensus_authority",
+    # ADR 0073: Downstream Effect Protocol (Seam 62)
+    "EffectPhase",
+    "DownstreamIdempotencyContract",
+    "UncoordinatedRetryBlockedError",
+    "StaleEpochError",
+    "EffectNotFoundError",
+    "DownstreamReceipt",
+    "EffectPreparation",
+    "DispatchResult",
+    "AcknowledgeResult",
+    "ReconciliationResult",
+    "DownstreamEffectBoundary",
+    "global_downstream_effect_boundary",
+    # ADR 0074: Critical Evidence Spool (Seam 63)
+    "EvidenceRecordType",
+    "EvidenceSpoolFullException",
+    "EvidenceCorruptionException",
+    "SequenceGapException",
+    "JournalReceipt",
+    "FlushResult",
+    "RecoveryResult",
+    "CompletenessReceipt",
+    "EvidenceSpoolStatus",
+    "EvidenceRecord",
+    "EvidenceSpool",
+    "global_evidence_spool",
+    # ADR 0075: Independent Root Witness & Public-Key Chains (Seam 64)
+    "WitnessError",
+    "RollbackAttackError",
+    "ConsistencyVerificationError",
+    "SplitBrainForkError",
+    "KeyRotationError",
+    "WitnessKeyManager",
+    "LeafReceipt",
+    "SignedCheckpoint",
+    "ConsistencyProof",
+    "KeyRotationRecord",
+    "WitnessStatus",
+    "RootWitness",
+    "global_root_witness",
 ]
 
 
@@ -853,6 +893,21 @@ from swarmwatch.evidence_spool import (
     EvidenceRecord,
     EvidenceSpool,
     global_evidence_spool,
+)
+from swarmwatch.root_witness import (
+    WitnessError,
+    RollbackAttackError,
+    ConsistencyVerificationError,
+    SplitBrainForkError,
+    KeyRotationError,
+    WitnessKeyManager,
+    LeafReceipt,
+    SignedCheckpoint,
+    ConsistencyProof,
+    KeyRotationRecord,
+    WitnessStatus,
+    RootWitness,
+    global_root_witness,
 )
 
 

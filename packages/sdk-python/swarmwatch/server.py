@@ -250,6 +250,21 @@ from swarmwatch.downstream_effect import (
     DownstreamEffectBoundary,
     global_downstream_effect_boundary,
 )
+from swarmwatch.root_witness import (
+    WitnessError,
+    RollbackAttackError,
+    ConsistencyVerificationError,
+    SplitBrainForkError,
+    KeyRotationError,
+    WitnessKeyManager,
+    LeafReceipt,
+    SignedCheckpoint,
+    ConsistencyProof,
+    KeyRotationRecord,
+    WitnessStatus,
+    RootWitness,
+    global_root_witness,
+)
 
 
 
@@ -808,6 +823,30 @@ class EvidenceFlushRequest(BaseModel):
 
 class EvidenceRecoverRequest(BaseModel):
     journal_path: Optional[str] = None
+
+
+class WitnessSubmitRequest(BaseModel):
+    leaf_data: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class WitnessCheckpointRequest(BaseModel):
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class WitnessVerifyRequest(BaseModel):
+    checkpoint: Dict[str, Any]
+    public_key: Optional[str] = None
+
+
+class WitnessConsistencyVerifyRequest(BaseModel):
+    old_checkpoint: Dict[str, Any]
+    new_checkpoint: Dict[str, Any]
+    proof: Dict[str, Any]
+
+
+class WitnessRotateRequest(BaseModel):
+    pass
 
 
 
@@ -5892,6 +5931,83 @@ def create_app(
         """Returns the real-time operational status of the critical evidence spool."""
         from swarmwatch.evidence_spool import global_evidence_spool
         return global_evidence_spool.status().to_dict()
+
+    # -------------------------------------------------------------------------
+    # ADR 0075: Independent Root Witness & Public-Key Chains (Seam 64)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/witness/submit")
+    async def witness_submit_endpoint(req: WitnessSubmitRequest):
+        """Commits a leaf into the witness accumulator and returns a LeafReceipt."""
+        from swarmwatch.root_witness import global_root_witness
+        receipt = global_root_witness.submit(leaf_data=req.leaf_data, metadata=req.metadata)
+        return receipt.to_dict()
+
+    @app.post("/api/v1/witness/checkpoint")
+    async def witness_checkpoint_endpoint(req: Optional[WitnessCheckpointRequest] = None):
+        """Issues an immutable signed checkpoint anchoring current tree state with asymmetric ECDSA signature."""
+        from swarmwatch.root_witness import global_root_witness
+        meta = req.metadata if req else {}
+        cp = global_root_witness.checkpoint(metadata=meta)
+        return cp.to_dict()
+
+    @app.get("/api/v1/witness/checkpoint")
+    async def witness_get_checkpoint_endpoint(epoch: Optional[int] = None):
+        """Retrieves latest or specific signed checkpoint."""
+        from swarmwatch.root_witness import global_root_witness, WitnessError
+        try:
+            target_epoch = -1 if epoch is None else epoch
+            cp = global_root_witness.get_checkpoint(epoch=target_epoch)
+            return cp.to_dict()
+        except WitnessError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    @app.post("/api/v1/witness/verify")
+    async def witness_verify_endpoint(req: WitnessVerifyRequest):
+        """Independently verifies a signed checkpoint using only the public key."""
+        from swarmwatch.root_witness import RootWitness, SignedCheckpoint
+        cp = SignedCheckpoint.from_dict(req.checkpoint)
+        is_valid = RootWitness.verify_checkpoint(cp, public_key=req.public_key)
+        return {"valid": is_valid, "epoch": cp.epoch, "tree_size": cp.tree_size}
+
+    @app.get("/api/v1/witness/consistency-proof")
+    async def witness_consistency_proof_endpoint(old_size: int, new_size: int):
+        """Generates RFC 6962 consistency proof between tree size old_size and new_size."""
+        from swarmwatch.root_witness import global_root_witness, WitnessError
+        try:
+            proof = global_root_witness.get_consistency_proof(old_size=old_size, new_size=new_size)
+            return proof.to_dict()
+        except WitnessError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/witness/verify-consistency")
+    async def witness_verify_consistency_endpoint(req: WitnessConsistencyVerifyRequest):
+        """Verifies RFC 6962 consistency proof between two signed checkpoints."""
+        from swarmwatch.root_witness import RootWitness, SignedCheckpoint, ConsistencyProof, ConsistencyVerificationError
+        try:
+            old_cp = SignedCheckpoint.from_dict(req.old_checkpoint)
+            new_cp = SignedCheckpoint.from_dict(req.new_checkpoint)
+            proof = ConsistencyProof.from_dict(req.proof)
+            valid = RootWitness.verify_consistency(old_cp, new_cp, proof)
+            return {"valid": valid, "old_size": old_cp.tree_size, "new_size": new_cp.tree_size}
+        except ConsistencyVerificationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/witness/rotate")
+    async def witness_rotate_endpoint(req: Optional[WitnessRotateRequest] = None):
+        """Performs NIST SP 800-57 compliant key rotation with mutual proof-of-possession."""
+        from swarmwatch.root_witness import global_root_witness, WitnessKeyManager
+        new_km = WitnessKeyManager.generate()
+        rec = global_root_witness.rotate_key(new_km)
+        return rec.to_dict()
+
+    @app.get("/api/v1/witness/status")
+    async def witness_status_endpoint():
+        """Returns the real-time operational status of the independent root witness."""
+        from swarmwatch.root_witness import global_root_witness
+        return global_root_witness.status().to_dict()
+
 
     @app.post("/api/v1/ingress/submit")
     async def ingress_submit_endpoint(req: IngressSubmitRequest):

@@ -1484,6 +1484,35 @@ _Avoid_: Drop policy, rate limit, buffer overflow drop, silent discard
 An immutable audit certificate proving contiguous, non-repudiable presence of all safety events in range $[1, N]$ with zero dropped critical records under NIST SP 800-53 Rev 5.
 _Avoid_: Audit report, check result, verification log
 
+---
+
+### Independent Root Witness & Public-Key Chains (Seam 64 / ADR 0075)
+
+**RootWitness**:
+The independent, append-only cryptographic witness verifying tree growth, maintaining asymmetric ECDSA (NIST P-256 / ES256) public-key chains, and producing RFC 6962 consistency proofs.
+_Avoid_: Tree signer, root anchor, notary, certification authority
+
+**SignedCheckpoint**:
+An immutable root epoch record binding monotonic epoch, non-decreasing tree size, Merkle root hash, previous checkpoint hash, and timestamp under an asymmetric IEEE P1363 digital signature.
+_Avoid_: Signed root, epoch ticket, certificate, root block
+
+**LogarithmicConsistencyProof**:
+An $\mathcal{O}(\log N)$ Certificate Transparency (RFC 6962) proof demonstrating that an older tree of size $M$ is an unaltered prefix of a newer tree of size $N$.
+_Avoid_: Tree diff, incremental proof, history check, tree path
+
+**RollbackAttackProtection**:
+The formal verification invariant detecting and rejecting backward epoch proposals or tree size truncation attempts with `RollbackAttackError`.
+_Avoid_: Time-travel check, rewind prevention, downgrade guard
+
+**SplitBrainForkProtection**:
+The cryptographic chain integrity check detecting divergent parent hashes or broken hash links with `SplitBrainForkError`.
+_Avoid_: Fork checker, conflict resolver, split guard
+
+**KeyRotationLog**:
+A NIST SP 800-57 compliant audit log verifying key transitions with mutual challenge-response signatures (proof-of-possession by the new key and authorization by the old key).
+_Avoid_: Key history, certificate chain, key list
+
+
 
 
 

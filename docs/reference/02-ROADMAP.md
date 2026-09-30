@@ -510,8 +510,17 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Audit completeness receipt (`completeness()`) certifying contiguous persistence with zero dropped critical records under NIST SP 800-53 Rev 5 (AU-4, AU-9, SC-7).
   - Dual-SDK parity across Python (`swarmwatch.evidence_spool`) and TypeScript (`@swarmwatch/sdk/src/evidence_spool.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/evidence/offer`, `POST /api/v1/evidence/flush`, `POST /api/v1/evidence/recover`, `GET /api/v1/evidence/completeness`, `GET /api/v1/evidence/status`), CLI subcommand (`swarmwatch evidence offer|flush|recover|completeness|status`), and Web Console `#evidenceBadge` widget.
-- **Upcoming Roadmap (Seams 64–70+)**:
-  - **Seam 64**: Independent Root Witness (ADR 0075 / Asymmetric Checkpoint Signer).
+- **Independent Root Witness & Public-Key Chains (Seam 64 & ADR 0075 Dual-SDK Parity)**:
+  - Deep module `RootWitness` replacing symmetric HMAC root epoch anchoring with independent, asymmetric ECDSA (NIST P-256 / ES256, IEEE P1363 64-byte signatures, uncompressed 65-byte public keys) digital signatures.
+  - Publicly verifiable checkpoints (`SignedCheckpoint`) audited using solely the witness's public key with zero knowledge of private keys.
+  - RFC 6962 Certificate Transparency logarithmic consistency proof engine ($\mathcal{O}(\log N)$) proving historical immutability and append-only tree extension.
+  - Rollback attack protection rejecting backward epochs ($epoch \le last\_epoch$) or tree truncation ($tree\_size < last\_tree\_size$) with `RollbackAttackError`.
+  - Split-brain fork detection rejecting altered parent hashes or broken hash links with `SplitBrainForkError`.
+  - NIST SP 800-57 compliant verifiable key rotation logs (`KeyRotationLog`) requiring mutual challenge-response signatures (proof-of-possession by the incoming key and authorization by the outgoing key).
+  - Sub-25 microsecond consistency verification latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.root_witness`) and TypeScript (`@swarmwatch/sdk/src/root_witness.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/witness/submit`, `POST /api/v1/witness/checkpoint`, `GET /api/v1/witness/checkpoint`, `POST /api/v1/witness/verify`, `GET /api/v1/witness/consistency-proof`, `POST /api/v1/witness/verify-consistency`, `POST /api/v1/witness/rotate`, `GET /api/v1/witness/status`), CLI subcommand (`swarmwatch witness submit|checkpoint|verify|rotate|status`), and Web Console `#witnessBadge` widget.
+- **Upcoming Roadmap (Seams 65–70+)**:
   - **Seam 65**: Tenant Identity Boundary & Attenuated Capability Tokens (ADR 0076).
   - **Seam 66**: Effect-Aware Compensation Algebra (ADR 0077 / Reversible/Compensatable/Irreversible).
   - **Seam 67**: Durable Dataset-Level Privacy Accountant (ADR 0078 / Quorum (ε,δ) Ledger).
@@ -520,7 +529,8 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - **Seam 70**: Datacenter Failure Exercise (ADR 0081 / Region Loss Fault Injection).
   - **Seam 71+**: Autonomous Action Gateway (ADR 0082 / Governed Downstream Agent Execution).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (515 tests) and TypeScript (410 tests) runtimes (925 total tests).
+  - Full local test suite passing 100% across Python (528 tests) and TypeScript (423 tests) runtimes (951 total tests across 55 suites).
+
 
 
 

@@ -500,6 +500,13 @@ def main(argv=None):
     evidence_parser.add_argument("--journal-path", default=None, help="Journal file path for spooling/recovery")
     evidence_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    witness_parser = subparsers.add_parser("witness", help="Independent Root Witness & Public-Key Chains (ADR 0075)")
+    witness_parser.add_argument("action", choices=["submit", "checkpoint", "verify", "rotate", "status"], default="status", nargs="?", help="Action (submit, checkpoint, verify, rotate, status)")
+    witness_parser.add_argument("--data", default="default-leaf-data", help="Leaf data payload for submission")
+    witness_parser.add_argument("--checkpoint-json", default=None, help="JSON string or file path of SignedCheckpoint to verify")
+    witness_parser.add_argument("--public-key", default=None, help="Public key for asymmetric verification")
+    witness_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -4604,6 +4611,92 @@ def main(argv=None):
                 print(f"  Unflushed Records:    {st.get('unflushed_count', 0)}")
                 print(f"  Dropped Telemetry:    {st.get('dropped_telemetry_count', 0)} (Tier 1 Loss-Aware)")
                 print(f"  Journal Path:         {st.get('journal_file_path') or 'IN_MEMORY'}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "witness":
+        from swarmwatch.root_witness import (
+            global_root_witness,
+            RootWitness,
+            SignedCheckpoint,
+            WitnessKeyManager,
+            WitnessError,
+        )
+        if args.action == "submit":
+            receipt = global_root_witness.submit(args.data)
+            if args.format == "json":
+                print(json.dumps(receipt.to_dict(), indent=2))
+            else:
+                print(f"\033[92m[Root Witness] Submitted leaf #{receipt.leaf_index} | Hash: {receipt.leaf_hash[:16]}...\033[0m")
+            sys.exit(0)
+        elif args.action == "checkpoint":
+            cp = global_root_witness.checkpoint()
+            if args.format == "json":
+                print(json.dumps(cp.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ASYMMETRIC ROOT WITNESS CHECKPOINT (ADR 0075)      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Epoch:                #{cp.epoch}")
+                print(f"  Tree Size:            {cp.tree_size} leaves")
+                print(f"  Root Hash:            {cp.root_hash[:32]}...")
+                print(f"  Prev Checkpoint:      {cp.prev_checkpoint_hash[:32]}...")
+                print(f"  Checkpoint Hash:      {cp.checkpoint_hash[:32]}...")
+                print(f"  Witness Public Key:   {cp.witness_public_key[:32]}...")
+                print(f"  Signature (ES256):    {cp.signature[:32]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "verify":
+            if not args.checkpoint_json:
+                print("\033[91m[Root Witness Error] --checkpoint-json argument required for verification\033[0m", file=sys.stderr)
+                sys.exit(1)
+            try:
+                if os.path.exists(args.checkpoint_json):
+                    with open(args.checkpoint_json, "r", encoding="utf-8") as f:
+                        raw = json.load(f)
+                else:
+                    raw = json.loads(args.checkpoint_json)
+                cp = SignedCheckpoint.from_dict(raw)
+                is_valid = RootWitness.verify_checkpoint(cp, public_key=args.public_key)
+                if args.format == "json":
+                    print(json.dumps({"valid": is_valid, "epoch": cp.epoch, "tree_size": cp.tree_size}, indent=2))
+                else:
+                    color = "\033[92mVALID (ASYMMETRIC SIGNATURE VERIFIED)\033[0m" if is_valid else "\033[91mINVALID / FORGED SIGNATURE\033[0m"
+                    print(f"[Root Witness Verification] Epoch #{cp.epoch} Checkpoint: {color}")
+                sys.exit(0 if is_valid else 1)
+            except Exception as e:
+                print(f"\033[91m[Root Witness Verification Error] {e}\033[0m", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "rotate":
+            new_km = WitnessKeyManager.generate()
+            rec = global_root_witness.rotate_key(new_km)
+            if args.format == "json":
+                print(json.dumps(rec.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH NIST SP 800-57 KEY ROTATION (ADR 0075)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Rotation ID:          {rec.rotation_id}")
+                print(f"  Rotation Epoch:       #{rec.rotation_epoch}")
+                print(f"  Old Public Key:       {rec.old_public_key[:32]}...")
+                print(f"  New Public Key:       {rec.new_public_key[:32]}...")
+                print(f"  Challenge Hash:       {rec.challenge[:32]}...")
+                print(f"  Proof of Possession:  \033[92mVERIFIED (ES256)\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "status":
+            st = global_root_witness.status().to_dict()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH INDEPENDENT ROOT WITNESS (ADR 0075)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Active Public Key:    {st['active_public_key'][:32]}...")
+                print(f"  Latest Epoch:         #{st['latest_epoch']}")
+                print(f"  Current Tree Size:    {st['current_tree_size']} leaves")
+                print(f"  Latest Checkpoint:    {st['latest_checkpoint_hash'][:32]}...")
+                print(f"  Total Rotations:      {st['total_rotations']}")
+                print(f"  Total Checkpoints:    {st['total_checkpoints']}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:
