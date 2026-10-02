@@ -903,6 +903,21 @@ _Avoid_: Hook call, function callback, middleware run
 - **KeyRotationLog**: A NIST SP 800-57 compliant audit log verifying key transitions with mutual challenge-response signatures (proof-of-possession by the new key and authorization by the old key).
   _Avoid_: Key history, certificate chain, key list
 
+---
+
+### Tenant Identity Boundary & Attenuated Capability Tokens (Seam 65 / ADR 0076)
+- **TenantCapabilityManager**: The deep module governing cryptographic capability tokens, enforcing tenant identity isolation, monotonic delegation attenuation, and cascading subtree revocation across multi-agent swarms.
+  _Avoid_: Access controller, permission manager, token issuer, auth guard
+- **CapabilityToken**: An immutable, cryptographically signed token binding tenant identity, issuer principal, subject principal, action scopes, resource pattern, epoch, and time validity windows under an asymmetric ECDSA signature.
+  _Avoid_: Access ticket, bearer token, API key, auth certificate
+- **MonotonicAttenuation**: The invariant requiring delegated child tokens to possess a strict subset of scopes, a narrower resource pattern, and an equal or shorter validity duration than their parent token.
+  _Avoid_: Permission downscaling, sub-delegation, token narrowing
+- **SubtreeRevocationCascade**: The recursive validation rule ensuring that revoking any ancestor token immediately invalidates its entire downward delegation tree in $\mathcal{O}(d)$ time.
+  _Avoid_: Token cascade, child invalidation, batch revocation
+- **CapabilityVerdict**: The fail-closed evaluation outcome returned in $<250\,\mu\text{s}$ asserting cryptographic authenticity, tenant isolation, scope match, resource match, temporal validity, and revocation status before action dispatch.
+  _Avoid_: Check result, auth verdict, allow/deny response
+
+
 
 
 

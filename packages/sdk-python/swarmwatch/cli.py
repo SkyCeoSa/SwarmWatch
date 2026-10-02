@@ -507,6 +507,17 @@ def main(argv=None):
     witness_parser.add_argument("--public-key", default=None, help="Public key for asymmetric verification")
     witness_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    capability_parser = subparsers.add_parser("capability", help="Tenant Identity Boundary & Attenuated Capability Tokens (ADR 0076)")
+    capability_parser.add_argument("action", choices=["issue", "attenuate", "verify", "revoke", "status"], default="status", nargs="?", help="Action (issue, attenuate, verify, revoke, status)")
+    capability_parser.add_argument("--tenant-id", default="tenant-default", help="Tenant ID")
+    capability_parser.add_argument("--principal", default="agent-root", help="Subject principal")
+    capability_parser.add_argument("--scopes", default="telemetry:write,effect:dispatch", help="Comma-separated action scopes")
+    capability_parser.add_argument("--resource", default="*", help="Target resource or namespace pattern")
+    capability_parser.add_argument("--token-json", default=None, help="JSON string or file path of CapabilityToken")
+    capability_parser.add_argument("--token-id", default=None, help="Token ID to revoke")
+    capability_parser.add_argument("--reason", default="Administrative revocation", help="Revocation reason")
+    capability_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -4697,6 +4708,128 @@ def main(argv=None):
                 print(f"  Latest Checkpoint:    {st['latest_checkpoint_hash'][:32]}...")
                 print(f"  Total Rotations:      {st['total_rotations']}")
                 print(f"  Total Checkpoints:    {st['total_checkpoints']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "capability":
+        from swarmwatch.tenant_capability import (
+            global_capability_manager,
+            CapabilityToken,
+            CapabilityError,
+        )
+        if args.action == "issue":
+            scopes_list = [s.strip() for s in args.scopes.split(",") if s.strip()]
+            token = global_capability_manager.issue_root_token(
+                tenant_id=args.tenant_id,
+                subject_principal=args.principal,
+                scopes=scopes_list,
+                resource_pattern=args.resource,
+            )
+            d = token.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ROOT CAPABILITY TOKEN ISSUED (ADR 0076)            |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Token ID:             {token.token_id}")
+                print(f"  Tenant ID:            {token.tenant_id}")
+                print(f"  Subject Principal:    {token.subject_principal}")
+                print(f"  Scopes:               {', '.join(token.scopes)}")
+                print(f"  Resource Pattern:     {token.resource_pattern}")
+                print(f"  Depth:                {token.depth} / {token.max_depth}")
+                print(f"  Attenuation Digest:   {token.attenuation_digest[:32]}...")
+                print(f"  Signature:            \033[92mVALID (ES256)\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "attenuate":
+            if not args.token_json:
+                print("\033[91m[Capability Error] --token-json required for attenuation\033[0m", file=sys.stderr)
+                sys.exit(1)
+            raw = args.token_json
+            if os.path.exists(raw):
+                with open(raw, "r", encoding="utf-8") as f:
+                    raw = f.read()
+            parent_token = CapabilityToken.from_dict(json.loads(raw))
+            scopes_list = [s.strip() for s in args.scopes.split(",") if s.strip()] if args.scopes else None
+            child = global_capability_manager.attenuate(
+                parent_token=parent_token,
+                subject_principal=args.principal,
+                scopes=scopes_list,
+                resource_pattern=args.resource if args.resource != "*" else None,
+            )
+            d = child.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ATTENUATED CAPABILITY TOKEN DERIVED (ADR 0076)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Child Token ID:       {child.token_id}")
+                print(f"  Parent Token ID:      {child.parent_token_id}")
+                print(f"  Tenant ID:            {child.tenant_id}")
+                print(f"  Subject Principal:    {child.subject_principal}")
+                print(f"  Scopes:               {', '.join(child.scopes)}")
+                print(f"  Resource Pattern:     {child.resource_pattern}")
+                print(f"  Depth:                {child.depth} / {child.max_depth}")
+                print(f"  Signature:            \033[92mVALID (ES256)\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "verify":
+            if not args.token_json:
+                print("\033[91m[Capability Error] --token-json required for verification\033[0m", file=sys.stderr)
+                sys.exit(1)
+            raw = args.token_json
+            if os.path.exists(raw):
+                with open(raw, "r", encoding="utf-8") as f:
+                    raw = f.read()
+            tok = CapabilityToken.from_dict(json.loads(raw))
+            scope = args.scopes.split(",")[0].strip() if args.scopes else "telemetry:write"
+            verdict = global_capability_manager.verify(
+                token=tok,
+                action_scope=scope,
+                target_resource=args.resource if args.resource != "*" else "sw://tenant-default/resource",
+                executing_principal=args.principal,
+                expected_tenant_id=args.tenant_id,
+            )
+            d = verdict.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                color = "\033[92m" if verdict.valid else "\033[91m"
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CAPABILITY BOUNDARY VERDICT (ADR 0076)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Verdict:              {color}{'PERMITTED' if verdict.valid else 'BLOCKED'}\033[0m")
+                print(f"  Token ID:             {verdict.token_id}")
+                print(f"  Tenant ID:            {verdict.tenant_id}")
+                print(f"  Action Scope:         {verdict.action_scope}")
+                print(f"  Target Resource:      {verdict.target_resource}")
+                print(f"  Reason:               {verdict.reason}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if verdict.valid else 1)
+        elif args.action == "revoke":
+            if not args.token_id:
+                print("\033[91m[Capability Error] --token-id required for revocation\033[0m", file=sys.stderr)
+                sys.exit(1)
+            receipt = global_capability_manager.revoke(token_id=args.token_id, reason=args.reason)
+            d = receipt.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                print(f"\033[93m[Capability Revoked] Token {receipt.token_id} revoked (Receipt: {receipt.revocation_id})\033[0m")
+            sys.exit(0)
+        elif args.action == "status":
+            st = global_capability_manager.status().to_dict()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH TENANT CAPABILITY MANAGER (ADR 0076)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Active Authority Key: {st['active_root_public_key'][:32]}...")
+                print(f"  Total Issued:         {st['total_issued']}")
+                print(f"  Total Attenuated:     {st['total_attenuated']}")
+                print(f"  Total Revoked:        {st['total_revoked']}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

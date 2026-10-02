@@ -265,6 +265,19 @@ from swarmwatch.root_witness import (
     RootWitness,
     global_root_witness,
 )
+from swarmwatch.tenant_capability import (
+    CapabilityError,
+    PrivilegeEscalationError,
+    AttenuationViolationError,
+    CapabilityVerificationError,
+    RevocationError,
+    CapabilityToken,
+    CapabilityVerdict,
+    RevocationReceipt,
+    CapabilityStatus,
+    TenantCapabilityManager,
+    global_capability_manager,
+)
 
 
 
@@ -847,6 +860,46 @@ class WitnessConsistencyVerifyRequest(BaseModel):
 
 class WitnessRotateRequest(BaseModel):
     pass
+
+
+class CapabilityIssueRequest(BaseModel):
+    tenant_id: str
+    subject_principal: str
+    scopes: List[str]
+    resource_pattern: str = "*"
+    epoch: int = 0
+    not_before_ns: Optional[int] = None
+    ttl_seconds: Optional[int] = None
+    max_depth: Optional[int] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CapabilityAttenuateRequest(BaseModel):
+    parent_token: Dict[str, Any]
+    subject_principal: str
+    scopes: Optional[List[str]] = None
+    resource_pattern: Optional[str] = None
+    epoch: Optional[int] = None
+    not_before_ns: Optional[int] = None
+    expires_at_ns: Optional[int] = None
+    ttl_seconds: Optional[int] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CapabilityVerifyRequest(BaseModel):
+    token: Dict[str, Any]
+    action_scope: str
+    target_resource: str
+    executing_principal: str
+    expected_tenant_id: str
+    current_epoch: Optional[int] = None
+    now_ns: Optional[int] = None
+
+
+class CapabilityRevokeRequest(BaseModel):
+    token_id: str
+    reason: str = "Administrative revocation"
+    revoked_by: str = "authority"
 
 
 
@@ -6007,6 +6060,85 @@ def create_app(
         """Returns the real-time operational status of the independent root witness."""
         from swarmwatch.root_witness import global_root_witness
         return global_root_witness.status().to_dict()
+
+    # -------------------------------------------------------------------------
+    # ADR 0076: Tenant Identity Boundary & Attenuated Capability Tokens (Seam 65)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/capability/issue")
+    async def capability_issue_endpoint(req: CapabilityIssueRequest):
+        """Issues an authoritative root capability token for tenant and principal."""
+        from swarmwatch.tenant_capability import global_capability_manager
+        token = global_capability_manager.issue_root_token(
+            tenant_id=req.tenant_id,
+            subject_principal=req.subject_principal,
+            scopes=req.scopes,
+            resource_pattern=req.resource_pattern,
+            epoch=req.epoch,
+            not_before_ns=req.not_before_ns,
+            ttl_seconds=req.ttl_seconds,
+            max_depth=req.max_depth,
+            metadata=req.metadata,
+        )
+        return token.to_dict()
+
+    @app.post("/api/v1/capability/attenuate")
+    async def capability_attenuate_endpoint(req: CapabilityAttenuateRequest):
+        """Derives a monotonically attenuated capability token."""
+        from swarmwatch.tenant_capability import (
+            global_capability_manager,
+            CapabilityToken,
+            PrivilegeEscalationError,
+            AttenuationViolationError,
+        )
+        try:
+            parent = CapabilityToken.from_dict(req.parent_token)
+            child = global_capability_manager.attenuate(
+                parent_token=parent,
+                subject_principal=req.subject_principal,
+                scopes=req.scopes,
+                resource_pattern=req.resource_pattern,
+                epoch=req.epoch,
+                not_before_ns=req.not_before_ns,
+                expires_at_ns=req.expires_at_ns,
+                ttl_seconds=req.ttl_seconds,
+                metadata=req.metadata,
+            )
+            return child.to_dict()
+        except (PrivilegeEscalationError, AttenuationViolationError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/capability/verify")
+    async def capability_verify_endpoint(req: CapabilityVerifyRequest):
+        """Verifies capability token at execution boundary in sub-250µs."""
+        from swarmwatch.tenant_capability import global_capability_manager, CapabilityToken
+        token = CapabilityToken.from_dict(req.token)
+        verdict = global_capability_manager.verify(
+            token=token,
+            action_scope=req.action_scope,
+            target_resource=req.target_resource,
+            executing_principal=req.executing_principal,
+            expected_tenant_id=req.expected_tenant_id,
+            current_epoch=req.current_epoch,
+            now_ns=req.now_ns,
+        )
+        return verdict.to_dict()
+
+    @app.post("/api/v1/capability/revoke")
+    async def capability_revoke_endpoint(req: CapabilityRevokeRequest):
+        """Revokes a capability token and cascades down subtree."""
+        from swarmwatch.tenant_capability import global_capability_manager
+        receipt = global_capability_manager.revoke(
+            token_id=req.token_id,
+            reason=req.reason,
+            revoked_by=req.revoked_by,
+        )
+        return receipt.to_dict()
+
+    @app.get("/api/v1/capability/status")
+    async def capability_status_endpoint():
+        """Returns operational metrics and active authority public key."""
+        from swarmwatch.tenant_capability import global_capability_manager
+        return global_capability_manager.status().to_dict()
 
 
     @app.post("/api/v1/ingress/submit")

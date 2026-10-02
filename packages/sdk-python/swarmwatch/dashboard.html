@@ -1733,6 +1733,10 @@
             <span class="status-indicator" id="witnessDot" style="background: var(--success);"></span>
             <span id="witnessText">WITNESS: ASYMMETRIC VERIFIED</span>
           </div>
+          <div class="fleet-badge" id="capabilityBadge" title="Tenant Identity Boundary & Attenuated Capability Tokens (ADR 0076)">
+            <span class="status-indicator" id="capabilityDot" style="background: var(--success);"></span>
+            <span id="capabilityText">CAPABILITY: ATTENUATED OK</span>
+          </div>
         </div>
 
 
@@ -4918,6 +4922,27 @@
       }
       refreshWitnessStatus();
       setInterval(refreshWitnessStatus, 10000);
+
+      async function refreshCapabilityStatus() {
+        var capabilityDot = document.getElementById('capabilityDot');
+        var capabilityText = document.getElementById('capabilityText');
+        try {
+          var res = await fetch('/api/v1/capability/status');
+          if (res.ok) {
+            var data = await res.json();
+            var active = data.active_root_public_key && data.active_root_public_key.length > 0;
+            if (capabilityDot) {
+              capabilityDot.style.background = active ? 'var(--success)' : 'var(--danger)';
+            }
+            if (capabilityText) {
+              var badgeStr = active ? 'CAPABILITY: ATTENUATED OK' : 'CAPABILITY: INACTIVE';
+              capabilityText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshCapabilityStatus();
+      setInterval(refreshCapabilityStatus, 10000);
 
 
 

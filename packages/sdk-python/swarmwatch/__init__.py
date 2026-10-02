@@ -909,6 +909,21 @@ from swarmwatch.root_witness import (
     RootWitness,
     global_root_witness,
 )
+from swarmwatch.tenant_capability import (
+    CapabilityError,
+    PrivilegeEscalationError,
+    AttenuationViolationError,
+    CapabilityVerificationError,
+    RevocationError,
+    resource_pattern_matches,
+    is_subpattern,
+    CapabilityToken,
+    CapabilityVerdict,
+    RevocationReceipt,
+    CapabilityStatus,
+    TenantCapabilityManager,
+    global_capability_manager,
+)
 
 
 

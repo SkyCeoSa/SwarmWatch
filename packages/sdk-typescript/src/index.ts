@@ -824,6 +824,33 @@ export {
   globalRootWitness,
 } from "./root_witness.ts";
 
+// Tenant Identity Boundary & Attenuated Capability Tokens (Seam 65 / ADR 0076)
+export type {
+  CapabilityTokenData,
+  CapabilityVerdictData,
+  RevocationReceiptData,
+  CapabilityStatusData,
+  IssueRootTokenOptions,
+  AttenuateOptions,
+  VerifyExecutionOptions,
+} from "./tenant_capability.ts";
+export {
+  CapabilityError,
+  PrivilegeEscalationError,
+  AttenuationViolationError,
+  CapabilityVerificationError,
+  RevocationError,
+  resourcePatternMatches,
+  isSubpattern,
+  currentEpochNs,
+  CapabilityToken,
+  CapabilityVerdict,
+  RevocationReceipt,
+  CapabilityStatus,
+  TenantCapabilityManager,
+  globalCapabilityManager,
+} from "./tenant_capability.ts";
+
 
 
 

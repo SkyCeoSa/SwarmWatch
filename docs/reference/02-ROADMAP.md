@@ -520,8 +520,15 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-25 microsecond consistency verification latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
   - Dual-SDK parity across Python (`swarmwatch.root_witness`) and TypeScript (`@swarmwatch/sdk/src/root_witness.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/witness/submit`, `POST /api/v1/witness/checkpoint`, `GET /api/v1/witness/checkpoint`, `POST /api/v1/witness/verify`, `GET /api/v1/witness/consistency-proof`, `POST /api/v1/witness/verify-consistency`, `POST /api/v1/witness/rotate`, `GET /api/v1/witness/status`), CLI subcommand (`swarmwatch witness submit|checkpoint|verify|rotate|status`), and Web Console `#witnessBadge` widget.
-- **Upcoming Roadmap (Seams 65–70+)**:
-  - **Seam 65**: Tenant Identity Boundary & Attenuated Capability Tokens (ADR 0076).
+- **Tenant Identity Boundary & Attenuated Capability Tokens (Seam 65 & ADR 0076 Dual-SDK Parity)**:
+  - Deep module `TenantCapabilityManager` eliminating ambient authority and unverified synthetic tenant labels.
+  - Cryptographically bound capability tokens (`CapabilityToken`) encapsulating tenant identity, issuer principal, subject principal, action scopes, resource namespace patterns, epoch, and validity windows under NIST P-256 ECDSA signatures.
+  - Strict monotonic delegation attenuation (`attenuate()`): child tokens cannot cross tenant boundaries, cannot grant unheld scopes (`PrivilegeEscalationError`), cannot widen resource patterns (`PrivilegeEscalationError`), cannot extend expiration (`AttenuationViolationError`), and cannot exceed `max_depth`.
+  - Cascading subtree revocation (`revoke()` / `is_revoked()`): revoking any parent token invalidates the entire downstream delegation subtree in $\mathcal{O}(d)$ time.
+  - Execution boundary verification (`verify()`) returning fail-closed `CapabilityVerdict` in $<20\mu\text{s}$ with signature verification caching (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.tenant_capability`) and TypeScript (`@swarmwatch/sdk/src/tenant_capability.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/capability/issue`, `POST /api/v1/capability/attenuate`, `POST /api/v1/capability/verify`, `POST /api/v1/capability/revoke`, `GET /api/v1/capability/status`), CLI subcommand (`swarmwatch capability issue|attenuate|verify|revoke|status`), and Web Console `#capabilityBadge` widget.
+- **Upcoming Roadmap (Seams 66–70+)**:
   - **Seam 66**: Effect-Aware Compensation Algebra (ADR 0077 / Reversible/Compensatable/Irreversible).
   - **Seam 67**: Durable Dataset-Level Privacy Accountant (ADR 0078 / Quorum (ε,δ) Ledger).
   - **Seam 68**: Protocol Interoperability Lab (ADR 0079 / OTLP/gRPC Conformance Matrix).
@@ -529,7 +536,8 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - **Seam 70**: Datacenter Failure Exercise (ADR 0081 / Region Loss Fault Injection).
   - **Seam 71+**: Autonomous Action Gateway (ADR 0082 / Governed Downstream Agent Execution).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (528 tests) and TypeScript (423 tests) runtimes (951 total tests across 55 suites).
+  - Full local test suite passing 100% across Python (543 tests) and TypeScript (438 tests) runtimes (981 total tests across 56 test suites).
+
 
 
 
