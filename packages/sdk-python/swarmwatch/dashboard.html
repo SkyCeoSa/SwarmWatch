@@ -1737,6 +1737,10 @@
             <span class="status-indicator" id="capabilityDot" style="background: var(--success);"></span>
             <span id="capabilityText">CAPABILITY: ATTENUATED OK</span>
           </div>
+          <div class="fleet-badge" id="compensationBadge" title="Effect-Aware Compensation Algebra & Monotone Approval Lattices (ADR 0077)">
+            <span class="status-indicator" id="compensationDot" style="background: var(--success);"></span>
+            <span id="compensationText">COMPENSATION: ALGEBRA OK</span>
+          </div>
         </div>
 
 
@@ -4944,11 +4948,28 @@
       refreshCapabilityStatus();
       setInterval(refreshCapabilityStatus, 10000);
 
-
-
-
-
-
+      async function refreshCompensationStatus() {
+        var compensationDot = document.getElementById('compensationDot');
+        var compensationText = document.getElementById('compensationText');
+        try {
+          var res = await fetch('/api/v1/compensation/status');
+          if (res.ok) {
+            var data = await res.json();
+            var hasPending = data.total_escalations_pending > 0;
+            if (compensationDot) {
+              compensationDot.style.background = hasPending ? 'var(--warning)' : 'var(--success)';
+            }
+            if (compensationText) {
+              var badgeStr = hasPending
+                ? ('COMPENSATION: ' + data.total_escalations_pending + ' ESC PENDING')
+                : 'COMPENSATION: ALGEBRA OK';
+              compensationText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshCompensationStatus();
+      setInterval(refreshCompensationStatus, 10000);
       if (btnMfaModal) {
 
         btnMfaModal.addEventListener('click', function() {

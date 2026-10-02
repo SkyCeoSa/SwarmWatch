@@ -359,16 +359,9 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Console): `#capabilityBadge` in `#fleetBar` (`dashboard.html`).
     - Invariant: Eliminates ambient authority and synthetic unverified tenant labels; cryptographically binds tenant identity, issuer principal, subject principal, action scopes, and resource namespace patterns into immutable `CapabilityToken` signed with NIST P-256 ECDSA; monotonic attenuation guarantees sub-delegated child tokens cannot cross tenant boundaries, escalate scopes (`PrivilegeEscalationError`), widen resource patterns (`PrivilegeEscalationError`), extend expiry (`AttenuationViolationError`), or exceed `max_depth`; cascading subtree revocation guarantees revoking any parent token invalidates the entire downstream delegation subtree in $\mathcal{O}(d)$ time; execution boundary verification fails closed on any constraint violation; sub-20 microsecond verification latency with signature caching (audit SLO $<250\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 
-
-
-
-
-
-
-
-
-
-
-
-
+66. **Effect-Aware Compensation Algebra & Monotone Approval Lattices Seam (ADR 0077 Dual-SDK Parity)**:
+    - Primitives (Python): `CompensationError`, `IrreversibleActionError`, `UnregisteredActionError`, `EscalationPendingError`, `ReversibilityClass`, `ActionExecution`, `ActionContract`, `CompositeClassification`, `CompensationStep`, `CompensationPlan`, `AlgebraCompensationResult`, `HumanEscalationReceipt`, `EscalationResolution`, `CompensationStatus`, `CompensationEngine`, `global_compensation_engine` (`compensation_algebra.py`), server endpoints `POST /api/v1/compensation/classify`, `POST /api/v1/compensation/plan`, `POST /api/v1/compensation/execute`, `POST /api/v1/compensation/escalate`, `POST /api/v1/compensation/authorize-escalation`, `GET /api/v1/compensation/status` (`server.py`), CLI subcommand `swarmwatch compensation` (`cli.py`).
+    - Primitives (TypeScript): `CompensationError`, `IrreversibleActionError`, `UnregisteredActionError`, `EscalationPendingError`, `ReversibilityClass`, `parseReversibilityClass`, `reversibilityClassName`, `reversibilityJoin`, `sha256Hex`, `ActionExecution`, `ActionContract`, `CompositeClassification`, `CompensationStep`, `CompensationPlan`, `AlgebraCompensationResult`, `HumanEscalationReceipt`, `EscalationResolution`, `CompensationStatus`, `CompensationEngine`, `globalCompensationEngine` (`compensation_algebra.ts`), exported via `index.ts`.
+    - Primitives (Console): `#compensationBadge` in `#fleetBar` (`dashboard.html`).
+    - Invariant: Eliminates blind automated rollback and unclassified side-effect assumptions; formalizes action reversibility into a bounded total order (lattice): $\text{REVERSIBLE} (0) \prec \text{COMPENSATABLE} (1) \prec \text{IRREVERSIBLE} (2)$; lattice join composition $\bigsqcup_{i=1}^k \text{Class}(\alpha_i) = \max_i \text{Class}(\alpha_i)$ ensures that any workflow containing even a single irreversible action yields an irreversible composite classification; automated compensation executes strictly in reverse chronological order $(A_k, \dots, A_1)$ for reversible (inverse $f^{-1}$) and compensatable (semantic forward $c(s)$) actions; unapproved irreversible actions strictly halt fail-closed (`IrreversibleActionError`) and emit immutable `HumanEscalationReceipt` records; human operator authorization (`authorize_escalation()`) records cryptographically verifiable `EscalationResolution` before allowing bypass or marking manual remediation; sub-25 microsecond action classification latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls; dual-SDK parity.
 

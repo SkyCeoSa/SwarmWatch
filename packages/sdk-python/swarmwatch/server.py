@@ -278,15 +278,24 @@ from swarmwatch.tenant_capability import (
     TenantCapabilityManager,
     global_capability_manager,
 )
-
-
-
-
-
-
-
-
-
+from swarmwatch.compensation_algebra import (
+    CompensationError,
+    IrreversibleActionError,
+    UnregisteredActionError,
+    EscalationPendingError,
+    ReversibilityClass,
+    ActionExecution,
+    ActionContract,
+    CompositeClassification,
+    CompensationStep,
+    CompensationPlan,
+    CompensationResult as AlgebraCompensationResult,
+    HumanEscalationReceipt,
+    EscalationResolution,
+    CompensationStatus,
+    CompensationEngine,
+    global_compensation_engine,
+)
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -902,22 +911,34 @@ class CapabilityRevokeRequest(BaseModel):
     revoked_by: str = "authority"
 
 
+class CompensationClassifyRequest(BaseModel):
+    actions: List[Dict[str, Any]]
+    strict: bool = False
 
 
+class CompensationPlanRequest(BaseModel):
+    actions: List[Dict[str, Any]]
+    strict: bool = False
 
 
+class CompensationExecuteRequest(BaseModel):
+    plan: Dict[str, Any]
+    actions: Optional[List[Dict[str, Any]]] = None
 
 
+class CompensationEscalateRequest(BaseModel):
+    action_id: str
+    action_type: str
+    tenant_id: str
+    principal: str
+    reason: str
 
 
-
-
-
-
-
-
-
-
+class CompensationAuthorizeRequest(BaseModel):
+    escalation_id: str
+    authorizer_principal: str
+    decision: str = "APPROVED_BYPASS"
+    remediation_notes: str = ""
 
 
 
@@ -6139,6 +6160,122 @@ def create_app(
         """Returns operational metrics and active authority public key."""
         from swarmwatch.tenant_capability import global_capability_manager
         return global_capability_manager.status().to_dict()
+
+    # -------------------------------------------------------------------------
+    # ADR 0077: Effect-Aware Compensation Algebra & Monotone Approval Lattices (Seam 66)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/compensation/classify")
+    async def compensation_classify_endpoint(req: CompensationClassifyRequest):
+        """Classifies a sequence of action executions using the reversibility lattice join."""
+        from swarmwatch.compensation_algebra import (
+            global_compensation_engine,
+            ActionExecution,
+            CompensationError,
+        )
+        try:
+            actions = [ActionExecution.from_dict(a) for a in req.actions]
+            classification = global_compensation_engine.classify(actions)
+            return classification.to_dict()
+        except CompensationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/compensation/plan")
+    async def compensation_plan_endpoint(req: CompensationPlanRequest):
+        """Generates a reverse-ordered compensation plan over an executed action sequence."""
+        from swarmwatch.compensation_algebra import (
+            global_compensation_engine,
+            ActionExecution,
+            CompensationError,
+        )
+        try:
+            actions = [ActionExecution.from_dict(a) for a in req.actions]
+            plan = global_compensation_engine.build_compensation_plan(actions)
+            return plan.to_dict()
+        except CompensationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/compensation/execute")
+    async def compensation_execute_endpoint(req: CompensationExecuteRequest):
+        """Executes automated compensation plan in strict reverse order with fail-closed safety."""
+        from swarmwatch.compensation_algebra import (
+            global_compensation_engine,
+            CompensationPlan,
+            ActionExecution,
+            IrreversibleActionError,
+            CompensationError,
+        )
+        try:
+            if req.actions:
+                for a in req.actions:
+                    act_obj = ActionExecution.from_dict(a)
+                    global_compensation_engine._actions_by_id[act_obj.action_id] = act_obj
+
+            plan = CompensationPlan.from_dict(req.plan)
+            result = global_compensation_engine.execute_compensation(
+                plan=plan,
+                allow_authorized_escalations=True,
+            )
+            return result.to_dict()
+        except IrreversibleActionError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except CompensationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/compensation/escalate")
+    async def compensation_escalate_endpoint(req: CompensationEscalateRequest):
+        """Issues an immutable human escalation receipt for an irreversible action."""
+        from swarmwatch.compensation_algebra import (
+            global_compensation_engine,
+            ActionExecution,
+            CompensationError,
+        )
+        try:
+            action = ActionExecution(
+                action_id=req.action_id,
+                action_type=req.action_type,
+                tenant_id=req.tenant_id,
+                principal=req.principal,
+            )
+            receipt = global_compensation_engine.escalate(
+                action=action,
+                reason=req.reason,
+            )
+            return receipt.to_dict()
+        except CompensationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/compensation/authorize-escalation")
+    async def compensation_authorize_endpoint(req: CompensationAuthorizeRequest):
+        """Authorizes and records human resolution for a pending escalation."""
+        from swarmwatch.compensation_algebra import (
+            global_compensation_engine,
+            CompensationError,
+        )
+        try:
+            resolution = global_compensation_engine.authorize_escalation(
+                escalation_id=req.escalation_id,
+                authorizer_principal=req.authorizer_principal,
+                decision=req.decision,
+                remediation_notes=req.remediation_notes,
+            )
+            return resolution.to_dict()
+        except CompensationError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/compensation/status")
+    async def compensation_status_endpoint():
+        """Returns operational diagnostics of the compensation engine."""
+        from swarmwatch.compensation_algebra import global_compensation_engine
+        return global_compensation_engine.status().to_dict()
+
 
 
     @app.post("/api/v1/ingress/submit")

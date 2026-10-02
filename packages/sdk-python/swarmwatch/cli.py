@@ -518,6 +518,20 @@ def main(argv=None):
     capability_parser.add_argument("--reason", default="Administrative revocation", help="Revocation reason")
     capability_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    compensation_parser = subparsers.add_parser("compensation", help="Effect-Aware Compensation Algebra & Monotone Approval Lattices (ADR 0077)")
+    compensation_parser.add_argument("action", choices=["classify", "plan", "execute", "escalate", "authorize", "status"], default="status", nargs="?", help="Action (classify, plan, execute, escalate, authorize, status)")
+    compensation_parser.add_argument("--action-id", default=None, help="Action ID")
+    compensation_parser.add_argument("--action-type", default=None, help="Action type identifier")
+    compensation_parser.add_argument("--tenant-id", default="tenant-default", help="Tenant ID")
+    compensation_parser.add_argument("--principal", default="agent-root", help="Executing principal")
+    compensation_parser.add_argument("--reason", default="Automatic rollback prohibited: irreversible side-effect", help="Reason for escalation or rejection")
+    compensation_parser.add_argument("--escalation-id", default=None, help="Escalation ID to authorize")
+    compensation_parser.add_argument("--decision", choices=["APPROVED_BYPASS", "MANUAL_REMEDIATED", "ABORTED"], default="APPROVED_BYPASS", help="Escalation authorization decision")
+    compensation_parser.add_argument("--notes", default="Authorized via CLI", help="Remediation notes")
+    compensation_parser.add_argument("--actions-json", default=None, help="JSON string or file path containing list of action executions")
+    compensation_parser.add_argument("--plan-json", default=None, help="JSON string or file path containing CompensationPlan")
+    compensation_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -4830,6 +4844,172 @@ def main(argv=None):
                 print(f"  Total Issued:         {st['total_issued']}")
                 print(f"  Total Attenuated:     {st['total_attenuated']}")
                 print(f"  Total Revoked:        {st['total_revoked']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand == "compensation":
+        from swarmwatch.compensation_algebra import (
+            global_compensation_engine,
+            ActionExecution,
+            CompensationPlan,
+            CompensationError,
+            IrreversibleActionError,
+        )
+        if args.action == "classify":
+            if not args.actions_json:
+                actions = [
+                    ActionExecution(
+                        action_id=args.action_id or "act-01",
+                        action_type=args.action_type or "agent_read_state",
+                        tenant_id=args.tenant_id,
+                        principal=args.principal,
+                    )
+                ]
+            else:
+                raw = args.actions_json
+                if os.path.exists(raw):
+                    with open(raw, "r", encoding="utf-8") as f:
+                        raw = f.read()
+                raw_list = json.loads(raw)
+                actions = [ActionExecution.from_dict(a) for a in raw_list]
+            comp = global_compensation_engine.classify(actions)
+            d = comp.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ACTION CLASSIFICATION LATTICE JOIN (ADR 0077)      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Composite Class:      {comp.reversibility_class.name}")
+                print(f"  Total Actions:        {comp.total_actions}")
+                print(f"  Reversible:           {comp.reversible_count}")
+                print(f"  Compensatable:        {comp.compensatable_count}")
+                print(f"  Irreversible:         {comp.irreversible_count}")
+                print(f"  Irreversible IDs:     {', '.join(comp.irreversible_action_ids) or 'none'}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "plan":
+            if not args.actions_json:
+                actions = [
+                    ActionExecution(
+                        action_id=args.action_id or "act-01",
+                        action_type=args.action_type or "agent_read_state",
+                        tenant_id=args.tenant_id,
+                        principal=args.principal,
+                    )
+                ]
+            else:
+                raw = args.actions_json
+                if os.path.exists(raw):
+                    with open(raw, "r", encoding="utf-8") as f:
+                        raw = f.read()
+                raw_list = json.loads(raw)
+                actions = [ActionExecution.from_dict(a) for a in raw_list]
+            plan = global_compensation_engine.build_compensation_plan(actions)
+            d = plan.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH REVERSE COMPENSATION PLAN GENERATED (ADR 0077)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Plan ID:              {plan.plan_id}")
+                print(f"  Composite Class:      {plan.composite_class.name}")
+                print(f"  Total Steps:          {len(plan.steps)}")
+                for s in plan.steps:
+                    print(f"    Step {s.step_index}: [{s.action_type}] -> {s.handler_type} ({s.reversibility_class.name})")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "execute":
+            if not args.plan_json:
+                print("\033[91m[Compensation Error] --plan-json required for execute\033[0m", file=sys.stderr)
+                sys.exit(1)
+            raw = args.plan_json
+            if os.path.exists(raw):
+                with open(raw, "r", encoding="utf-8") as f:
+                    raw = f.read()
+            plan = CompensationPlan.from_dict(json.loads(raw))
+            try:
+                result = global_compensation_engine.execute_compensation(plan, allow_authorized_escalations=True)
+                d = result.to_dict()
+                if args.format == "json":
+                    print(json.dumps(d, indent=2))
+                else:
+                    color = "\033[92m" if result.success else "\033[91m"
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH COMPENSATION PLAN EXECUTION (ADR 0077)             |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Outcome:              {color}{'SUCCESS' if result.success else 'FAILED'}\033[0m")
+                    print(f"  Plan ID:              {result.plan_id}")
+                    print(f"  Steps Executed:       {result.steps_executed}")
+                    print(f"  Steps Failed:         {result.steps_failed}")
+                    print(f"  Escalations Resolved: {result.escalations_resolved}")
+                    if result.errors:
+                        print(f"  Errors:               {', '.join(result.errors)}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0 if result.success else 1)
+            except IrreversibleActionError as e:
+                print(f"\033[91m[Compensation Halt] Irreversible action blocked: {e}\033[0m", file=sys.stderr)
+                sys.exit(2)
+        elif args.action == "escalate":
+            action = ActionExecution(
+                action_id=args.action_id or f"act-{uuid.uuid4().hex[:8]}",
+                action_type=args.action_type or "external_transfer",
+                tenant_id=args.tenant_id,
+                principal=args.principal,
+            )
+            receipt = global_compensation_engine.escalate(action=action, reason=args.reason)
+            d = receipt.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH HUMAN ESCALATION RECEIPT ISSUED (ADR 0077)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Escalation ID:        {receipt.escalation_id}")
+                print(f"  Action ID:            {receipt.action_id}")
+                print(f"  Action Type:          {receipt.action_type}")
+                print(f"  Reason:               {receipt.reason}")
+                print(f"  Status:               {receipt.status}")
+                print(f"  Escalation Hash:      {receipt.escalation_hash[:32]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "authorize":
+            if not args.escalation_id:
+                print("\033[91m[Compensation Error] --escalation-id required for authorize\033[0m", file=sys.stderr)
+                sys.exit(1)
+            resolution = global_compensation_engine.authorize_escalation(
+                escalation_id=args.escalation_id,
+                authorizer_principal=args.principal,
+                decision=args.decision,
+                remediation_notes=args.notes,
+            )
+            d = resolution.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ESCALATION RESOLUTION AUTHORIZED (ADR 0077)        |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Resolution ID:        {resolution.resolution_id}")
+                print(f"  Escalation ID:        {resolution.escalation_id}")
+                print(f"  Authorizer:           {resolution.authorizer_principal}")
+                print(f"  Decision:             {resolution.decision}")
+                print(f"  Notes:                {resolution.remediation_notes}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "status":
+            st = global_compensation_engine.status().to_dict()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH COMPENSATION ENGINE STATUS (ADR 0077)              |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Registered Contracts: {st['total_registered_contracts']}")
+                print(f"  Plans Generated:      {st['total_plans_generated']}")
+                print(f"  Executed Plans:       {st['total_compensations_executed']}")
+                print(f"  Pending Escalations:  {st['total_escalations_pending']}")
+                print(f"  Resolved Escalations: {st['total_escalations_resolved']}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

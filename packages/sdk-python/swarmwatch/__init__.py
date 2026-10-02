@@ -924,28 +924,23 @@ from swarmwatch.tenant_capability import (
     TenantCapabilityManager,
     global_capability_manager,
 )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+from swarmwatch.compensation_algebra import (
+    CompensationError,
+    IrreversibleActionError,
+    UnregisteredActionError,
+    EscalationPendingError,
+    ReversibilityClass,
+    sha256_digest,
+    ActionExecution,
+    ActionContract,
+    CompositeClassification,
+    CompensationStep,
+    CompensationPlan,
+    CompensationResult as AlgebraCompensationResult,
+    HumanEscalationReceipt,
+    EscalationResolution,
+    CompensationStatus,
+    CompensationEngine,
+    global_compensation_engine,
+)
 

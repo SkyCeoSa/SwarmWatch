@@ -528,15 +528,24 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Execution boundary verification (`verify()`) returning fail-closed `CapabilityVerdict` in $<20\mu\text{s}$ with signature verification caching (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
   - Dual-SDK parity across Python (`swarmwatch.tenant_capability`) and TypeScript (`@swarmwatch/sdk/src/tenant_capability.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/capability/issue`, `POST /api/v1/capability/attenuate`, `POST /api/v1/capability/verify`, `POST /api/v1/capability/revoke`, `GET /api/v1/capability/status`), CLI subcommand (`swarmwatch capability issue|attenuate|verify|revoke|status`), and Web Console `#capabilityBadge` widget.
-- **Upcoming Roadmap (Seams 66–70+)**:
-  - **Seam 66**: Effect-Aware Compensation Algebra (ADR 0077 / Reversible/Compensatable/Irreversible).
+- **Effect-Aware Compensation Algebra & Monotone Approval Lattices (Seam 66 & ADR 0077 Dual-SDK Parity)**:
+  - Deep module `CompensationEngine` formalizing agent side-effects into a bounded total order lattice: $\text{REVERSIBLE} (0) \prec \text{COMPENSATABLE} (1) \prec \text{IRREVERSIBLE} (2)$.
+  - Monotone approval lattice join composition $\bigsqcup_{i=1}^k \text{Class}(\alpha_i) = \max_i \text{Class}(\alpha_i)$ guaranteeing that any sequence containing even a single irreversible action yields an irreversible composite classification.
+  - Fail-closed default: unregistered actions strictly default to `ReversibilityClass.IRREVERSIBLE`.
+  - Deterministic reverse-ordered compensation planning (`build_compensation_plan()`): steps are generated and executed in strict reverse chronological order $(A_k, \dots, A_1)$.
+  - Fail-closed rollback halts: automated compensation strictly rejects unapproved irreversible actions with `IrreversibleActionError`.
+  - Immutable human escalation receipts (`HumanEscalationReceipt`) with canonical SHA-256 digests (`sw:esc:v1`) and authorized resolutions (`EscalationResolution`).
+  - Sub-25 microsecond action classification latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.compensation_algebra`) and TypeScript (`@swarmwatch/sdk/src/compensation_algebra.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/compensation/classify`, `POST /api/v1/compensation/plan`, `POST /api/v1/compensation/execute`, `POST /api/v1/compensation/escalate`, `POST /api/v1/compensation/authorize-escalation`, `GET /api/v1/compensation/status`), CLI subcommand (`swarmwatch compensation classify|plan|execute|escalate|authorize|status`), and Web Console `#compensationBadge` widget.
+- **Upcoming Roadmap (Seams 67–70+)**:
   - **Seam 67**: Durable Dataset-Level Privacy Accountant (ADR 0078 / Quorum (ε,δ) Ledger).
   - **Seam 68**: Protocol Interoperability Lab (ADR 0079 / OTLP/gRPC Conformance Matrix).
   - **Seam 69**: Verifiable Release Provenance (ADR 0080 / Signed Artifact DAG).
   - **Seam 70**: Datacenter Failure Exercise (ADR 0081 / Region Loss Fault Injection).
   - **Seam 71+**: Autonomous Action Gateway (ADR 0082 / Governed Downstream Agent Execution).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (543 tests) and TypeScript (438 tests) runtimes (981 total tests across 56 test suites).
+  - Full local test suite passing 100% across Python (556 tests) and TypeScript (451 tests) runtimes (1,007 total tests across 57 test suites).
 
 
 

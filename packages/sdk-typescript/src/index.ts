@@ -851,11 +851,38 @@ export {
   globalCapabilityManager,
 } from "./tenant_capability.ts";
 
-
-
-
-
-
-
-
+// Effect-Aware Compensation Algebra & Monotone Approval Lattices (Seam 66 / ADR 0077)
+export type {
+  ActionExecutionData,
+  ActionContractOptions,
+  CompositeClassificationData,
+  CompensationStepData,
+  CompensationPlanData,
+  CompensationResultData,
+  HumanEscalationReceiptData,
+  EscalationResolutionData,
+  CompensationStatusData,
+} from "./compensation_algebra.ts";
+export {
+  CompensationError,
+  IrreversibleActionError,
+  UnregisteredActionError,
+  EscalationPendingError,
+  ReversibilityClass,
+  parseReversibilityClass,
+  reversibilityClassName,
+  reversibilityJoin,
+  sha256Hex,
+  ActionExecution,
+  ActionContract,
+  CompositeClassification,
+  CompensationStep,
+  CompensationPlan,
+  CompensationResult as AlgebraCompensationResult,
+  HumanEscalationReceipt,
+  EscalationResolution,
+  CompensationStatus,
+  CompensationEngine,
+  globalCompensationEngine,
+} from "./compensation_algebra.ts";
 

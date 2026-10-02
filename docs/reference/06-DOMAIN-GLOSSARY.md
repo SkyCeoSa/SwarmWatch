@@ -1536,6 +1536,34 @@ _Avoid_: Token cascade, child invalidation, batch revocation
 The fail-closed evaluation outcome returned in $<250\,\mu\text{s}$ asserting cryptographic authenticity, tenant isolation, scope match, resource match, temporal validity, and revocation status before action dispatch.
 _Avoid_: Check result, auth verdict, allow/deny response
 
+---
+
+### Effect-Aware Compensation Algebra & Monotone Approval Lattices (Seam 66 / ADR 0077)
+
+**CompensationEngine**:
+The deep module executing formal action classification, reversibility lattice join composition, deterministic reverse-ordered compensation planning, and fail-closed human escalation.
+_Avoid_: Rollback manager, undo engine, failure recovery service, revert daemon
+
+**ReversibilityClass**:
+A bounded total order (lattice) classifying agent actions: $\text{REVERSIBLE} (0) \prec \text{COMPENSATABLE} (1) \prec \text{IRREVERSIBLE} (2)$.
+_Avoid_: Action category, rollback type, side-effect level
+
+**MonotoneApprovalLattice**:
+The mathematical join operation $\bigsqcup_{i=1}^k \text{Class}(\alpha_i) = \max_i \text{Class}(\alpha_i)$ guaranteeing that an action sequence containing even a single irreversible action yields an irreversible composite classification.
+_Avoid_: Lattice check, category merger, risk level accumulator
+
+**CompensationPlan**:
+A deterministic sequence of inverse actions ($f^{-1}$) and semantic forward compensations ($c(s)$) executed in strict reverse chronological order $(A_k, \dots, A_1)$.
+_Avoid_: Undo script, rollback list, recovery workflow
+
+**HumanEscalationReceipt**:
+An immutable cryptographic audit record generated when an irreversible action is encountered, halting automated rollback with `IrreversibleActionError` until human operator authorization.
+_Avoid_: Approval ticket, incident ticket, manual review request
+
+**EscalationResolution**:
+A non-repudiable authorization record signed by an authorized human principal resolving an escalation with `APPROVED_BYPASS`, `MANUAL_REMEDIATED`, or `ABORTED`.
+_Avoid_: Override decision, admin approve, signoff record
+
 
 
 
