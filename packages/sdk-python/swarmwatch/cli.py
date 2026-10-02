@@ -569,7 +569,23 @@ def main(argv=None):
     interop_parser.add_argument("--severity", choices=["FATAL", "WARNING", "INFORMATIONAL"], default="WARNING", help="Deviation severity")
     interop_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch provenance` subcommand (Seam 69 / ADR 0080)
+    provenance_parser = subparsers.add_parser("provenance", aliases=["prov", "slsa"], help="Verifiable Release Provenance & Signed Artifact DAG (ADR 0080)")
+    provenance_parser.add_argument("action", choices=["record-step", "generate", "verify", "dag", "status"], default="status", nargs="?", help="Action (record-step, generate, verify, dag, status)")
+    provenance_parser.add_argument("--step-type", choices=["SOURCE_CHECKOUT", "ENVIRONMENT_LOCK", "TEST_EXECUTION", "CRAFT_AUDIT", "CONFORMANCE_ATTEST", "BUILD_PACKAGING", "RELEASE_GATE"], default="SOURCE_CHECKOUT", help="Provenance step type")
+    provenance_parser.add_argument("--parent-step-id", action="append", default=[], dest="parent_step_ids", help="Parent step ID for DAG edge linkage")
+    provenance_parser.add_argument("--step-id", default=None, help="Explicit step ID")
+    provenance_parser.add_argument("--git-commit", default="HEAD", help="Git commit SHA for provenance release manifest")
+    provenance_parser.add_argument("--git-branch", default="main", help="Git branch name")
+    provenance_parser.add_argument("--builder-id", default="https://github.com/SkyCeoSa/SwarmWatch/actions/runner", help="Builder identity URI")
+    provenance_parser.add_argument("--manifest-file", default=None, help="Path to signed provenance manifest JSON file for verification")
+    provenance_parser.add_argument("--public-key", default=None, help="Base64 public key for offline provenance verification")
+    provenance_parser.add_argument("--verify-files", action="store_true", default=False, help="Verify physical artifact checksums on disk")
+    provenance_parser.add_argument("--base-dir", default=None, help="Base directory for verifying disk artifacts")
+    provenance_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -5320,6 +5336,126 @@ def main(argv=None):
                 print(f"  Total Deviations:     {st.get('total_deviations_recorded', 0)}")
                 print(f"  Fatal Deviations:     {st.get('fatal_deviations', 0)}")
                 print(f"  Conformance Cert:     {st.get('conformance_certified', False)}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("provenance", "prov", "slsa"):
+        from swarmwatch.release_provenance import (
+            global_release_provenance,
+            ProvenanceStepType,
+            ArtifactDigest,
+            SignedProvenanceManifest,
+        )
+        if args.action == "record-step":
+            try:
+                stype = ProvenanceStepType(args.step_type)
+            except ValueError:
+                print(f"Error: Invalid step type '{args.step_type}'", file=sys.stderr)
+                sys.exit(1)
+
+            step = global_release_provenance.record_step(
+                step_type=stype,
+                parent_step_ids=args.parent_step_ids,
+                step_id=args.step_id,
+            )
+            if args.format == "json":
+                print(json.dumps(step.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PROVENANCE STEP RECORDED (ADR 0080)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Step ID:            {step.step_id}")
+                print(f"  Step Type:          {step.step_type.value}")
+                print(f"  Step Digest:        {step.step_digest}")
+                print(f"  Parent Steps:       {step.parent_step_ids}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "generate":
+            manifest = global_release_provenance.generate_manifest(
+                git_commit=args.git_commit,
+                git_branch=args.git_branch,
+                builder_id=args.builder_id,
+            )
+            if args.format == "json":
+                print(json.dumps(manifest.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SIGNED PROVENANCE MANIFEST ISSUED (ADR 0080)       |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Manifest ID:        {manifest.manifest_id}")
+                print(f"  Spec Version:       {manifest.spec_version}")
+                print(f"  Git Commit:         {manifest.git_commit}")
+                print(f"  DAG Root Hash:      {manifest.dag_root_hash}")
+                print(f"  Steps Count:        {len(manifest.steps)}")
+                print(f"  Products Count:     {len(manifest.products)}")
+                print(f"  Signature (ES256):  {manifest.signature[:32]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "verify":
+            if not args.manifest_file:
+                print("Error: --manifest-file required for verification", file=sys.stderr)
+                sys.exit(1)
+
+            try:
+                with open(args.manifest_file, "r", encoding="utf-8") as f:
+                    manifest_dict = json.load(f)
+            except Exception as e:
+                print(f"Error reading manifest file: {e}", file=sys.stderr)
+                sys.exit(1)
+
+            res = global_release_provenance.verify_manifest(
+                manifest=manifest_dict,
+                public_key_b64=args.public_key,
+                verify_disk_files=args.verify_files,
+                base_dir=args.base_dir,
+            )
+            if args.format == "json":
+                print(json.dumps(res.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PROVENANCE MANIFEST VERIFICATION (ADR 0080)        |")
+                print("+---------------------------------------------------------------+")
+                verdict = "\033[92mVALID (SLSA LEVEL 3 COMPLIANT)\033[0m" if res.is_valid else "\033[91mINVALID (TAMPER DETECTED)\033[0m"
+                print(f"  Verdict:            {verdict}")
+                print(f"  Verified Steps:     {res.verified_steps_count}")
+                print(f"  Verified Products:  {res.verified_products_count}")
+                if res.errors:
+                    print("  Errors Detected:")
+                    for err in res.errors:
+                        print(f"    - \033[91m{err}\033[0m")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if res.is_valid else 1)
+
+        elif args.action == "dag":
+            dag = global_release_provenance.get_dag()
+            if args.format == "json":
+                print(json.dumps(dag.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ACTIVE RELEASE PROVENANCE DAG (ADR 0080)           |")
+                print("+---------------------------------------------------------------+")
+                print(f"  DAG Hash:           {dag.compute_dag_hash()}")
+                print(f"  Step Count:         {len(dag.steps)}")
+                for i, s in enumerate(dag.topological_sort()):
+                    print(f"    [{i+1}] {s.step_id} ({s.step_type.value}) -> digest: {s.step_digest[:16]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "status":
+            st = global_release_provenance.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH RELEASE PROVENANCE STATUS (ADR 0080)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Active DAG Steps:   {st.get('active_dag_step_count', 0)}")
+                print(f"  Manifests Issued:   {st.get('total_manifests_issued', 0)}")
+                print(f"  Success Verifies:   {st.get('successful_verifications', 0)}")
+                print(f"  Failed Verifies:    {st.get('failed_verifications', 0)}")
+                print(f"  SLSA Level:         {st.get('slsa_level', 'SLSA_BUILD_LEVEL_3')}")
+                print(f"  Public Key:         {st.get('public_key', '')[:24]}...")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

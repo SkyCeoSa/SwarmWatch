@@ -930,3 +930,25 @@ export {
   globalInteropLab,
 } from "./interop_lab.ts";
 
+// Verifiable Release Provenance & Signed Artifact DAG (Seam 69 / ADR 0080)
+export type {
+  ArtifactDigestData,
+  ProvenanceStepData,
+  SignedProvenanceManifestData,
+  ProvenanceVerificationResultData,
+} from "./release_provenance.ts";
+export {
+  ProvenanceError,
+  ProvenanceCyclicDependencyError,
+  ProvenanceVerificationError,
+  ProvenanceStepType,
+  ArtifactDigest,
+  ProvenanceStep,
+  ProvenanceDag,
+  SignedProvenanceManifest,
+  ProvenanceVerificationResult,
+  ReleaseProvenance,
+  globalReleaseProvenance,
+} from "./release_provenance.ts";
+
+

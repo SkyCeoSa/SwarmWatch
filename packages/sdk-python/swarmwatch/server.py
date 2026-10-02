@@ -325,6 +325,20 @@ from swarmwatch.interop_lab import (
     InteropLab,
     global_interop_lab,
 )
+from swarmwatch.release_provenance import (
+    ProvenanceError,
+    ProvenanceCyclicDependencyError,
+    ProvenanceVerificationError,
+    ProvenanceStepType,
+    ArtifactDigest,
+    ProvenanceStep,
+    ProvenanceDag,
+    SignedProvenanceManifest,
+    ProvenanceVerificationResult,
+    ReleaseProvenance,
+    global_release_provenance,
+)
+
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -1024,6 +1038,30 @@ class InteropRecordDeviationRequest(BaseModel):
 
 class InteropAttestRequest(BaseModel):
     suite_name: str = "SwarmWatch Interoperability Conformance Suite"
+
+
+class ProvenanceRecordStepRequest(BaseModel):
+    step_type: str
+    parent_step_ids: List[str] = Field(default_factory=list)
+    inputs: List[Dict[str, Any]] = Field(default_factory=list)
+    outputs: List[Dict[str, Any]] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    step_id: Optional[str] = None
+
+
+class ProvenanceGenerateRequest(BaseModel):
+    git_commit: str
+    git_branch: str = "main"
+    builder_id: Optional[str] = None
+    manifest_id: Optional[str] = None
+
+
+class ProvenanceVerifyRequest(BaseModel):
+    manifest: Dict[str, Any]
+    public_key_b64: Optional[str] = None
+    verify_disk_files: bool = False
+    base_dir: Optional[str] = None
+
 
 
 async def run_swarm_simulation(
@@ -6519,6 +6557,68 @@ def create_app(
     async def interop_status_endpoint():
         """Returns operational diagnostics of the protocol interoperability lab."""
         return global_interop_lab.status()
+
+    # ADR 0080: Verifiable Release Provenance & Signed Artifact DAG (Seam 69)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/provenance/record-step")
+    async def provenance_record_step_endpoint(req: ProvenanceRecordStepRequest):
+        """Records a provenance DAG step with deterministic input and output digests."""
+        try:
+            step_type_enum = ProvenanceStepType(req.step_type)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid provenance step_type: {req.step_type}")
+
+        try:
+            step = global_release_provenance.record_step(
+                step_type=step_type_enum,
+                parent_step_ids=req.parent_step_ids,
+                inputs=req.inputs,
+                outputs=req.outputs,
+                metadata=req.metadata,
+                step_id=req.step_id,
+            )
+            return step.to_dict()
+        except ProvenanceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/provenance/generate")
+    async def provenance_generate_endpoint(req: ProvenanceGenerateRequest):
+        """Generates and cryptographically signs an in-toto / SLSA v1.0 release provenance manifest."""
+        try:
+            manifest = global_release_provenance.generate_manifest(
+                git_commit=req.git_commit,
+                git_branch=req.git_branch,
+                builder_id=req.builder_id,
+                manifest_id=req.manifest_id,
+            )
+            return manifest.to_dict()
+        except ProvenanceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/provenance/verify")
+    async def provenance_verify_endpoint(req: ProvenanceVerifyRequest):
+        """Verifies an SLSA release provenance manifest cryptographically and topographically."""
+        try:
+            result = global_release_provenance.verify_manifest(
+                manifest=req.manifest,
+                public_key_b64=req.public_key_b64,
+                verify_disk_files=req.verify_disk_files,
+                base_dir=req.base_dir,
+            )
+            return result.to_dict()
+        except ProvenanceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/provenance/dag")
+    async def provenance_dag_endpoint():
+        """Returns the active release provenance DAG in topological order."""
+        return global_release_provenance.get_dag().to_dict()
+
+    @app.get("/api/v1/provenance/status")
+    async def provenance_status_endpoint():
+        """Returns operational metrics and active verification statistics for release provenance."""
+        return global_release_provenance.status()
+
 
 
 

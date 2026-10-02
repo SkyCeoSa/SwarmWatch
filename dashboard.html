@@ -1749,6 +1749,10 @@
             <span class="status-indicator" id="interopDot" style="background: var(--success);"></span>
             <span id="interopText">INTEROP LAB: CONFORMANT</span>
           </div>
+          <div class="fleet-badge" id="provenanceBadge" title="Verifiable Release Provenance & Signed Artifact DAG (ADR 0080)">
+            <span class="status-indicator" id="provenanceDot" style="background: var(--success);"></span>
+            <span id="provenanceText">PROVENANCE: SLSA L3 OK</span>
+          </div>
         </div>
 
 
@@ -5025,6 +5029,31 @@
       }
       refreshInteropStatus();
       setInterval(refreshInteropStatus, 10000);
+
+      async function refreshProvenanceStatus() {
+        var provenanceDot = document.getElementById('provenanceDot');
+        var provenanceText = document.getElementById('provenanceText');
+        try {
+          var res = await fetch('/api/v1/provenance/status');
+          if (res.ok) {
+            var data = await res.json();
+            var failedVerifs = data.failed_verifications || 0;
+            var successVerifs = data.successful_verifications || 0;
+            if (provenanceDot) {
+              provenanceDot.style.background = failedVerifs > 0 ? 'var(--danger)' : 'var(--success)';
+            }
+            if (provenanceText) {
+              var badgeStr = failedVerifs > 0
+                ? ('PROVENANCE: ' + failedVerifs + ' FAILED')
+                : (successVerifs > 0 ? ('PROVENANCE: ' + successVerifs + ' VERIFIED') : 'PROVENANCE: SLSA L3 OK');
+              provenanceText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshProvenanceStatus();
+      setInterval(refreshProvenanceStatus, 10000);
+
 
       if (btnMfaModal) {
 

@@ -961,4 +961,19 @@ _Avoid_: Hook call, function callback, middleware run
 - **ConformanceAttestationReceipt**: A cryptographically verifiable audit record (`sw:conformance:v1:...`) certifying cross-protocol conformance and framing compliance across standards and client variants.
   _Avoid_: Test report, pass certificate, compliance dump, audit stamp
 
+---
+
+### Verifiable Release Provenance & Signed Artifact DAG (Seam 69 / ADR 0080)
+- **ReleaseProvenance**: The deep module orchestrating SLSA Level 3 and in-toto compliant release provenance DAG construction, canonical SHA-256 artifact digest calculation, asymmetric ECDSA digital signing, and offline provenance verification.
+  _Avoid_: Build tracker, release signer, artifact notary, packaging script
+- **ProvenanceDag**: The directed acyclic graph structure formalizing dependency order across lifecycle phases (source checkout -> environment lock -> test execution -> craft audit -> conformance attest -> build packaging -> release gate) with Kahn's topological sort and cycle detection.
+  _Avoid_: Build pipeline, workflow tree, task chain, dependency graph
+- **ArtifactDigest**: An immutable cryptographic record capturing normalized path, SHA-256 content checksum, byte size, and MIME content type for release materials and products.
+  _Avoid_: File hash, checksum record, blob signature, artifact info
+- **ProvenanceStep**: An immutable vertex within the provenance DAG binding step identifier, lifecycle step type, parent step IDs, input digests, output digests, metadata, and canonical step digest (`sw:prov:step:v1:...`).
+  _Avoid_: Build step, task node, pipeline stage, job record
+- **SignedProvenanceManifest**: The tamper-evident SLSA v1.0 compliant release document encapsulating builder identity, git commit, DAG root hash, material digests, product digests, and NIST P-256 ECDSA digital signature.
+  _Avoid_: Release cert, build attestation, signed tag, provenance envelope
+
+
 

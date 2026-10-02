@@ -521,6 +521,18 @@ __all__ = [
     "WireFaultInjector",
     "InteropLab",
     "global_interop_lab",
+    # ADR 0080: Verifiable Release Provenance & Signed Artifact DAG (Seam 69)
+    "ProvenanceError",
+    "ProvenanceCyclicDependencyError",
+    "ProvenanceVerificationError",
+    "ProvenanceStepType",
+    "ArtifactDigest",
+    "ProvenanceStep",
+    "ProvenanceDag",
+    "SignedProvenanceManifest",
+    "ProvenanceVerificationResult",
+    "ReleaseProvenance",
+    "global_release_provenance",
 ]
 
 
@@ -985,5 +997,19 @@ from swarmwatch.interop_lab import (
     InteropLab,
     global_interop_lab,
 )
+from swarmwatch.release_provenance import (
+    ProvenanceError,
+    ProvenanceCyclicDependencyError,
+    ProvenanceVerificationError,
+    ProvenanceStepType,
+    ArtifactDigest,
+    ProvenanceStep,
+    ProvenanceDag,
+    SignedProvenanceManifest,
+    ProvenanceVerificationResult,
+    ReleaseProvenance,
+    global_release_provenance,
+)
+
 
 
