@@ -932,3 +932,18 @@ _Avoid_: Hook call, function callback, middleware run
   _Avoid_: Approval ticket, incident ticket, manual review request
 - **EscalationResolution**: A non-repudiable authorization record signed by an authorized human principal resolving an escalation with `APPROVED_BYPASS`, `MANUAL_REMEDIATED`, or `ABORTED`.
   _Avoid_: Override decision, admin approve, signoff record
+
+---
+
+### Durable Dataset-Level Privacy Accountant & Quorum (ε,δ) Ledger (Seam 67 / ADR 0078)
+- **DatasetPrivacyLedger**: The deep module governing durable dataset-level and entity-level differential privacy bounds, atomic reservation admission, calibrated Laplace perturbation, and monotone partition reconciliation.
+  _Avoid_: Privacy counter, budget tracker, DP manager, noise daemon
+- **EntityAdjacencyBound**: The mathematical constraint $\|D \oplus D'\|_{\text{entity}} \le 1$ defining neighboring datasets by adding or removing all contributions of a single entity, ensuring cumulative protection against linkage attacks across disparate queries.
+  _Avoid_: Record neighbor, row diff, user filter, tenant margin
+- **HierarchicalBudgetEvaluation**: The atomic dual-tier check enforcing both global dataset capacity $(\mathcal{E}_{\text{dataset}}, \Delta_{\text{dataset}})$ and per-entity contribution caps $(\epsilon_{\text{entity\_max}}, \delta_{\text{entity\_max}})$ prior to granting query evaluation permits.
+  _Avoid_: Dual limit, two-stage budget, double check
+- **DatasetPrivacyReservation**: An atomic cryptographic permit reserving $(\epsilon, \delta)$ budget prior to query evaluation, preventing over-allocation race conditions and failing closed with `DatasetPrivacyBudgetExhaustedError` or `EntityPrivacyBudgetExhaustedError`.
+  _Avoid_: Budget lock, reservation ticket, query permit
+- **MonotoneSupremaReconciliation**: The distributed join operation $\max(\text{Ledger}_A(e), \text{Ledger}_B(e))$ merging divergent partition expenditures upon network heal, mathematically guaranteeing that spent privacy budget never regresses.
+  _Avoid_: Ledger sync, budget merge, partition join
+

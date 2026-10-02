@@ -296,6 +296,21 @@ from swarmwatch.compensation_algebra import (
     CompensationEngine,
     global_compensation_engine,
 )
+from swarmwatch.dataset_privacy import (
+    DatasetPrivacyError,
+    DatasetPrivacyBudgetExhaustedError,
+    EntityPrivacyBudgetExhaustedError,
+    DatasetNotFoundError,
+    ReservationNotFoundError,
+    DatasetReservationStatus,
+    DatasetPrivacyConfig,
+    DatasetPrivacyReservation,
+    DatasetPrivacyReleaseResult,
+    EntityExpenditure,
+    DatasetLedgerSnapshot,
+    DatasetPrivacyLedger,
+    global_dataset_privacy_ledger,
+)
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -941,7 +956,40 @@ class CompensationAuthorizeRequest(BaseModel):
     remediation_notes: str = ""
 
 
+class DatasetPrivacyRegisterRequest(BaseModel):
+    dataset_id: str
+    tenant_id: str = "default"
+    max_epsilon: float
+    max_delta: float = 0.0
+    entity_epsilon_limit: float = 1.0
+    entity_delta_limit: float = 0.0
+    description: str = ""
 
+
+class DatasetPrivacyReserveRequest(BaseModel):
+    tenant_id: str = "default"
+    dataset_id: str
+    entity_id: str
+    epsilon: float
+    delta: float = 0.0
+    sensitivity: float = 1.0
+    query_id: Optional[str] = None
+
+
+class DatasetPrivacyReleaseRequest(BaseModel):
+    reservation_id: str
+    raw_value: Union[float, List[float], Dict[str, float]]
+    noise_seed: Optional[int] = None
+    min_bound: Optional[float] = None
+    max_bound: Optional[float] = None
+
+
+class DatasetPrivacyCancelRequest(BaseModel):
+    reservation_id: str
+
+
+class DatasetPrivacyReconcileRequest(BaseModel):
+    snapshot: Dict[str, Any]
 
 async def run_swarm_simulation(
     storage: StorageAdapter,
@@ -6275,6 +6323,117 @@ def create_app(
         """Returns operational diagnostics of the compensation engine."""
         from swarmwatch.compensation_algebra import global_compensation_engine
         return global_compensation_engine.status().to_dict()
+
+    # -------------------------------------------------------------------------
+    # ADR 0078: Durable Dataset-Level Privacy Accountant (Seam 67)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/dataset-privacy/register")
+    async def dataset_privacy_register_endpoint(req: DatasetPrivacyRegisterRequest):
+        """Registers or configures durable differential privacy limits for a dataset."""
+        try:
+            cfg = global_dataset_privacy_ledger.register_dataset(
+                dataset_id=req.dataset_id,
+                tenant_id=req.tenant_id,
+                max_epsilon=req.max_epsilon,
+                max_delta=req.max_delta,
+                entity_epsilon_limit=req.entity_epsilon_limit,
+                entity_delta_limit=req.entity_delta_limit,
+                description=req.description,
+            )
+            return cfg.to_dict()
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/dataset-privacy/reserve")
+    async def dataset_privacy_reserve_endpoint(req: DatasetPrivacyReserveRequest):
+        """Atomically reserves (epsilon, delta) budget against dataset and entity caps."""
+        try:
+            reservation = global_dataset_privacy_ledger.reserve(
+                tenant_id=req.tenant_id,
+                dataset_id=req.dataset_id,
+                entity_id=req.entity_id,
+                epsilon=req.epsilon,
+                delta=req.delta,
+                sensitivity=req.sensitivity,
+                query_id=req.query_id,
+            )
+            return reservation.to_dict()
+        except (DatasetPrivacyBudgetExhaustedError, EntityPrivacyBudgetExhaustedError) as e:
+            raise HTTPException(status_code=429, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/dataset-privacy/release")
+    async def dataset_privacy_release_endpoint(req: DatasetPrivacyReleaseRequest):
+        """Applies calibrated Laplace perturbation and commits dataset privacy reservation."""
+        try:
+            result = global_dataset_privacy_ledger.commit_release(
+                reservation_id=req.reservation_id,
+                raw_value=req.raw_value,
+                noise_seed=req.noise_seed,
+                min_bound=req.min_bound,
+                max_bound=req.max_bound,
+            )
+            return result.to_dict()
+        except ReservationNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except DatasetPrivacyError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/dataset-privacy/cancel")
+    async def dataset_privacy_cancel_endpoint(req: DatasetPrivacyCancelRequest):
+        """Cancels a pending reservation, restoring reserved privacy budget."""
+        cancelled = global_dataset_privacy_ledger.cancel_reservation(req.reservation_id)
+        if not cancelled:
+            raise HTTPException(status_code=404, detail=f"Pending reservation '{req.reservation_id}' not found")
+        return {"reservation_id": req.reservation_id, "status": "CANCELLED"}
+
+    @app.post("/api/v1/dataset-privacy/reconcile")
+    async def dataset_privacy_reconcile_endpoint(req: DatasetPrivacyReconcileRequest):
+        """Reconciles peer ledger snapshot using monotone suprema join."""
+        try:
+            return global_dataset_privacy_ledger.reconcile(req.snapshot)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/dataset-privacy/remaining")
+    async def dataset_privacy_remaining_endpoint(
+        tenant_id: str = "default",
+        dataset_id: str = "default",
+        entity_id: str = "default",
+    ):
+        """Returns residual privacy budget for the dataset and specific entity."""
+        return global_dataset_privacy_ledger.remaining(
+            tenant_id=tenant_id,
+            dataset_id=dataset_id,
+            entity_id=entity_id,
+        )
+
+    @app.get("/api/v1/dataset-privacy/snapshot")
+    async def dataset_privacy_snapshot_endpoint(
+        tenant_id: str = "default",
+        dataset_id: str = "default",
+    ):
+        """Exports an immutable snapshot of dataset expenditures."""
+        snapshot = global_dataset_privacy_ledger.export_snapshot(
+            tenant_id=tenant_id,
+            dataset_id=dataset_id,
+        )
+        return snapshot.to_dict()
+
+    @app.get("/api/v1/dataset-privacy/status")
+    async def dataset_privacy_status_endpoint(
+        tenant_id: Optional[str] = None,
+        dataset_id: Optional[str] = None,
+    ):
+        """Returns operational diagnostics and active reservation counts."""
+        return global_dataset_privacy_ledger.status(
+            tenant_id=tenant_id,
+            dataset_id=dataset_id,
+        )
+
 
 
 

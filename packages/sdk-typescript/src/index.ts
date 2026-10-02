@@ -886,3 +886,25 @@ export {
   globalCompensationEngine,
 } from "./compensation_algebra.ts";
 
+// Durable Dataset-Level Privacy Accountant & Quorum (ε,δ) Ledger (Seam 67 / ADR 0078)
+export type {
+  DatasetPrivacyConfigData,
+  DatasetPrivacyReservationData,
+  DatasetPrivacyReleaseResultData,
+  DatasetLedgerSnapshotData,
+} from "./dataset_privacy.ts";
+export {
+  DatasetPrivacyError,
+  DatasetPrivacyBudgetExhaustedError,
+  EntityPrivacyBudgetExhaustedError,
+  DatasetNotFoundError,
+  ReservationNotFoundError,
+  DatasetReservationStatus,
+  DatasetPrivacyConfig,
+  DatasetPrivacyReservation,
+  DatasetPrivacyReleaseResult,
+  EntityExpenditure,
+  DatasetLedgerSnapshot,
+  DatasetPrivacyLedger,
+  globalDatasetPrivacyLedger,
+} from "./dataset_privacy.ts";

@@ -532,6 +532,26 @@ def main(argv=None):
     compensation_parser.add_argument("--plan-json", default=None, help="JSON string or file path containing CompensationPlan")
     compensation_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch dataset-privacy` subcommand (Seam 67 / ADR 0078)
+    dataset_privacy_parser = subparsers.add_parser("dataset-privacy", aliases=["dp"], help="Durable Dataset-Level Privacy Accountant & Quorum Ledger (ADR 0078)")
+    dataset_privacy_parser.add_argument("action", choices=["register", "reserve", "release", "cancel", "remaining", "reconcile", "status"], default="status", nargs="?", help="Action (register, reserve, release, cancel, remaining, reconcile, status)")
+    dataset_privacy_parser.add_argument("--dataset-id", default="dataset-default", help="Dataset identifier")
+    dataset_privacy_parser.add_argument("--tenant-id", default="default", help="Tenant identifier")
+    dataset_privacy_parser.add_argument("--entity-id", default="entity-01", help="Entity identifier")
+    dataset_privacy_parser.add_argument("--max-epsilon", type=float, default=10.0, help="Dataset global epsilon limit")
+    dataset_privacy_parser.add_argument("--max-delta", type=float, default=1e-3, help="Dataset global delta limit")
+    dataset_privacy_parser.add_argument("--entity-epsilon", type=float, default=1.0, help="Per-entity epsilon contribution limit")
+    dataset_privacy_parser.add_argument("--entity-delta", type=float, default=1e-5, help="Per-entity delta contribution limit")
+    dataset_privacy_parser.add_argument("--epsilon", type=float, default=0.5, help="Requested epsilon budget for reservation")
+    dataset_privacy_parser.add_argument("--delta", type=float, default=0.0, help="Requested delta budget for reservation")
+    dataset_privacy_parser.add_argument("--sensitivity", type=float, default=1.0, help="Global sensitivity of query")
+    dataset_privacy_parser.add_argument("--query-id", default=None, help="Query identifier")
+    dataset_privacy_parser.add_argument("--reservation-id", default=None, help="Reservation ID to release or cancel")
+    dataset_privacy_parser.add_argument("--raw-value", default="42.0", help="Raw query result to perturb (scalar float or JSON)")
+    dataset_privacy_parser.add_argument("--noise-seed", type=int, default=None, help="Deterministic PRNG seed for perturbation")
+    dataset_privacy_parser.add_argument("--snapshot-json", default=None, help="Path or JSON string containing peer ledger snapshot")
+    dataset_privacy_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -5010,6 +5030,169 @@ def main(argv=None):
                 print(f"  Executed Plans:       {st['total_compensations_executed']}")
                 print(f"  Pending Escalations:  {st['total_escalations_pending']}")
                 print(f"  Resolved Escalations: {st['total_escalations_resolved']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("dataset-privacy", "dp"):
+        from swarmwatch.dataset_privacy import (
+            global_dataset_privacy_ledger,
+            DatasetPrivacyError,
+            DatasetPrivacyBudgetExhaustedError,
+            EntityPrivacyBudgetExhaustedError,
+            ReservationNotFoundError,
+            DatasetLedgerSnapshot,
+        )
+        if args.action == "register":
+            cfg = global_dataset_privacy_ledger.register_dataset(
+                dataset_id=args.dataset_id,
+                tenant_id=args.tenant_id,
+                max_epsilon=args.max_epsilon,
+                max_delta=args.max_delta,
+                entity_epsilon_limit=args.entity_epsilon,
+                entity_delta_limit=args.entity_delta,
+            )
+            d = cfg.to_dict()
+            if args.format == "json":
+                print(json.dumps(d, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DATASET PRIVACY CONFIG REGISTERED (ADR 0078)       |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Dataset ID:           {cfg.dataset_id}")
+                print(f"  Tenant ID:            {cfg.tenant_id}")
+                print(f"  Max Epsilon:          {cfg.max_epsilon}")
+                print(f"  Max Delta:            {cfg.max_delta}")
+                print(f"  Entity Epsilon Limit: {cfg.entity_epsilon_limit}")
+                print(f"  Entity Delta Limit:   {cfg.entity_delta_limit}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "reserve":
+            try:
+                res = global_dataset_privacy_ledger.reserve(
+                    tenant_id=args.tenant_id,
+                    dataset_id=args.dataset_id,
+                    entity_id=args.entity_id,
+                    epsilon=args.epsilon,
+                    delta=args.delta,
+                    sensitivity=args.sensitivity,
+                    query_id=args.query_id,
+                )
+                d = res.to_dict()
+                if args.format == "json":
+                    print(json.dumps(d, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH PRIVACY BUDGET RESERVATION GRANTED (ADR 0078)     |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Reservation ID:       {res.reservation_id}")
+                    print(f"  Dataset ID:           {res.dataset_id}")
+                    print(f"  Entity ID:            {res.entity_id}")
+                    print(f"  Reserved Epsilon:     {res.epsilon}")
+                    print(f"  Reserved Delta:       {res.delta}")
+                    print(f"  Receipt Hash:         {res.receipt_hash}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except (DatasetPrivacyBudgetExhaustedError, EntityPrivacyBudgetExhaustedError) as e:
+                print(f"\033[91m[Budget Exhausted] {e}\033[0m", file=sys.stderr)
+                sys.exit(2)
+        elif args.action == "release":
+            if not args.reservation_id:
+                print("\033[91m[Error] --reservation-id is required for release\033[0m", file=sys.stderr)
+                sys.exit(1)
+            try:
+                val = float(args.raw_value)
+            except ValueError:
+                val = json.loads(args.raw_value)
+            try:
+                rel = global_dataset_privacy_ledger.commit_release(
+                    reservation_id=args.reservation_id,
+                    raw_value=val,
+                    noise_seed=args.noise_seed,
+                )
+                d = rel.to_dict()
+                if args.format == "json":
+                    print(json.dumps(d, indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH PRIVACY LAPLACE RELEASE COMMITTED (ADR 0078)       |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Reservation ID:       {rel.reservation_id}")
+                    print(f"  Dataset ID:           {rel.dataset_id}")
+                    print(f"  Entity ID:            {rel.entity_id}")
+                    print(f"  Raw Value:            {rel.raw_value}")
+                    print(f"  Perturbed Value:      {rel.perturbed_value}")
+                    print(f"  Noise Added:          {rel.noise_added}")
+                    print(f"  Release Hash:         {rel.release_hash}")
+                    print("+---------------------------------------------------------------+\n")
+                sys.exit(0)
+            except (ReservationNotFoundError, DatasetPrivacyError) as e:
+                print(f"\033[91m[Release Error] {e}\033[0m", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "cancel":
+            if not args.reservation_id:
+                print("\033[91m[Error] --reservation-id is required for cancel\033[0m", file=sys.stderr)
+                sys.exit(1)
+            ok = global_dataset_privacy_ledger.cancel_reservation(args.reservation_id)
+            if ok:
+                print(f"Reservation '{args.reservation_id}' successfully cancelled and budget refunded.")
+                sys.exit(0)
+            else:
+                print(f"\033[91mReservation '{args.reservation_id}' not found or not pending.\033[0m", file=sys.stderr)
+                sys.exit(1)
+        elif args.action == "remaining":
+            rem = global_dataset_privacy_ledger.remaining(
+                tenant_id=args.tenant_id,
+                dataset_id=args.dataset_id,
+                entity_id=args.entity_id,
+            )
+            if args.format == "json":
+                print(json.dumps(rem, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH REMAINING PRIVACY BUDGET (ADR 0078)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Dataset Remaining Eps: {rem['dataset_remaining_epsilon']:.4f}")
+                print(f"  Dataset Remaining Del: {rem['dataset_remaining_delta']:.6f}")
+                print(f"  Entity Remaining Eps:  {rem['entity_remaining_epsilon']:.4f}")
+                print(f"  Entity Remaining Del:  {rem['entity_remaining_delta']:.6f}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "reconcile":
+            if not args.snapshot_json:
+                print("\033[91m[Error] --snapshot-json is required for reconcile\033[0m", file=sys.stderr)
+                sys.exit(1)
+            raw = args.snapshot_json
+            if os.path.exists(raw):
+                with open(raw, "r", encoding="utf-8") as f:
+                    raw = f.read()
+            snap = json.loads(raw)
+            res = global_dataset_privacy_ledger.reconcile(snap)
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH MONOTONE SUPREMA RECONCILIATION (ADR 0078)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Dataset ID:           {res['dataset_id']}")
+                print(f"  Tenant ID:            {res['tenant_id']}")
+                print(f"  Reconciled Entities:  {res['reconciled_entities']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "status":
+            st = global_dataset_privacy_ledger.status(
+                tenant_id=args.tenant_id,
+                dataset_id=args.dataset_id,
+            )
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DATASET PRIVACY ACCOUNTANT STATUS (ADR 0078)       |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Registered Datasets:  {st['total_registered_datasets']}")
+                print(f"  Active Reservations:  {st['total_active_reservations']}")
+                print(f"  Total Issued:         {st['total_reservations_issued']}")
+                print(f"  Total Committed:      {st['total_releases_committed']}")
+                print(f"  Entities Tracked:     {st['total_entities_tracked']}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

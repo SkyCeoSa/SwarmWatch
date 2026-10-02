@@ -1741,6 +1741,10 @@
             <span class="status-indicator" id="compensationDot" style="background: var(--success);"></span>
             <span id="compensationText">COMPENSATION: ALGEBRA OK</span>
           </div>
+          <div class="fleet-badge" id="datasetPrivacyBadge" title="Durable Dataset-Level Privacy Accountant & Quorum Ledger (ADR 0078)">
+            <span class="status-indicator" id="datasetPrivacyDot" style="background: var(--success);"></span>
+            <span id="datasetPrivacyText">DATASET PRIVACY: BUDGET OK</span>
+          </div>
         </div>
 
 
@@ -4970,6 +4974,30 @@
       }
       refreshCompensationStatus();
       setInterval(refreshCompensationStatus, 10000);
+
+      async function refreshDatasetPrivacyStatus() {
+        var datasetPrivacyDot = document.getElementById('datasetPrivacyDot');
+        var datasetPrivacyText = document.getElementById('datasetPrivacyText');
+        try {
+          var res = await fetch('/api/v1/dataset-privacy/status');
+          if (res.ok) {
+            var data = await res.json();
+            var activeRes = data.total_active_reservations || 0;
+            if (datasetPrivacyDot) {
+              datasetPrivacyDot.style.background = 'var(--success)';
+            }
+            if (datasetPrivacyText) {
+              var badgeStr = activeRes > 0
+                ? ('DATASET PRIVACY: ' + activeRes + ' PENDING')
+                : 'DATASET PRIVACY: BUDGET OK';
+              datasetPrivacyText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshDatasetPrivacyStatus();
+      setInterval(refreshDatasetPrivacyStatus, 10000);
+
       if (btnMfaModal) {
 
         btnMfaModal.addEventListener('click', function() {

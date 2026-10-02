@@ -943,4 +943,19 @@ from swarmwatch.compensation_algebra import (
     CompensationEngine,
     global_compensation_engine,
 )
+from swarmwatch.dataset_privacy import (
+    DatasetPrivacyError,
+    DatasetPrivacyBudgetExhaustedError,
+    EntityPrivacyBudgetExhaustedError,
+    DatasetNotFoundError,
+    ReservationNotFoundError,
+    DatasetReservationStatus,
+    DatasetPrivacyConfig,
+    DatasetPrivacyReservation,
+    DatasetPrivacyReleaseResult,
+    EntityExpenditure,
+    DatasetLedgerSnapshot,
+    DatasetPrivacyLedger,
+    global_dataset_privacy_ledger,
+)
 
