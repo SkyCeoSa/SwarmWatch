@@ -552,6 +552,23 @@ def main(argv=None):
     dataset_privacy_parser.add_argument("--snapshot-json", default=None, help="Path or JSON string containing peer ledger snapshot")
     dataset_privacy_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch interop` subcommand (Seam 68 / ADR 0079)
+    interop_parser = subparsers.add_parser("interop", aliases=["il", "conformance"], help="Protocol Interoperability Lab & OTLP/gRPC Conformance Matrix (ADR 0079)")
+    interop_parser.add_argument("action", choices=["exercise", "record-deviation", "attest", "matrix", "status"], default="status", nargs="?", help="Action (exercise, record-deviation, attest, matrix, status)")
+    interop_parser.add_argument("--protocol", choices=["OTLP_HTTP_PROTOBUF", "OTLP_HTTP_JSON", "GRPC_STREAMING", "GRPC_UNARY"], default="OTLP_HTTP_PROTOBUF", help="Protocol standard to exercise")
+    interop_parser.add_argument("--client-variant", choices=["NATIVE_OTEL_SDK", "GRPC_CORE", "MOCK_CLIENT"], default="NATIVE_OTEL_SDK", help="Client SDK implementation variant")
+    interop_parser.add_argument("--fault", choices=["NONE", "FRAGMENTATION", "EARLY_CANCELLATION", "BACKPRESSURE_FLOW_CONTROL", "MALFORMED_HEADER", "TRUNCATED_BODY"], default="NONE", help="Conformance fault schedule to inject")
+    interop_parser.add_argument("--payload", default='{"resource_spans":[{"scope_spans":[{"spans":[{"name":"test-span"}]}]}]}', help="Raw payload data or JSON string")
+    interop_parser.add_argument("--chunk-size", type=int, default=1, help="Chunk size in bytes for fragmentation fault schedule")
+    interop_parser.add_argument("--window-size", type=int, default=64, help="Window size in bytes for backpressure fault schedule")
+    interop_parser.add_argument("--cancellation-state", choices=["IDLE", "CONNECTING", "STREAMING", "FRAME_ACCUMULATION", "DISPATCHING"], default="FRAME_ACCUMULATION", help="Target state for early cancellation fault injection")
+    interop_parser.add_argument("--suite-name", default="SwarmWatch Interoperability Conformance Suite", help="Conformance suite identifier for attestation")
+    interop_parser.add_argument("--scenario", default="synthetic_conformance_probe", help="Scenario identifier for recorded deviation")
+    interop_parser.add_argument("--observed", default="NON_CONFORMANT_FRAME", help="Observed deviation behavior")
+    interop_parser.add_argument("--expected", default="STANDARD_CONFORMANT_FRAME", help="Expected protocol behavior")
+    interop_parser.add_argument("--severity", choices=["FATAL", "WARNING", "INFORMATIONAL"], default="WARNING", help="Deviation severity")
+    interop_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -5193,6 +5210,116 @@ def main(argv=None):
                 print(f"  Total Issued:         {st['total_reservations_issued']}")
                 print(f"  Total Committed:      {st['total_releases_committed']}")
                 print(f"  Entities Tracked:     {st['total_entities_tracked']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("interop", "il", "conformance"):
+        from swarmwatch.interop_lab import (
+            global_interop_lab,
+            ProtocolStandard,
+            ConformanceFault,
+            ClientVariant,
+            DeviationSeverity,
+            ProtocolState,
+        )
+
+        if args.action == "exercise":
+            protocol = ProtocolStandard(args.protocol)
+            client_variant = ClientVariant(args.client_variant)
+            fault = ConformanceFault(args.fault)
+            raw_payload = args.payload
+            res = global_interop_lab.exercise(
+                target_protocol=protocol,
+                client_variant=client_variant,
+                fault_schedule=fault,
+                payload=raw_payload,
+                chunk_size=args.chunk_size,
+            )
+            if args.format == "json":
+                print(json.dumps(res.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PROTOCOL INTEROP LAB EXERCISE (ADR 0079)           |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Exercise ID:        {res.exercise_id}")
+                print(f"  Protocol:           {res.protocol.value}")
+                print(f"  Client Variant:     {res.client_variant.value}")
+                print(f"  Fault Injected:     {res.fault.value}")
+                print(f"  Success:            {res.success}")
+                print(f"  State History:      {' -> '.join(res.state_history)}")
+                print(f"  Spans Decoded:      {res.reconstructed_spans_count}")
+                print(f"  Exec Time (µs):     {res.execution_time_ns / 1000.0:.2f}")
+                print(f"  Deviations Count:   {len(res.deviations)}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if res.success else 1)
+        elif args.action == "record-deviation":
+            protocol = ProtocolStandard(args.protocol)
+            severity = DeviationSeverity(args.severity)
+            dev = global_interop_lab.record_deviation(
+                protocol=protocol,
+                scenario=args.scenario,
+                observed=args.observed,
+                expected=args.expected,
+                severity=severity,
+            )
+            if args.format == "json":
+                print(json.dumps(dev.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH RECORDED PROTOCOL DEVIATION (ADR 0079)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Deviation ID:   {dev.deviation_id}")
+                print(f"  Protocol:       {dev.protocol.value}")
+                print(f"  Severity:       {dev.severity.value}")
+                print(f"  Scenario:       {dev.scenario}")
+                print(f"  Observed:       {dev.observed}")
+                print(f"  Expected:       {dev.expected}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "attest":
+            receipt = global_interop_lab.attest_matrix(suite_name=args.suite_name)
+            if args.format == "json":
+                print(json.dumps(receipt.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CONFORMANCE ATTESTATION RECEIPT (ADR 0079)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Suite Name:         {receipt.suite_name}")
+                print(f"  Total Exercises:    {receipt.total_exercises}")
+                print(f"  Passed Exercises:   {receipt.pass_count}")
+                print(f"  Failed Exercises:   {receipt.fail_count}")
+                print(f"  Protocols:          {', '.join(receipt.protocols_covered) or 'None'}")
+                print(f"  Faults Evaluated:   {', '.join(receipt.faults_evaluated) or 'None'}")
+                print(f"  Attestation Hash:   {receipt.attestation_hash}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0 if receipt.fail_count == 0 else 1)
+        elif args.action == "matrix":
+            matrix = global_interop_lab.get_matrix()
+            if args.format == "json":
+                print(json.dumps(matrix, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PROTOCOL CONFORMANCE MATRIX (ADR 0079)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Exercises:    {matrix.get('total_exercises', 0)}")
+                print(f"  Passed Exercises:   {matrix.get('passed_exercises', 0)}")
+                print(f"  Failed Exercises:   {matrix.get('failed_exercises', 0)}")
+                print(f"  Total Deviations:   {matrix.get('total_deviations', 0)}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+        elif args.action == "status":
+            st = global_interop_lab.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PROTOCOL INTEROP LAB STATUS (ADR 0079)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Exercises Run:  {st.get('total_exercises_run', 0)}")
+                print(f"  Passed Exercises:     {st.get('passed_exercises', 0)}")
+                print(f"  Failed Exercises:     {st.get('failed_exercises', 0)}")
+                print(f"  Total Deviations:     {st.get('total_deviations_recorded', 0)}")
+                print(f"  Fatal Deviations:     {st.get('fatal_deviations', 0)}")
+                print(f"  Conformance Cert:     {st.get('conformance_certified', False)}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

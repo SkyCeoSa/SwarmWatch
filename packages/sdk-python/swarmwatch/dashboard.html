@@ -1745,6 +1745,10 @@
             <span class="status-indicator" id="datasetPrivacyDot" style="background: var(--success);"></span>
             <span id="datasetPrivacyText">DATASET PRIVACY: BUDGET OK</span>
           </div>
+          <div class="fleet-badge" id="interopBadge" title="Protocol Interoperability Lab & OTLP/gRPC Conformance Matrix (ADR 0079)">
+            <span class="status-indicator" id="interopDot" style="background: var(--success);"></span>
+            <span id="interopText">INTEROP LAB: CONFORMANT</span>
+          </div>
         </div>
 
 
@@ -4997,6 +5001,30 @@
       }
       refreshDatasetPrivacyStatus();
       setInterval(refreshDatasetPrivacyStatus, 10000);
+
+      async function refreshInteropStatus() {
+        var interopDot = document.getElementById('interopDot');
+        var interopText = document.getElementById('interopText');
+        try {
+          var res = await fetch('/api/v1/interop/status');
+          if (res.ok) {
+            var data = await res.json();
+            var fatalDevs = data.fatal_deviations || 0;
+            var totalEx = data.total_exercises_run || 0;
+            if (interopDot) {
+              interopDot.style.background = fatalDevs > 0 ? 'var(--danger)' : 'var(--success)';
+            }
+            if (interopText) {
+              var badgeStr = fatalDevs > 0
+                ? ('INTEROP: ' + fatalDevs + ' FATAL')
+                : (totalEx > 0 ? ('INTEROP: ' + totalEx + ' PASSED') : 'INTEROP LAB: CONFORMANT');
+              interopText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshInteropStatus();
+      setInterval(refreshInteropStatus, 10000);
 
       if (btnMfaModal) {
 

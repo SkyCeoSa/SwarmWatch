@@ -549,13 +549,21 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-50 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
   - Dual-SDK parity across Python (`swarmwatch.dataset_privacy`) and TypeScript (`@swarmwatch/sdk/src/dataset_privacy.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/dataset-privacy/register`, `POST /api/v1/dataset-privacy/reserve`, `POST /api/v1/dataset-privacy/release`, `POST /api/v1/dataset-privacy/cancel`, `POST /api/v1/dataset-privacy/reconcile`, `GET /api/v1/dataset-privacy/remaining`, `GET /api/v1/dataset-privacy/snapshot`, `GET /api/v1/dataset-privacy/status`), CLI subcommand (`swarmwatch dataset-privacy register|reserve|release|cancel|remaining|reconcile|status`), and Web Console `#datasetPrivacyBadge` widget.
-- **Upcoming Roadmap (Seams 68–70+)**:
-  - **Seam 68**: Protocol Interoperability Lab (ADR 0079 / OTLP/gRPC Conformance Matrix).
+- **Protocol Interoperability Lab & OTLP/gRPC Conformance Matrix (Seam 68 & ADR 0079 Dual-SDK Parity)**:
+  - Deep module `InteropLab` establishing an automated differential protocol conformance validation testbed.
+  - Formal 6-state protocol conformance state machine (`ProtocolConformanceStateMachine`): $\text{IDLE} \to \text{CONNECTING} \to \text{STREAMING} \to \text{FRAME\_ACCUMULATION} \to \text{DISPATCHING} \to \text{COMPLETED}$ (or fail-closed $\text{TERMINATED\_ABORTED}$).
+  - Systematic wire-level fault injection schedules (`WireFaultInjector`): `FRAGMENTATION` (1-byte, 7-byte arbitrary byte boundaries), `EARLY_CANCELLATION`, `BACKPRESSURE_FLOW_CONTROL`, `MALFORMED_HEADER`, and `TRUNCATED_BODY`.
+  - Divergence tracking via `record_deviation()` classifying observed framing deviations into `FATAL`, `WARNING`, and `INFORMATIONAL` tiers.
+  - Cryptographically verifiable attestation matrix receipts (`ConformanceAttestationReceipt`) signed with canonical SHA-256 digests (`sw:conformance:v1:...`).
+  - Sub-50 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.interop_lab`) and TypeScript (`@swarmwatch/sdk/src/interop_lab.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/interop/exercise`, `POST /api/v1/interop/record-deviation`, `POST /api/v1/interop/attest`, `GET /api/v1/interop/matrix`, `GET /api/v1/interop/status`), CLI subcommand (`swarmwatch interop exercise|record-deviation|attest|matrix|status`), and Web Console `#interopBadge` widget.
+- **Upcoming Roadmap (Seams 69–70+)**:
   - **Seam 69**: Verifiable Release Provenance (ADR 0080 / Signed Artifact DAG).
   - **Seam 70**: Datacenter Failure Exercise (ADR 0081 / Region Loss Fault Injection).
   - **Seam 71+**: Autonomous Action Gateway (ADR 0082 / Governed Downstream Agent Execution).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (566 tests) and TypeScript (460 tests) runtimes (1,026 total tests across 58 test suites).
+  - Full local test suite passing 100% across Python (579 tests) and TypeScript (472 tests) runtimes (1,051 total tests across 60 test suites).
 
 
 

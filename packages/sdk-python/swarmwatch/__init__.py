@@ -508,6 +508,19 @@ __all__ = [
     "WitnessStatus",
     "RootWitness",
     "global_root_witness",
+    # ADR 0079: Protocol Interoperability Lab (Seam 68)
+    "ProtocolStandard",
+    "ConformanceFault",
+    "ClientVariant",
+    "ProtocolState",
+    "DeviationSeverity",
+    "ProtocolDeviation",
+    "ExerciseResult",
+    "ConformanceAttestationReceipt",
+    "ProtocolConformanceStateMachine",
+    "WireFaultInjector",
+    "InteropLab",
+    "global_interop_lab",
 ]
 
 
@@ -958,4 +971,19 @@ from swarmwatch.dataset_privacy import (
     DatasetPrivacyLedger,
     global_dataset_privacy_ledger,
 )
+from swarmwatch.interop_lab import (
+    ProtocolStandard,
+    ConformanceFault,
+    ClientVariant,
+    ProtocolState,
+    DeviationSeverity,
+    ProtocolDeviation,
+    ExerciseResult,
+    ConformanceAttestationReceipt,
+    ProtocolConformanceStateMachine,
+    WireFaultInjector,
+    InteropLab,
+    global_interop_lab,
+)
+
 

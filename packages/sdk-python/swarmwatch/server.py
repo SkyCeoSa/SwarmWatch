@@ -311,6 +311,20 @@ from swarmwatch.dataset_privacy import (
     DatasetPrivacyLedger,
     global_dataset_privacy_ledger,
 )
+from swarmwatch.interop_lab import (
+    ProtocolStandard,
+    ConformanceFault,
+    ClientVariant,
+    ProtocolState,
+    DeviationSeverity,
+    ProtocolDeviation,
+    ExerciseResult,
+    ConformanceAttestationReceipt,
+    ProtocolConformanceStateMachine,
+    WireFaultInjector,
+    InteropLab,
+    global_interop_lab,
+)
 
 from swarmwatch.circuit import (
     EntropyCircuitBreaker,
@@ -990,6 +1004,27 @@ class DatasetPrivacyCancelRequest(BaseModel):
 
 class DatasetPrivacyReconcileRequest(BaseModel):
     snapshot: Dict[str, Any]
+
+
+class InteropExerciseRequest(BaseModel):
+    target_protocol: str
+    client_variant: str = "MOCK_CLIENT"
+    fault_schedule: str = "NONE"
+    payload: Optional[Union[Dict[str, Any], str]] = None
+    chunk_size: Optional[int] = None
+
+
+class InteropRecordDeviationRequest(BaseModel):
+    protocol: str
+    scenario: str
+    observed: str
+    expected: str
+    severity: str = "WARNING"
+
+
+class InteropAttestRequest(BaseModel):
+    suite_name: str = "SwarmWatch Interoperability Conformance Suite"
+
 
 async def run_swarm_simulation(
     storage: StorageAdapter,
@@ -6433,6 +6468,58 @@ def create_app(
             tenant_id=tenant_id,
             dataset_id=dataset_id,
         )
+
+    # -------------------------------------------------------------------------
+    # ADR 0079: Protocol Interoperability Lab (Seam 68)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/interop/exercise")
+    async def interop_exercise_endpoint(req: InteropExerciseRequest):
+        """Executes a standards-conformance exercise against a protocol under fault schedule."""
+        try:
+            res = global_interop_lab.exercise(
+                target_protocol=req.target_protocol,
+                client_variant=req.client_variant,
+                fault_schedule=req.fault_schedule,
+                payload=req.payload,
+                chunk_size=req.chunk_size,
+            )
+            return res.to_dict()
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/v1/interop/record-deviation")
+    async def interop_record_deviation_endpoint(req: InteropRecordDeviationRequest):
+        """Records an observed deviation from standard protocol specifications."""
+        try:
+            dev = global_interop_lab.record_deviation(
+                protocol=req.protocol,
+                scenario=req.scenario,
+                observed=req.observed,
+                expected=req.expected,
+                severity=req.severity,
+            )
+            return dev.to_dict()
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/interop/attest")
+    async def interop_attest_endpoint(req: InteropAttestRequest):
+        """Issues an immutable cryptographic attestation receipt for the conformance matrix."""
+        receipt = global_interop_lab.attest_matrix(suite_name=req.suite_name)
+        return receipt.to_dict()
+
+    @app.get("/api/v1/interop/matrix")
+    async def interop_matrix_endpoint():
+        """Returns the full aggregate cross-matrix conformance status."""
+        return global_interop_lab.get_matrix()
+
+    @app.get("/api/v1/interop/status")
+    async def interop_status_endpoint():
+        """Returns operational diagnostics of the protocol interoperability lab."""
+        return global_interop_lab.status()
+
 
 
 

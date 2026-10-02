@@ -908,3 +908,25 @@ export {
   DatasetPrivacyLedger,
   globalDatasetPrivacyLedger,
 } from "./dataset_privacy.ts";
+
+// Protocol Interoperability Lab & OTLP/gRPC Conformance Matrix (Seam 68 / ADR 0079)
+export type {
+  ProtocolDeviationData,
+  ExerciseResultData,
+  ConformanceAttestationReceiptData,
+} from "./interop_lab.ts";
+export {
+  ProtocolStandard,
+  ConformanceFault,
+  ClientVariant,
+  ProtocolState,
+  DeviationSeverity,
+  ProtocolDeviation,
+  ExerciseResult,
+  ConformanceAttestationReceipt,
+  ProtocolConformanceStateMachine,
+  WireFaultInjector,
+  InteropLab,
+  globalInteropLab,
+} from "./interop_lab.ts";
+

@@ -947,3 +947,18 @@ _Avoid_: Hook call, function callback, middleware run
 - **MonotoneSupremaReconciliation**: The distributed join operation $\max(\text{Ledger}_A(e), \text{Ledger}_B(e))$ merging divergent partition expenditures upon network heal, mathematically guaranteeing that spent privacy budget never regresses.
   _Avoid_: Ledger sync, budget merge, partition join
 
+---
+
+### Protocol Interoperability Lab & OTLP/gRPC Conformance Matrix (Seam 68 / ADR 0079)
+- **InteropLab**: The deep module orchestrating differential protocol conformance testing, wire-level fault injection schedules, framing deviation recording, and matrix attestation receipts.
+  _Avoid_: Protocol tester, format validator, mock server, wire harness
+- **ProtocolConformanceStateMachine**: The formal 6-state protocol session automaton enforcing deterministic progression through $\text{IDLE} \to \text{CONNECTING} \to \text{STREAMING} \to \text{FRAME\_ACCUMULATION} \to \text{DISPATCHING} \to \text{COMPLETED}$ (or fail-closed $\text{TERMINATED\_ABORTED}$).
+  _Avoid_: Connection state, wire tracker, session loop, socket watcher
+- **ConformanceFaultSchedule**: Standardized wire-level fault injection profiles (`FRAGMENTATION`, `EARLY_CANCELLATION`, `BACKPRESSURE_FLOW_CONTROL`, `MALFORMED_HEADER`, `TRUNCATED_BODY`) systematically evaluating client and server fail-closed resilience without process crashes.
+  _Avoid_: Chaos test, bug injector, corruptor, fault script
+- **ProtocolDeviationReceipt**: An immutable structured diagnostic recording observed divergences between wire behavior and protocol standard specifications with severity classification (`FATAL`, `WARNING`, `INFORMATIONAL`).
+  _Avoid_: Error log, bug report, trace mismatch, format failure
+- **ConformanceAttestationReceipt**: A cryptographically verifiable audit record (`sw:conformance:v1:...`) certifying cross-protocol conformance and framing compliance across standards and client variants.
+  _Avoid_: Test report, pass certificate, compliance dump, audit stamp
+
+
