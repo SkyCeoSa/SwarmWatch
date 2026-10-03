@@ -1055,3 +1055,34 @@ export {
   computeCanonicalGroundingHash,
 } from "./cognitive_grounding.ts";
 
+// Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracle (Seam 74 / ADR 0085)
+export type {
+  BftPhase,
+  NodeRole,
+  NodeStatus,
+} from "./byzantine_oracle.ts";
+export {
+  ByzantineOracleError,
+  ByzantineQuorumExceededError,
+  EquivocationDetectedError,
+  InvalidOracleSignatureError,
+  OracleCircuitTrippedError,
+  InvalidViewSequenceError,
+  ConsensusTimeoutError,
+  BftPhase as BftPhaseConst,
+  NodeRole as NodeRoleConst,
+  NodeStatus as NodeStatusConst,
+  ProposalPayload,
+  BftMessage,
+  EquivocationEvent,
+  ProofOfExecutionCertificate,
+  ValidatorNode,
+  ByzantineConsensusOracle,
+  globalByzantineOracle,
+  generateNodeKeypair,
+  signBftPayload,
+  verifyBftSignature,
+  computeCanonicalPoeHash,
+  canonicalJsonString,
+} from "./byzantine_oracle.ts";
+

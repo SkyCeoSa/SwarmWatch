@@ -1732,6 +1732,30 @@ _Avoid_: Grounding log, verification trace, audit record, evaluation dump
 The fail-closed exception thrown when an assertion fails to satisfy configured minimum grounding thresholds during strict execution or before high-risk actions.
 _Avoid_: Hallucination error, unverified exception, knowledge fault, grounding crash
 
+---
+
+### Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracle (Seam 74 / ADR 0085)
+
+**ByzantineConsensusOracle**:
+The deep module orchestrating multi-cluster Practical Byzantine Fault Tolerance (PBFT) consensus rounds, threshold cryptographic signature validation, equivocation detection, and Proof-of-Execution certificate minting.
+_Avoid_: Consensus voting pool, BFT coordinator, blockchain validator, distributed agreement worker
+
+**ProofOfExecutionCertificate**:
+An immutable, self-contained cryptographic attestation (`sw:oracle:poe:v1:...`) certifying that a cross-cluster agent action was validated by a BFT supermajority ($\ge 2f+1$ signatures) and conformed to pre-state and post-state commitments.
+_Avoid_: Execution proof log, execution receipt, oracle ticket, action cert
+
+**ProposalPayload**:
+A structured state transition or tool execution proposal evaluated through PBFT consensus, specifying action type, target cluster, pre-state hash, and post-state hash.
+_Avoid_: Transaction request, consensus task, action payload, vote proposal
+
+**EquivocationEvent**:
+A detected adversarial fault condition where a validator node double-signs conflicting digests for identical view and sequence numbers, triggering immediate node slashing and eviction.
+_Avoid_: Double vote, conflicting signature, rogue message, byzantine mismatch
+
+**ByzantineQuorumExceededError**:
+The fail-closed exception raised when Byzantine faults exceed the network's tolerance capacity $f = \lfloor(N-1)/3\rfloor$ or when consensus deadlock occurs.
+_Avoid_: Quorum error, consensus abort, split-brain crash, voting timeout
+
 
 
 

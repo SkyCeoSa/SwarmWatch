@@ -640,6 +640,22 @@ def main(argv=None):
     grounding_parser.add_argument("--receipt-id", default=None, help="Receipt ID for lookup")
     grounding_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch byzantine-oracle` subcommand (Seam 74 / ADR 0085)
+    byzantine_parser = subparsers.add_parser("byzantine-oracle", aliases=["bft-oracle", "bft", "oracle"], help="Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracle (ADR 0085)")
+    byzantine_parser.add_argument("action", choices=["register", "nodes", "propose", "certify", "verify", "certificates", "status"], default="status", nargs="?", help="Byzantine action (register, nodes, propose, certify, verify, certificates, status)")
+    byzantine_parser.add_argument("--node-id", default=None, help="Validator node ID")
+    byzantine_parser.add_argument("--cluster-id", default="cluster-default", help="Cluster ID for validator node")
+    byzantine_parser.add_argument("--public-key", default=None, help="Public key hex for validator node")
+    byzantine_parser.add_argument("--secret-key", default=None, help="Secret key for signing")
+    byzantine_parser.add_argument("--role", default="REPLICA", choices=["PRIMARY", "REPLICA", "OBSERVER"], help="Validator node role")
+    byzantine_parser.add_argument("--proposal-id", default=None, help="Proposal ID for propose or certify")
+    byzantine_parser.add_argument("--action-type", default="TOOL_EXECUTION", help="Action type for proposal")
+    byzantine_parser.add_argument("--target-cluster", default="cluster-default", help="Target cluster for proposal")
+    byzantine_parser.add_argument("--pre-state", default="", help="Pre-state hash")
+    byzantine_parser.add_argument("--post-state", default="", help="Post-state hash")
+    byzantine_parser.add_argument("--certificate-id", default=None, help="Certificate ID for lookup")
+    byzantine_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -6047,6 +6063,118 @@ def main(argv=None):
                 print("+---------------------------------------------------------------+")
                 print(f"  Evidence Items:     {st.get('total_evidence_count', 0)}")
                 print(f"  Verifications:      {st.get('total_verifications', 0)}")
+                print(f"  Circuit Tripped:    {st.get('circuit_tripped', False)}")
+                print(f"  Status Badge:       {st.get('status_badge', 'N/A')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("byzantine-oracle", "bft-oracle", "bft", "oracle"):
+        from swarmwatch.byzantine_oracle import (
+            ByzantineConsensusOracle,
+            ByzantineOracleError,
+            NodeRole,
+            NodeStatus,
+            ProposalPayload,
+            global_byzantine_oracle,
+        )
+
+        if args.action == "register":
+            if not args.node_id or not args.public_key:
+                print("[ERROR] --node-id and --public-key are required for register action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                role = NodeRole(args.role)
+            except ValueError:
+                role = NodeRole.REPLICA
+            node = global_byzantine_oracle.register_node(
+                node_id=args.node_id,
+                cluster_id=args.cluster_id,
+                public_key_hex=args.public_key,
+                secret_key=args.secret_key,
+                role=role,
+            )
+            if args.format == "json":
+                print(json.dumps(node.to_dict(), indent=2))
+            else:
+                print(f"Registered validator node '{node.node_id}' in cluster '{node.cluster_id}' ({node.role.value})")
+            sys.exit(0)
+
+        elif args.action == "nodes":
+            nodes = global_byzantine_oracle.list_nodes()
+            if args.format == "json":
+                print(json.dumps([n.to_dict() for n in nodes], indent=2))
+            else:
+                print(f"\n[Byzantine Validator Nodes ({len(nodes)} Registered)]")
+                for n in nodes:
+                    print(f"  - [{n.node_id}] Cluster: {n.cluster_id} Role: {n.role.value} Status: {n.status.value}")
+                print()
+            sys.exit(0)
+
+        elif args.action == "propose":
+            if not args.proposal_id:
+                print("[ERROR] --proposal-id is required for propose action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                prop = ProposalPayload(
+                    proposal_id=args.proposal_id,
+                    action_type=args.action_type,
+                    target_cluster=args.target_cluster,
+                    pre_state_hash=args.pre_state,
+                    post_state_hash=args.post_state,
+                )
+                msg = global_byzantine_oracle.propose(prop)
+                if args.format == "json":
+                    print(json.dumps(msg.to_dict(), indent=2))
+                else:
+                    print(f"Pre-Prepare Message Issued: Seq={msg.sequence_number} View={msg.view} Proposal={msg.proposal_id} Sig={msg.signature[:16]}...")
+            except ByzantineOracleError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "certify":
+            if not args.proposal_id:
+                print("[ERROR] --proposal-id is required for certify action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                cert = global_byzantine_oracle.execute_and_certify(
+                    proposal_id=args.proposal_id,
+                    post_state_hash=args.post_state or None,
+                )
+                if args.format == "json":
+                    print(json.dumps(cert.to_dict(), indent=2))
+                else:
+                    print(f"Proof-of-Execution Certificate: {cert.certificate_id} (Signers: {len(cert.signers)}, Receipt: {cert.receipt_hash})")
+            except ByzantineOracleError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "certificates":
+            certs = global_byzantine_oracle.get_certificates()
+            if args.format == "json":
+                print(json.dumps([c.to_dict() for c in certs], indent=2))
+            else:
+                print(f"\n[Proof-of-Execution Certificates ({len(certs)} Minted)]")
+                for c in certs:
+                    print(f"  - [{c.certificate_id}] Proposal: {c.proposal_id} Action: {c.action_type} Hash: {c.receipt_hash}")
+                print()
+            sys.exit(0)
+
+        elif args.action == "status":
+            st = global_byzantine_oracle.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH BYZANTINE CONSENSUS ORACLE (ADR 0085)              |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Nodes:        {st.get('total_nodes', 0)}")
+                print(f"  Active Nodes:       {st.get('active_nodes', 0)}")
+                print(f"  Fault Tolerance f:  {st.get('fault_tolerance_f', 0)}")
+                print(f"  Quorum Size Q:      {st.get('quorum_size_q', 1)}")
+                print(f"  Current View:       {st.get('current_view', 0)}")
+                print(f"  Certificates:       {st.get('total_certificates', 0)}")
                 print(f"  Circuit Tripped:    {st.get('circuit_tripped', False)}")
                 print(f"  Status Badge:       {st.get('status_badge', 'N/A')}")
                 print("+---------------------------------------------------------------+\n")

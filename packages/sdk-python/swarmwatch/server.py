@@ -401,6 +401,23 @@ from swarmwatch.cognitive_grounding import (
     CognitiveGroundingEngine,
     global_cognitive_grounding_engine,
 )
+from swarmwatch.byzantine_oracle import (
+    ByzantineOracleError,
+    ByzantineQuorumExceededError,
+    EquivocationDetectedError,
+    InvalidOracleSignatureError,
+    OracleCircuitTrippedError,
+    InvalidViewSequenceError,
+    BftPhase,
+    NodeRole,
+    NodeStatus,
+    ProposalPayload,
+    BftMessage,
+    ProofOfExecutionCertificate,
+    ValidatorNode,
+    ByzantineConsensusOracle,
+    global_byzantine_oracle,
+)
 
 
 
@@ -1233,6 +1250,43 @@ class GroundingFuseRequest(BaseModel):
     evidence_ids: List[str]
     modality_weights: Optional[Dict[str, float]] = None
     tenant_id: str = "tenant-default"
+
+
+class ByzantineRegisterNodeRequest(BaseModel):
+    node_id: str
+    cluster_id: str
+    public_key_hex: str
+    secret_key: Optional[str] = None
+    role: str = "REPLICA"
+
+
+class ByzantineProposeRequest(BaseModel):
+    proposal_id: str
+    action_type: str
+    target_cluster: str
+    tenant_id: str = "tenant-default"
+    pre_state_hash: str = ""
+    post_state_hash: str = ""
+    payload_data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ByzantinePrepareRequest(BaseModel):
+    pre_prepare_msg: Dict[str, Any]
+    node_id: str
+
+
+class ByzantineCommitRequest(BaseModel):
+    prepare_msg: Dict[str, Any]
+    node_id: str
+
+
+class ByzantineCertifyRequest(BaseModel):
+    proposal_id: str
+    post_state_hash: Optional[str] = None
+
+
+class ByzantineVerifyCertRequest(BaseModel):
+    certificate: Dict[str, Any]
 
 
 
@@ -10753,6 +10807,146 @@ def create_app(
     async def grounding_status_endpoint():
         """Returns live operational status and metrics of cognitive grounding engine."""
         return global_cognitive_grounding_engine.status()
+
+    # --------------------------------------------------------------------------
+    # Seam 74: Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracle
+    # --------------------------------------------------------------------------
+
+    @app.post("/api/v1/byzantine/register-node")
+    async def byzantine_register_node_endpoint(req: ByzantineRegisterNodeRequest):
+        """Registers a validator node in the Byzantine consensus committee."""
+        try:
+            role = NodeRole(req.role)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid node role '{req.role}'")
+        node = global_byzantine_oracle.register_node(
+            node_id=req.node_id,
+            cluster_id=req.cluster_id,
+            public_key_hex=req.public_key_hex,
+            secret_key=req.secret_key,
+            role=role,
+        )
+        return node.to_dict()
+
+    @app.get("/api/v1/byzantine/nodes")
+    async def byzantine_list_nodes_endpoint():
+        """Lists all registered validator nodes in the committee."""
+        return [n.to_dict() for n in global_byzantine_oracle.list_nodes()]
+
+    @app.post("/api/v1/byzantine/propose")
+    async def byzantine_propose_endpoint(req: ByzantineProposeRequest):
+        """Phase 1: Ingests an action proposal and issues signed PRE_PREPARE message."""
+        try:
+            prop = ProposalPayload(
+                proposal_id=req.proposal_id,
+                action_type=req.action_type,
+                target_cluster=req.target_cluster,
+                tenant_id=req.tenant_id,
+                pre_state_hash=req.pre_state_hash,
+                post_state_hash=req.post_state_hash,
+                payload_data=req.payload_data,
+            )
+            msg = global_byzantine_oracle.propose(prop)
+            return msg.to_dict()
+        except OracleCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except ByzantineOracleError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/byzantine/prepare")
+    async def byzantine_prepare_endpoint(req: ByzantinePrepareRequest):
+        """Phase 2: Verifies pre-prepare and records signed PREPARE vote."""
+        try:
+            data = req.pre_prepare_msg
+            pre_msg = BftMessage(
+                msg_id=data.get("msg_id", ""),
+                phase=BftPhase(data.get("phase", "PRE_PREPARE")),
+                view=data.get("view", 0),
+                sequence_number=data.get("sequence_number", 0),
+                proposal_id=data.get("proposal_id", ""),
+                digest=data.get("digest", ""),
+                node_id=data.get("node_id", ""),
+                cluster_id=data.get("cluster_id", ""),
+                signature=data.get("signature", ""),
+            )
+            prep_msg = global_byzantine_oracle.prepare(pre_msg, req.node_id)
+            return prep_msg.to_dict()
+        except OracleCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except EquivocationDetectedError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except ByzantineOracleError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/byzantine/commit")
+    async def byzantine_commit_endpoint(req: ByzantineCommitRequest):
+        """Phase 3: Verifies prepare certificate and records signed COMMIT vote."""
+        try:
+            data = req.prepare_msg
+            prep_msg = BftMessage(
+                msg_id=data.get("msg_id", ""),
+                phase=BftPhase(data.get("phase", "PREPARE")),
+                view=data.get("view", 0),
+                sequence_number=data.get("sequence_number", 0),
+                proposal_id=data.get("proposal_id", ""),
+                digest=data.get("digest", ""),
+                node_id=data.get("node_id", ""),
+                cluster_id=data.get("cluster_id", ""),
+                signature=data.get("signature", ""),
+            )
+            commit_msg = global_byzantine_oracle.commit(prep_msg, req.node_id)
+            return commit_msg.to_dict()
+        except OracleCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except ByzantineOracleError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/byzantine/certify")
+    async def byzantine_certify_endpoint(req: ByzantineCertifyRequest):
+        """Phase 4: DECIDED. Mints tamper-evident Proof-of-Execution certificate."""
+        try:
+            cert = global_byzantine_oracle.execute_and_certify(
+                proposal_id=req.proposal_id,
+                post_state_hash=req.post_state_hash,
+            )
+            return cert.to_dict()
+        except OracleCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except ByzantineOracleError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/byzantine/verify-certificate")
+    async def byzantine_verify_certificate_endpoint(req: ByzantineVerifyCertRequest):
+        """Validates cryptographic integrity of a Proof-of-Execution certificate."""
+        data = req.certificate
+        cert = ProofOfExecutionCertificate(
+            certificate_id=data.get("certificate_id", ""),
+            proposal_id=data.get("proposal_id", ""),
+            action_type=data.get("action_type", ""),
+            view=data.get("view", 0),
+            sequence_number=data.get("sequence_number", 0),
+            digest=data.get("digest", ""),
+            pre_state_hash=data.get("pre_state_hash", ""),
+            post_state_hash=data.get("post_state_hash", ""),
+            signers=data.get("signers", []),
+            signatures=data.get("signatures", {}),
+            timestamp_ns=data.get("timestamp_ns", 0),
+            receipt_hash=data.get("receipt_hash", ""),
+            duration_us=data.get("duration_us", 0.0),
+        )
+        is_valid = global_byzantine_oracle.verify_poe_certificate(cert)
+        return {"valid": is_valid, "certificate_id": cert.certificate_id, "receipt_hash": cert.receipt_hash}
+
+    @app.get("/api/v1/byzantine/certificates")
+    async def byzantine_list_certificates_endpoint(limit: int = 100):
+        """Lists recorded Proof-of-Execution oracle certificates."""
+        certs = global_byzantine_oracle.get_certificates(limit=limit)
+        return [c.to_dict() for c in certs]
+
+    @app.get("/api/v1/byzantine/status")
+    async def byzantine_status_endpoint():
+        """Returns live operational status and PBFT metrics of the Byzantine Consensus Oracle."""
+        return global_byzantine_oracle.status()
 
 
 

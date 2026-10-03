@@ -1765,6 +1765,10 @@
             <span class="status-indicator" id="groundingDot" style="background: var(--success);"></span>
             <span id="groundingText">GROUNDING: FUSION OK</span>
           </div>
+          <div class="fleet-badge" id="byzantineBadge" title="Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracle (ADR 0085)">
+            <span class="status-indicator" id="byzantineDot" style="background: var(--success);"></span>
+            <span id="byzantineText">BYZANTINE: QUORUM OK</span>
+          </div>
         </div>
 
 
@@ -5134,6 +5138,27 @@
       }
       refreshGroundingStatus();
       setInterval(refreshGroundingStatus, 10000);
+
+      async function refreshByzantineStatus() {
+        var byzantineDot = document.getElementById('byzantineDot');
+        var byzantineText = document.getElementById('byzantineText');
+        try {
+          var res = await fetch('/api/v1/byzantine/status');
+          if (res.ok) {
+            var data = await res.json();
+            var isTripped = data.circuit_tripped || false;
+            var badgeStr = data.status_badge || 'BYZANTINE: QUORUM OK';
+            if (byzantineDot) {
+              byzantineDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (byzantineText) {
+              byzantineText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshByzantineStatus();
+      setInterval(refreshByzantineStatus, 10000);
 
 
 
