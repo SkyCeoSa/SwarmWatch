@@ -1753,6 +1753,10 @@
             <span class="status-indicator" id="provenanceDot" style="background: var(--success);"></span>
             <span id="provenanceText">PROVENANCE: SLSA L3 OK</span>
           </div>
+          <div class="fleet-badge" id="datacenterBadge" title="Datacenter Failure Exercise & Region Loss Fault Injection (ADR 0081)">
+            <span class="status-indicator" id="datacenterDot" style="background: var(--success);"></span>
+            <span id="datacenterText">DATACENTER: QUORUM RESILIENT</span>
+          </div>
         </div>
 
 
@@ -5053,6 +5057,30 @@
       }
       refreshProvenanceStatus();
       setInterval(refreshProvenanceStatus, 10000);
+
+      async function refreshDatacenterStatus() {
+        var datacenterDot = document.getElementById('datacenterDot');
+        var datacenterText = document.getElementById('datacenterText');
+        try {
+          var res = await fetch('/api/v1/exercise/status');
+          if (res.ok) {
+            var data = await res.json();
+            var isTripped = data.cluster_globally_tripped || false;
+            var activePhase = data.active_phase || 'NOMINAL';
+            if (datacenterDot) {
+              datacenterDot.style.background = isTripped ? 'var(--danger)' : (activePhase === 'NOMINAL' ? 'var(--success)' : 'var(--warning)');
+            }
+            if (datacenterText) {
+              var badgeStr = isTripped
+                ? 'DATACENTER: SAFETY TRIPPED'
+                : (activePhase !== 'NOMINAL' ? ('DATACENTER: ' + activePhase) : 'DATACENTER: QUORUM RESILIENT');
+              datacenterText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshDatacenterStatus();
+      setInterval(refreshDatacenterStatus, 10000);
 
 
       if (btnMfaModal) {

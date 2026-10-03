@@ -567,11 +567,20 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-50 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
   - Dual-SDK parity across Python (`swarmwatch.release_provenance`) and TypeScript (`@swarmwatch/sdk/src/release_provenance.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/provenance/record-step`, `POST /api/v1/provenance/generate`, `POST /api/v1/provenance/verify`, `GET /api/v1/provenance/dag`, `GET /api/v1/provenance/status`), CLI subcommand (`swarmwatch provenance record-step|generate|verify|dag|status`), and Web Console `#provenanceBadge` widget.
-- **Upcoming Roadmap (Seams 70–71+)**:
-  - **Seam 70**: Datacenter Failure Exercise (ADR 0081 / Region Loss Fault Injection).
+- **Datacenter Failure Exercise & Region Loss Fault Injection (Seam 70 & ADR 0081 Dual-SDK Parity)**:
+  - Deep module `DatacenterFailureOrchestrator` establishing deterministic multi-region network partitioning, quorum preservation, and disaster recovery exercises.
+  - Multi-region topology graph and reachability matrix (`ClusterNode`, `NetworkMatrix`) calculating strict majority quorum ($\ge \lfloor N/2 \rfloor + 1$).
+  - Fail-closed minority isolation: nodes in minority partitions reject execution permits with `MinorityPartitionBlockedError`.
+  - Monotonic safety trip preservation: trips triggered in any partition (majority or minority) are latched monotonically and never overridden upon network healing.
+  - 5-phase disaster recovery automaton (`NOMINAL` $\to$ `REGION_ISOLATION` $\to$ `FAIL_CLOSED_VERIFICATION` $\to$ `RECONNECT_AND_HEAL` $\to$ `POST_HEAL_CONVERGENCE`).
+  - Cryptographically signed `FailureExerciseReport` with canonical SHA-256 hash (`sw:fail:v1:...`).
+  - Sub-50 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.datacenter_exercise`) and TypeScript (`@swarmwatch/sdk/src/datacenter_exercise.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/exercise/inject-partition`, `POST /api/v1/exercise/heal-partition`, `POST /api/v1/exercise/permit`, `POST /api/v1/exercise/trip`, `POST /api/v1/exercise/run`, `GET /api/v1/exercise/status`, `GET /api/v1/exercise/report`), CLI subcommand (`swarmwatch exercise run|inject|heal|permit|trip|status|report`), and Web Console `#datacenterBadge` widget.
+- **Upcoming Roadmap (Seams 71+)**:
   - **Seam 71+**: Autonomous Action Gateway (ADR 0082 / Governed Downstream Agent Execution).
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (592 tests) and TypeScript (484 tests) runtimes (1,076 total tests across 61 test suites).
+  - Full local test suite passing 100% across Python (604 tests) and TypeScript (495 tests) runtimes (1,099 total tests across 62 test suites).
 
 
 

@@ -533,6 +533,21 @@ __all__ = [
     "ProvenanceVerificationResult",
     "ReleaseProvenance",
     "global_release_provenance",
+    # ADR 0081: Datacenter Failure Exercise & Region Loss Fault Injection (Seam 70)
+    "DatacenterExerciseError",
+    "MinorityPartitionBlockedError",
+    "SplitBrainViolationError",
+    "SafetyMonotonicityViolationError",
+    "FailureScenarioType",
+    "ExercisePhase",
+    "NodeRole",
+    "ClusterNode",
+    "NetworkMatrix",
+    "PermitAttemptResult",
+    "FailureExerciseEvent",
+    "FailureExerciseReport",
+    "DatacenterFailureOrchestrator",
+    "global_datacenter_orchestrator",
 ]
 
 
@@ -1009,6 +1024,22 @@ from swarmwatch.release_provenance import (
     ProvenanceVerificationResult,
     ReleaseProvenance,
     global_release_provenance,
+)
+from swarmwatch.datacenter_exercise import (
+    DatacenterExerciseError,
+    MinorityPartitionBlockedError,
+    SplitBrainViolationError,
+    SafetyMonotonicityViolationError,
+    FailureScenarioType,
+    ExercisePhase,
+    NodeRole,
+    ClusterNode,
+    NetworkMatrix,
+    PermitAttemptResult,
+    FailureExerciseEvent,
+    FailureExerciseReport,
+    DatacenterFailureOrchestrator,
+    global_datacenter_orchestrator,
 )
 
 

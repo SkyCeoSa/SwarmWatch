@@ -584,6 +584,17 @@ def main(argv=None):
     provenance_parser.add_argument("--base-dir", default=None, help="Base directory for verifying disk artifacts")
     provenance_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch exercise` subcommand (Seam 70 / ADR 0081)
+    exercise_parser = subparsers.add_parser("exercise", aliases=["dr", "failure", "chaos-dc"], help="Datacenter Failure Exercise & Region Loss Fault Injection (ADR 0081)")
+    exercise_parser.add_argument("action", choices=["run", "inject", "heal", "permit", "trip", "status", "report"], default="status", nargs="?", help="Action (run, inject, heal, permit, trip, status, report)")
+    exercise_parser.add_argument("--scenario", choices=["REGION_SEVERED", "ASYMMETRIC_SPLIT", "TOTAL_POWER_LOSS", "CORRUPTED_LEASES"], default="REGION_SEVERED", help="Failure scenario type")
+    exercise_parser.add_argument("--sever-region", action="append", default=[], dest="severed_regions", help="Region to sever (can be specified multiple times)")
+    exercise_parser.add_argument("--node-id", default="node-us-east-1", help="Cluster node ID for permit/trip")
+    exercise_parser.add_argument("--tenant-id", default="tenant-prod-01", help="Tenant ID for permit request")
+    exercise_parser.add_argument("--tokens", type=int, default=100, help="Tokens requested in permit")
+    exercise_parser.add_argument("--reason", default="Entropy collapse emergency halt", help="Reason for emergency trip")
+    exercise_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -5456,6 +5467,121 @@ def main(argv=None):
                 print(f"  Failed Verifies:    {st.get('failed_verifications', 0)}")
                 print(f"  SLSA Level:         {st.get('slsa_level', 'SLSA_BUILD_LEVEL_3')}")
                 print(f"  Public Key:         {st.get('public_key', '')[:24]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("exercise", "dr", "failure", "chaos-dc"):
+        from swarmwatch.datacenter_exercise import (
+            global_datacenter_orchestrator,
+            FailureScenarioType,
+            MinorityPartitionBlockedError,
+            DatacenterExerciseError,
+        )
+
+        if args.action == "run":
+            scenario_enum = FailureScenarioType(args.scenario)
+            severed = args.severed_regions if args.severed_regions else None
+            report = global_datacenter_orchestrator.run_exercise(
+                scenario=scenario_enum,
+                target_severed_regions=severed,
+            )
+            if args.format == "json":
+                print(json.dumps(report.to_dict(), indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DATACENTER FAILURE EXERCISE (ADR 0081)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Exercise ID:        {report.exercise_id}")
+                print(f"  Scenario:           {report.scenario.value}")
+                print(f"  Total Nodes:        {report.total_nodes}")
+                print(f"  Total Regions:      {report.total_regions}")
+                print(f"  Majority Up:        {report.majority_partition_operational}")
+                print(f"  Minority Isolated:  {report.minority_partition_isolated}")
+                print(f"  Split-Brain Avoid:  {report.split_brain_prevented}")
+                print(f"  Safety Monotone:    {report.safety_monotonicity_verified}")
+                print(f"  Invariants Passed:  {report.invariants_passed}")
+                print(f"  Duration (ms):      {report.duration_ms:.2f}ms")
+                print(f"  SHA-256 Digest:     {report.exercise_hash[:24]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "inject":
+            regions = args.severed_regions if args.severed_regions else ["eu-central-1"]
+            global_datacenter_orchestrator.inject_partition(severed_regions=regions)
+            st = global_datacenter_orchestrator.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print(f"Network partition injected. Severed regions: {regions}")
+            sys.exit(0)
+
+        elif args.action == "heal":
+            global_datacenter_orchestrator.heal_partition()
+            st = global_datacenter_orchestrator.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("All network partitions healed. Monotonic trips preserved.")
+            sys.exit(0)
+
+        elif args.action == "permit":
+            try:
+                res = global_datacenter_orchestrator.request_permit(
+                    node_id=args.node_id,
+                    tenant_id=args.tenant_id,
+                    tokens=args.tokens,
+                )
+                if args.format == "json":
+                    print(json.dumps(res.to_dict(), indent=2))
+                else:
+                    print(f"Permit Granted: {res.granted} (Node: {res.node_id}, Region: {res.region_id}, Reason: {res.reason})")
+            except MinorityPartitionBlockedError as e:
+                print(f"[FAIL-CLOSED] Minority partition blocked: {e}", file=sys.stderr)
+                sys.exit(2)
+            except DatacenterExerciseError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "trip":
+            res = global_datacenter_orchestrator.broadcast_trip(
+                origin_node_id=args.node_id,
+                reason=args.reason,
+            )
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"Emergency safety trip broadcast from node {args.node_id}: {res}")
+            sys.exit(0)
+
+        elif args.action == "report":
+            reports = global_datacenter_orchestrator.get_reports()
+            if not reports:
+                print("No failure exercise reports found.")
+                sys.exit(1)
+            r = reports[-1]
+            if args.format == "json":
+                print(json.dumps(r.to_dict(), indent=2))
+            else:
+                print(f"Latest Report: {r.exercise_id} (Passed: {r.invariants_passed}, Hash: {r.exercise_hash})")
+            sys.exit(0)
+
+        elif args.action == "status":
+            st = global_datacenter_orchestrator.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DATACENTER FAILURE STATUS (ADR 0081)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Active Phase:       {st.get('active_phase', 'NOMINAL')}")
+                print(f"  Total Nodes:        {st.get('total_nodes', 0)}")
+                print(f"  Total Regions:      {st.get('total_regions', 0)}")
+                print(f"  Globally Tripped:   {st.get('cluster_globally_tripped', False)}")
+                print(f"  Tripped Nodes:      {st.get('tripped_nodes_count', 0)}")
+                print(f"  Permits Issued:     {st.get('issued_permits_count', 0)}")
+                print(f"  Events Recorded:    {st.get('events_recorded', 0)}")
+                print(f"  Exercises Run:      {st.get('total_exercises_run', 0)}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

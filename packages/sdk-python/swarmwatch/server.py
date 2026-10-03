@@ -338,6 +338,22 @@ from swarmwatch.release_provenance import (
     ReleaseProvenance,
     global_release_provenance,
 )
+from swarmwatch.datacenter_exercise import (
+    DatacenterExerciseError,
+    MinorityPartitionBlockedError,
+    SplitBrainViolationError,
+    SafetyMonotonicityViolationError,
+    FailureScenarioType,
+    ExercisePhase,
+    NodeRole,
+    ClusterNode,
+    NetworkMatrix,
+    PermitAttemptResult,
+    FailureExerciseEvent,
+    FailureExerciseReport,
+    DatacenterFailureOrchestrator,
+    global_datacenter_orchestrator,
+)
 
 
 from swarmwatch.circuit import (
@@ -1061,6 +1077,27 @@ class ProvenanceVerifyRequest(BaseModel):
     public_key_b64: Optional[str] = None
     verify_disk_files: bool = False
     base_dir: Optional[str] = None
+
+
+class ExerciseInjectPartitionRequest(BaseModel):
+    severed_regions: List[str] = Field(default_factory=list)
+    asymmetric_routes: Optional[List[List[str]]] = None
+
+
+class ExercisePermitRequest(BaseModel):
+    node_id: str
+    tenant_id: str = "tenant-prod-01"
+    tokens: int = 100
+
+
+class ExerciseBroadcastTripRequest(BaseModel):
+    origin_node_id: str
+    reason: str = "Entropy collapse emergency halt"
+
+
+class ExerciseRunRequest(BaseModel):
+    scenario: str = "REGION_SEVERED"
+    target_severed_regions: Optional[List[str]] = None
 
 
 
@@ -6618,6 +6655,90 @@ def create_app(
     async def provenance_status_endpoint():
         """Returns operational metrics and active verification statistics for release provenance."""
         return global_release_provenance.status()
+
+    # -------------------------------------------------------------------------
+    # ADR 0081: Datacenter Failure Exercise & Region Loss Fault Injection (Seam 70)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/exercise/inject-partition")
+    async def exercise_inject_partition_endpoint(req: ExerciseInjectPartitionRequest):
+        """Injects network partition severing specified regions or asymmetric routes."""
+        try:
+            asym = None
+            if req.asymmetric_routes:
+                asym = [(r[0], r[1]) for r in req.asymmetric_routes if len(r) >= 2]
+            global_datacenter_orchestrator.inject_partition(
+                severed_regions=req.severed_regions,
+                asymmetric_routes=asym,
+            )
+            return {"status": "partition_injected", "details": global_datacenter_orchestrator.status()}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/exercise/heal-partition")
+    async def exercise_heal_partition_endpoint():
+        """Heals all network partitions while preserving monotonic safety trips."""
+        try:
+            global_datacenter_orchestrator.heal_partition()
+            return {"status": "partition_healed", "details": global_datacenter_orchestrator.status()}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/exercise/permit")
+    async def exercise_permit_endpoint(req: ExercisePermitRequest):
+        """Requests execution permit, verifying majority quorum or failing closed."""
+        try:
+            res = global_datacenter_orchestrator.request_permit(
+                node_id=req.node_id,
+                tenant_id=req.tenant_id,
+                tokens=req.tokens,
+            )
+            return res.to_dict()
+        except MinorityPartitionBlockedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except DatacenterExerciseError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/exercise/trip")
+    async def exercise_trip_endpoint(req: ExerciseBroadcastTripRequest):
+        """Broadcasts emergency safety trip from a cluster node."""
+        try:
+            res = global_datacenter_orchestrator.broadcast_trip(
+                origin_node_id=req.origin_node_id,
+                reason=req.reason,
+            )
+            return res
+        except DatacenterExerciseError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/exercise/run")
+    async def exercise_run_endpoint(req: ExerciseRunRequest):
+        """Runs complete 5-phase automated datacenter failure exercise and generates signed report."""
+        try:
+            scenario_enum = FailureScenarioType(req.scenario)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid failure scenario: {req.scenario}")
+        try:
+            report = global_datacenter_orchestrator.run_exercise(
+                scenario=scenario_enum,
+                target_severed_regions=req.target_severed_regions,
+            )
+            return report.to_dict()
+        except DatacenterExerciseError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/exercise/status")
+    async def exercise_status_endpoint():
+        """Returns topology, active phase, quorum state, and network matrix."""
+        return global_datacenter_orchestrator.status()
+
+    @app.get("/api/v1/exercise/report")
+    async def exercise_report_endpoint():
+        """Returns the latest disaster recovery failure exercise report."""
+        reports = global_datacenter_orchestrator.get_reports()
+        if not reports:
+            raise HTTPException(status_code=404, detail="No failure exercise reports found")
+        return reports[-1].to_dict()
+
 
 
 

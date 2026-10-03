@@ -951,4 +951,28 @@ export {
   globalReleaseProvenance,
 } from "./release_provenance.ts";
 
+// Datacenter Failure Exercise & Region Loss Fault Injection (Seam 70 / ADR 0081)
+export type {
+  ClusterNodeData,
+  PermitAttemptResultData,
+  FailureExerciseEventData,
+  FailureExerciseReportData,
+} from "./datacenter_exercise.ts";
+export {
+  DatacenterExerciseError,
+  MinorityPartitionBlockedError,
+  SplitBrainViolationError,
+  SafetyMonotonicityViolationError,
+  FailureScenarioType,
+  ExercisePhase,
+  NodeRole,
+  ClusterNode,
+  NetworkMatrix,
+  PermitAttemptResult,
+  FailureExerciseEvent,
+  FailureExerciseReport,
+  DatacenterFailureOrchestrator,
+  globalDatacenterOrchestrator,
+} from "./datacenter_exercise.ts";
+
 

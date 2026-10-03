@@ -975,5 +975,18 @@ _Avoid_: Hook call, function callback, middleware run
 - **SignedProvenanceManifest**: The tamper-evident SLSA v1.0 compliant release document encapsulating builder identity, git commit, DAG root hash, material digests, product digests, and NIST P-256 ECDSA digital signature.
   _Avoid_: Release cert, build attestation, signed tag, provenance envelope
 
+---
+
+### Datacenter Failure Exercise & Region Loss Fault Injection (Seam 70 / ADR 0081)
+- **DatacenterFailureOrchestrator**: The deep module coordinating multi-region network partitioning, strict majority quorum calculations, fail-closed minority isolation, monotonic safety trip latching, and 5-phase automated disaster recovery exercises.
+  _Avoid_: Chaos monkey, failure injector, network partitioner, split tester
+- **NetworkMatrix**: The multi-region topology and reachability routing graph maintaining bidirectional and asymmetric network route connectivity across cluster datacenter zones.
+  _Avoid_: Routing table, region map, connection grid, network graph
+- **MinorityPartitionBlockedError**: The fail-closed exception thrown when a cluster node isolated within a minority partition attempts to issue execution permits, preventing split-brain corruption.
+  _Avoid_: Partition error, isolated node failure, quorum timeout, split brain exception
+- **FailureExerciseReport**: The cryptographically signed audit receipt containing exercise identifier, failure scenario, partition status, invariant verification results, and canonical SHA-256 digest (`sw:fail:v1:...`).
+  _Avoid_: Chaos test report, drill summary, disaster recovery log, postmortem dump
+
+
 
 
