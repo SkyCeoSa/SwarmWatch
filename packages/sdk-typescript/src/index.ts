@@ -1030,3 +1030,28 @@ export {
   signPeerData,
   verifyPeerData,
 } from "./mesh_federation.ts";
+
+// Multi-Modal Cognitive Grounding & Vector Evidence Fusion (Seam 73 / ADR 0084)
+export type {
+  EvidenceModality,
+  GroundingVerdict,
+  GroundingConfig,
+} from "./cognitive_grounding.ts";
+export {
+  CognitiveGroundingError,
+  UngroundedInferenceError,
+  GroundingCircuitTrippedError,
+  EvidenceNotFoundError,
+  GroundingModalityMismatchError,
+  EvidenceModality as EvidenceModalityConst,
+  GroundingVerdict as GroundingVerdictConst,
+  VectorEvidence,
+  GroundingReceipt,
+  VectorEvidenceStore,
+  CognitiveGroundingEngine,
+  globalCognitiveGroundingEngine,
+  computeDeterministicEmbedding,
+  cosineSimilarity,
+  computeCanonicalGroundingHash,
+} from "./cognitive_grounding.ts";
+

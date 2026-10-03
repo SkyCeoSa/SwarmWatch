@@ -387,6 +387,21 @@ from swarmwatch.action_gateway import (
     ActionGateway,
     global_action_gateway,
 )
+from swarmwatch.cognitive_grounding import (
+    CognitiveGroundingError,
+    UngroundedInferenceError,
+    GroundingCircuitTrippedError,
+    EvidenceNotFoundError,
+    GroundingModalityMismatchError,
+    EvidenceModality,
+    GroundingVerdict,
+    VectorEvidence,
+    GroundingReceipt,
+    VectorEvidenceStore,
+    CognitiveGroundingEngine,
+    global_cognitive_grounding_engine,
+)
+
 
 
 
@@ -1192,6 +1207,33 @@ class MeshPacketRouteModel(BaseModel):
     hop_count: int = 0
     max_hops: int = 16
     signature: Optional[str] = None
+
+
+class GroundingRegisterRequest(BaseModel):
+    modality: str = "TEXT_CLAIM"
+    content: str
+    source_reference: str
+    confidence_weight: float = 1.0
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    tenant_id: str = "tenant-default"
+    evidence_id: Optional[str] = None
+
+
+class GroundingVerifyRequest(BaseModel):
+    claim: str
+    min_threshold: Optional[float] = None
+    required_modalities: Optional[List[str]] = None
+    tenant_id: str = "tenant-default"
+    strict: bool = False
+    claim_id: Optional[str] = None
+
+
+class GroundingFuseRequest(BaseModel):
+    claim: str
+    evidence_ids: List[str]
+    modality_weights: Optional[Dict[str, float]] = None
+    tenant_id: str = "tenant-default"
+
 
 
 
@@ -10619,6 +10661,99 @@ def create_app(
         if not receipt:
             raise HTTPException(status_code=404, detail=f"Routing receipt '{receipt_id}' not found")
         return receipt.to_dict()
+
+    # Multi-Modal Cognitive Grounding & Vector Evidence Fusion (Seam 73 / ADR 0084)
+    @app.post("/api/v1/grounding/register-evidence")
+    async def grounding_register_evidence_endpoint(req: GroundingRegisterRequest):
+        """Registers authentic multi-modal vector evidence."""
+        try:
+            modality = EvidenceModality(req.modality)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid evidence modality: {req.modality}")
+        evidence = global_cognitive_grounding_engine.register_evidence(
+            modality=modality,
+            content=req.content,
+            source_reference=req.source_reference,
+            confidence_weight=req.confidence_weight,
+            metadata=req.metadata,
+            tenant_id=req.tenant_id,
+            evidence_id=req.evidence_id,
+        )
+        return evidence.to_dict()
+
+    @app.post("/api/v1/grounding/verify")
+    async def grounding_verify_endpoint(req: GroundingVerifyRequest):
+        """Evaluates a claim or agent decision against registered multi-modal evidence."""
+        req_mods = None
+        if req.required_modalities:
+            try:
+                req_mods = [EvidenceModality(m) for m in req.required_modalities]
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid modality in required_modalities: {e}")
+        try:
+            receipt = global_cognitive_grounding_engine.verify_grounding(
+                claim=req.claim,
+                min_threshold=req.min_threshold,
+                required_modalities=req_mods,
+                tenant_id=req.tenant_id,
+                strict=req.strict,
+                claim_id=req.claim_id,
+            )
+            return receipt.to_dict()
+        except GroundingCircuitTrippedError as e:
+            raise HTTPException(status_code=423, detail=str(e))
+        except UngroundedInferenceError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except GroundingModalityMismatchError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/grounding/fuse")
+    async def grounding_fuse_endpoint(req: GroundingFuseRequest):
+        """Fuses a specific set of evidence IDs against a claim with custom weights."""
+        try:
+            receipt = global_cognitive_grounding_engine.fuse_evidence(
+                claim=req.claim,
+                evidence_ids=req.evidence_ids,
+                modality_weights=req.modality_weights,
+                tenant_id=req.tenant_id,
+            )
+            return receipt.to_dict()
+        except EvidenceNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except GroundingCircuitTrippedError as e:
+            raise HTTPException(status_code=423, detail=str(e))
+
+    @app.get("/api/v1/grounding/evidence")
+    async def grounding_evidence_list_endpoint(tenant_id: str = "tenant-default", modality: Optional[str] = None):
+        """Lists registered multi-modal evidence items."""
+        mod = None
+        if modality:
+            try:
+                mod = EvidenceModality(modality)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid modality: {modality}")
+        items = global_cognitive_grounding_engine.store.list_all(tenant_id=tenant_id, modality=mod)
+        return [e.to_dict() for e in items]
+
+    @app.get("/api/v1/grounding/receipts")
+    async def grounding_receipts_endpoint(tenant_id: Optional[str] = None, limit: int = 100):
+        """Lists recorded tamper-evident grounding receipts."""
+        receipts = global_cognitive_grounding_engine.get_receipts(tenant_id=tenant_id, limit=limit)
+        return [r.to_dict() for r in receipts]
+
+    @app.get("/api/v1/grounding/receipts/{receipt_id}")
+    async def grounding_receipt_by_id_endpoint(receipt_id: str):
+        """Retrieves a grounding receipt by receipt ID."""
+        receipt = global_cognitive_grounding_engine.get_receipt(receipt_id)
+        if not receipt:
+            raise HTTPException(status_code=404, detail=f"Grounding receipt '{receipt_id}' not found")
+        return receipt.to_dict()
+
+    @app.get("/api/v1/grounding/status")
+    async def grounding_status_endpoint():
+        """Returns live operational status and metrics of cognitive grounding engine."""
+        return global_cognitive_grounding_engine.status()
+
 
 
 

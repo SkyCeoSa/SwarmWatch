@@ -625,7 +625,23 @@ def main(argv=None):
     federation_parser.add_argument("--receipt-id", default=None, help="Receipt ID for lookup")
     federation_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch grounding` subcommand (Seam 73 / ADR 0084)
+    grounding_parser = subparsers.add_parser("grounding", aliases=["ground", "cognitive-grounding"], help="Multi-Modal Cognitive Grounding & Vector Evidence Fusion (ADR 0084)")
+    grounding_parser.add_argument("action", choices=["register", "verify", "fuse", "evidence", "receipts", "receipt", "status"], default="status", nargs="?", help="Grounding action (register, verify, fuse, evidence, receipts, receipt, status)")
+    grounding_parser.add_argument("--content", default=None, help="Evidence content or claim text")
+    grounding_parser.add_argument("--claim", default=None, help="Claim to verify or fuse")
+    grounding_parser.add_argument("--modality", default="TEXT_CLAIM", choices=["TEXT_CLAIM", "VISUAL_ARTIFACT", "ACTION_RECEIPT", "ROOT_WITNESS", "STRUCTURED_TELEMETRY"], help="Evidence modality")
+    grounding_parser.add_argument("--source-ref", default="cli-ref-01", help="Source reference for evidence")
+    grounding_parser.add_argument("--confidence", type=float, default=1.0, help="Confidence weight for evidence")
+    grounding_parser.add_argument("--threshold", type=float, default=None, help="Minimum grounding threshold")
+    grounding_parser.add_argument("--strict", action="store_true", help="Raise error on ungrounded inference")
+    grounding_parser.add_argument("--evidence-ids", nargs="*", default=[], help="Evidence IDs for fuse action")
+    grounding_parser.add_argument("--tenant-id", default="tenant-default", help="Tenant ID context")
+    grounding_parser.add_argument("--receipt-id", default=None, help="Receipt ID for lookup")
+    grounding_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -5906,9 +5922,139 @@ def main(argv=None):
                 print(f"  Circuit Tripped:    {st.get('circuit_tripped', False)}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
+    elif args.subcommand in ("grounding", "ground", "cognitive-grounding"):
+        from swarmwatch.cognitive_grounding import (
+            global_cognitive_grounding_engine,
+            EvidenceModality,
+            GroundingVerdict,
+            CognitiveGroundingError,
+            UngroundedInferenceError,
+            GroundingCircuitTrippedError,
+            EvidenceNotFoundError,
+        )
+
+        if args.action == "register":
+            content = args.content or args.claim
+            if not content:
+                print("[ERROR] --content is required for register action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                modality = EvidenceModality(args.modality)
+            except ValueError:
+                print(f"[ERROR] Invalid modality: {args.modality}", file=sys.stderr)
+                sys.exit(1)
+            ev = global_cognitive_grounding_engine.register_evidence(
+                modality=modality,
+                content=content,
+                source_reference=args.source_ref,
+                confidence_weight=args.confidence,
+                tenant_id=args.tenant_id,
+            )
+            if args.format == "json":
+                print(json.dumps(ev.to_dict(), indent=2))
+            else:
+                print(f"Registered evidence '{ev.evidence_id}' [{ev.modality.value}] for tenant '{ev.tenant_id}' (Source: {ev.source_reference})")
+            sys.exit(0)
+
+        elif args.action == "verify":
+            claim = args.claim or args.content
+            if not claim:
+                print("[ERROR] --claim is required for verify action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                rcpt = global_cognitive_grounding_engine.verify_grounding(
+                    claim=claim,
+                    min_threshold=args.threshold,
+                    tenant_id=args.tenant_id,
+                    strict=args.strict,
+                )
+                if args.format == "json":
+                    print(json.dumps(rcpt.to_dict(), indent=2))
+                else:
+                    print(f"Grounding Verification: {rcpt.verdict.value} (Score: {rcpt.overall_score:.4f}, Hash: {rcpt.canonical_hash})")
+            except CognitiveGroundingError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "fuse":
+            claim = args.claim or args.content
+            if not claim or not args.evidence_ids:
+                print("[ERROR] --claim and --evidence-ids are required for fuse action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                rcpt = global_cognitive_grounding_engine.fuse_evidence(
+                    claim=claim,
+                    evidence_ids=args.evidence_ids,
+                    tenant_id=args.tenant_id,
+                )
+                if args.format == "json":
+                    print(json.dumps(rcpt.to_dict(), indent=2))
+                else:
+                    print(f"Evidence Fused: {rcpt.verdict.value} (Score: {rcpt.overall_score:.4f}, Hash: {rcpt.canonical_hash})")
+            except CognitiveGroundingError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "evidence":
+            mod = None
+            if args.modality:
+                try:
+                    mod = EvidenceModality(args.modality)
+                except ValueError:
+                    pass
+            items = global_cognitive_grounding_engine.store.list_all(tenant_id=args.tenant_id, modality=mod)
+            if args.format == "json":
+                print(json.dumps([e.to_dict() for e in items], indent=2))
+            else:
+                print(f"Total evidence items: {len(items)}")
+                for e in items:
+                    print(f"  - [{e.evidence_id}] ({e.modality.value}) {e.content[:60]}... (Ref: {e.source_reference})")
+            sys.exit(0)
+
+        elif args.action == "receipts":
+            receipts = global_cognitive_grounding_engine.get_receipts(tenant_id=args.tenant_id)
+            if args.format == "json":
+                print(json.dumps([r.to_dict() for r in receipts], indent=2))
+            else:
+                print(f"Total receipts: {len(receipts)}")
+                for r in receipts:
+                    print(f"  - [{r.receipt_id}] Verdict: {r.verdict.value} Score: {r.overall_score:.4f} Hash: {r.canonical_hash}")
+            sys.exit(0)
+
+        elif args.action == "receipt":
+            if not args.receipt_id:
+                print("[ERROR] --receipt-id is required for receipt action", file=sys.stderr)
+                sys.exit(1)
+            rcpt = global_cognitive_grounding_engine.get_receipt(args.receipt_id)
+            if not rcpt:
+                print(f"[ERROR] Receipt '{args.receipt_id}' not found", file=sys.stderr)
+                sys.exit(1)
+            if args.format == "json":
+                print(json.dumps(rcpt.to_dict(), indent=2))
+            else:
+                print(f"Receipt: {rcpt.receipt_id} (Verdict: {rcpt.verdict.value}, Score: {rcpt.overall_score:.4f}, Hash: {rcpt.canonical_hash})")
+            sys.exit(0)
+
+        elif args.action == "status":
+            st = global_cognitive_grounding_engine.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH COGNITIVE GROUNDING & EVIDENCE FUSION (ADR 0084)   |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Evidence Items:     {st.get('total_evidence_count', 0)}")
+                print(f"  Verifications:      {st.get('total_verifications', 0)}")
+                print(f"  Circuit Tripped:    {st.get('circuit_tripped', False)}")
+                print(f"  Status Badge:       {st.get('status_badge', 'N/A')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 
 

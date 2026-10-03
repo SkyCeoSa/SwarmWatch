@@ -1761,6 +1761,10 @@
             <span class="status-indicator" id="gatewayDot" style="background: var(--success);"></span>
             <span id="gatewayText">GATEWAY: AUTONOMOUS OK</span>
           </div>
+          <div class="fleet-badge" id="groundingBadge" title="Multi-Modal Cognitive Grounding & Vector Evidence Fusion (ADR 0084)">
+            <span class="status-indicator" id="groundingDot" style="background: var(--success);"></span>
+            <span id="groundingText">GROUNDING: FUSION OK</span>
+          </div>
         </div>
 
 
@@ -5109,6 +5113,28 @@
       }
       refreshGatewayStatus();
       setInterval(refreshGatewayStatus, 10000);
+
+      async function refreshGroundingStatus() {
+        var groundingDot = document.getElementById('groundingDot');
+        var groundingText = document.getElementById('groundingText');
+        try {
+          var res = await fetch('/api/v1/grounding/status');
+          if (res.ok) {
+            var data = await res.json();
+            var isTripped = data.circuit_tripped || false;
+            var badgeStr = data.status_badge || 'GROUNDING: FUSION OK';
+            if (groundingDot) {
+              groundingDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (groundingText) {
+              groundingText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshGroundingStatus();
+      setInterval(refreshGroundingStatus, 10000);
+
 
 
       if (btnMfaModal) {

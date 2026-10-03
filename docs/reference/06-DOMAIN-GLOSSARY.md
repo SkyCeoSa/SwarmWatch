@@ -1704,6 +1704,35 @@ _Avoid_: Message frame, event packet, network chunk, telemetry datagram
 The cryptographically verifiable routing proof (`sw:mesh:v1:...`) recording packet identifier, traversed node sequence, hop count, status (`DELIVERED`, `ROUTED_RELAY`, `DROPPED_TTL`, `BLOCKED_CIRCUIT`, `FAILED_CAPABILITY`, `DESTINATION_UNREACHABLE`, `ROUTING_LOOP`), microsecond duration, and canonical SHA-256 digest.
 _Avoid_: Delivery log, route audit, path trace, routing dump
 
+---
+
+### Multi-Modal Cognitive Grounding & Vector Evidence Fusion (Seam 73 / ADR 0084)
+
+**CognitiveGroundingEngine**:
+The deep module orchestrating zero-token in-process sparse-to-dense vector embedding, multi-modal evidence registration, cosine similarity evaluation, evidentiary fusion, fail-closed circuit coupling, and tamper-evident grounding receipts.
+_Avoid_: Hallucination detector, RAG search engine, vector DB client, fact checker
+
+**VectorEvidence**:
+An authenticated unit of indexed multi-modal evidence binding evidence ID, tenant identity, modality (`TEXT_CLAIM`, `VISUAL_ARTIFACT`, `ACTION_RECEIPT`, `ROOT_WITNESS`, `STRUCTURED_TELEMETRY`), content string, dense float vector, source reference, and confidence weight.
+_Avoid_: Knowledge entry, vector record, memory row, database doc
+
+**GroundingClaim**:
+A candidate agent assertion, synthesized claim, or downstream tool argument evaluated for empirical grounding against registered swarm evidence.
+_Avoid_: Agent prompt, query text, hypothesis, test string
+
+**GroundingVerdict**:
+The formal 4-tier classification lattice (`GROUNDED`, `PARTIALLY_GROUNDED`, `UNGROUNDED`, `DRIFT_DETECTED`) reflecting the mathematical similarity between a candidate claim and ground-truth evidence.
+_Avoid_: Hallucination score, accuracy tier, truth rating, validity status
+
+**GroundingReceipt**:
+The cryptographically verifiable grounding proof (`sw:ground:v1:...`) recording claim identifier, tenant context, verdict, overall score, modality breakdown, duration, and canonical SHA-256 digest.
+_Avoid_: Grounding log, verification trace, audit record, evaluation dump
+
+**UngroundedInferenceError**:
+The fail-closed exception thrown when an assertion fails to satisfy configured minimum grounding thresholds during strict execution or before high-risk actions.
+_Avoid_: Hallucination error, unverified exception, knowledge fault, grounding crash
+
+
 
 
 
