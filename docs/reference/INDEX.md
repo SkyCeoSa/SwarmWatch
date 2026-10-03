@@ -55,6 +55,9 @@ Whenever beginning a new session or designing new features, consult this index t
       - [ADR 0028: Industrial Production Monitoring Stack & Grafana Dashboard Topology](../adr/0028-grafana-monitoring-stack-and-docker-topology.md)
       - [ADR 0029: Automated Alert Route Webhook Testing & Synthetic Simulation Pipeline](../adr/0029-synthetic-alert-simulation-pipeline.md)
       - [ADR 0030: High-Frequency Telemetry Ingestion Micro-Benchmark & Flamegraph Profile Suite](../adr/0030-high-frequency-telemetry-micro-benchmark-and-profiler.md)
+   - [ADRs 0031 through 0082: Advanced Resilience, Cryptography & Governance](../adr/)
+10. [10. External Audit Resolution & Certification Dossier](../audit/AUDIT_RESOLUTION_SEAMS_61_71.md)
+    - Comprehensive resolution of all 8 Foundational Gaps and 5 Audit Dimensions from the external audit report, certifying SwarmWatch as a production-ready enterprise safety operating system.
 
 ---
 
@@ -62,11 +65,11 @@ Whenever beginning a new session or designing new features, consult this index t
 
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
-| **Python Test Suite** | `.venv\Scripts\pytest.exe packages\sdk-python\tests\` | 100% Pass (125/125 tests) |
-| **TypeScript Test Suite** | `cmd.exe /c npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (103/103 tests) |
+| **Python Test Suite** | `.venv\Scripts\pytest packages/sdk-python/tests/` | 100% Pass (616/616 tests) |
+| **TypeScript Test Suite** | `npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (506/506 tests) |
+| **Combined Local Baseline** | Full Dual-SDK test suites | 100% Pass (1,122/1,122 tests) |
 | **Prometheus Exporter** | `curl http://127.0.0.1:8765/metrics` | 100% OpenMetrics 0.0.4 Valid |
-| **Package Distribution Integrity** | `python scripts\verify_release.py` | 100% Valid (Wheel & Tarball) |
-| **Console Craft Floor** | Inspect `dashboard.html` (`#080B11`, `tabular-nums`) | 0 Anti-Patterns |
-| **Local Dashboard Server** | `.venv\Scripts\swarmwatch.exe ui --port 8765` | `http://127.0.0.1:8765` Active |
-| **Live Interactive Tour** | `.venv\Scripts\python.exe scripts\run_live_demo.py` | End-to-end Simulation Complete |
+| **Package Distribution Integrity** | `python scripts/verify_release.py --strict` | 100% Valid (Wheel & Tarball) |
+| **Console Craft Floor** | Inspect `dashboard.html` (`#080B11`, `tnum`, badges $\le 30$ chars) | 0 Anti-Patterns |
+| **Local Dashboard Server** | `.venv\Scripts\swarmwatch ui --port 8765` | `http://127.0.0.1:8765` Active |
 | **Git Working Tree** | `git status -s` | Clean, synchronized with `origin/main` |
