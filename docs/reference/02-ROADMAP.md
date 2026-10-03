@@ -586,10 +586,20 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-50 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
   - Dual-SDK parity across Python (`swarmwatch.action_gateway`) and TypeScript (`@swarmwatch/sdk/src/action_gateway.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/gateway/request`, `POST /api/v1/gateway/approve`, `POST /api/v1/gateway/execute`, `GET /api/v1/gateway/pending`, `GET /api/v1/gateway/status`, `GET /api/v1/gateway/receipts`, `GET /api/v1/gateway/receipts/{receipt_id}`), CLI subcommand (`swarmwatch gateway request|approve|execute|pending|status|receipts|receipt`), and Web Console `#gatewayBadge` widget.
-- **Upcoming Roadmap (Seams 72+)**:
-  - **Seam 72+**: Dynamic Agent Federation & Swarm Mesh Topology Routing.
+- **Dynamic Agent Federation & Swarm Mesh Topology Routing (Seam 72 & ADR 0083 Dual-SDK Parity)**:
+  - Deep module `MeshFederationRouter` establishing zero-trust peer discovery, authenticated peer handshakes, loop-free Dijkstra mesh shortest-path routing, hop-limit (TTL) enforcement, cross-tenant capability fencing, fail-closed safety circuit synchronization, and tamper-evident routing receipts.
+  - Multi-cluster, multi-role peer node registry (`PeerNode`, `MeshLink`) with roles `EDGE`, `GATEWAY`, `WORKER`, `ROUTER` and statuses `ONLINE`, `STANDBY`, `DEGRADED`, `OFFLINE`, `EVICTED`.
+  - Mutual cryptographic handshake (`PeerHandshakeRequest`, `PeerHandshakeResponse`) via ECDSA NIST P-256 digital signatures with session ID generation.
+  - Dijkstra shortest-path pathfinding over weighted directed graphs with dynamic rerouting upon link failure or peer eviction.
+  - Fail-closed safety circuit coupling: whenever the safety circuit trips, all routed packets are immediately aborted with `MeshCircuitTrippedError`.
+  - Cryptographically verifiable tamper-evident routing receipts (`MeshRoutingReceipt`) with domain tag `sw:mesh:v1:...`.
+  - Sub-50 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.mesh_federation`) and TypeScript (`@swarmwatch/sdk/src/mesh_federation.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/federation/register-peer`, `POST /api/v1/federation/establish-link`, `POST /api/v1/federation/heartbeat`, `POST /api/v1/federation/route`, `GET /api/v1/federation/path`, `GET /api/v1/federation/peers`, `GET /api/v1/federation/links`, `GET /api/v1/federation/status`, `GET /api/v1/federation/receipts`, `GET /api/v1/federation/receipts/{receipt_id}`), CLI subcommand (`swarmwatch federation peers|links|register|link|route|path|status|receipts|receipt`), and Web Console `#meshBadge` widget.
+- **Upcoming Roadmap (Seams 73+)**:
+  - **Seam 73+**: Multi-Modal Cognitive Grounding & Vector Evidence Fusion.
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (616 tests) and TypeScript (506 tests) runtimes (1,122 total tests across 63 test suites).
+  - Full local test suite passing 100% across Python (630 tests) and TypeScript (519 tests) runtimes (1,149 total tests across 64 test suites).
 
 
 

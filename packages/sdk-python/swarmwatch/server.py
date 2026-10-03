@@ -354,6 +354,24 @@ from swarmwatch.datacenter_exercise import (
     DatacenterFailureOrchestrator,
     global_datacenter_orchestrator,
 )
+from swarmwatch.mesh_federation import (
+    MeshFederationError,
+    MeshPeerAuthenticationError,
+    MeshRoutingLoopError,
+    MeshHopLimitExceededError,
+    MeshDestinationUnreachableError,
+    MeshCapabilityFencingError,
+    MeshCircuitTrippedError,
+    MeshNodeStatus,
+    MeshNodeRole,
+    MeshRoutingStatus,
+    PeerNode,
+    MeshLink,
+    MeshPacket,
+    MeshRoutingReceipt,
+    MeshFederationRouter,
+    global_mesh_router,
+)
 from swarmwatch.action_gateway import (
     ActionGatewayError,
     UnauthorizedActionError,
@@ -1140,6 +1158,42 @@ class GatewayActionExecuteModel(BaseModel):
     request_id: str
 
 
+class MeshPeerRegisterModel(BaseModel):
+    node_id: str
+    cluster_id: str = "cluster-default"
+    tenant_id: str = "tenant-default"
+    endpoint_url: str = "http://127.0.0.1:8000"
+    public_key_hex: str = ""
+    role: str = "WORKER"
+    capabilities: List[str] = Field(default_factory=list)
+    latency_ms: float = 1.0
+    signature: Optional[str] = None
+
+
+class MeshLinkEstablishModel(BaseModel):
+    source_node_id: str
+    target_node_id: str
+    weight_cost: float = 1.0
+    latency_ms: float = 1.0
+    bidirectional: bool = True
+
+
+class MeshHeartbeatModel(BaseModel):
+    node_id: str
+
+
+class MeshPacketRouteModel(BaseModel):
+    packet_id: Optional[str] = None
+    source_node_id: str
+    dest_node_id: str
+    tenant_id: str = "tenant-default"
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    capability_token: Optional[str] = None
+    hop_count: int = 0
+    max_hops: int = 16
+    signature: Optional[str] = None
+
+
 
 
 async def run_swarm_simulation(
@@ -1603,6 +1657,377 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       color: var(--text-muted);
     }
 
+    /* Time-Machine & Scrubber Bar */
+    .time-machine-bar {
+      background: #0B101D;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .tm-left-group, .tm-right-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .tm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(167, 139, 250, 0.12);
+      border: 1px solid rgba(167, 139, 250, 0.3);
+      color: #A78BFA;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .tm-btn {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .tm-btn:hover:not(:disabled) {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+    .tm-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .tm-btn-fork {
+      background: rgba(167, 139, 250, 0.08);
+      border-color: rgba(167, 139, 250, 0.4);
+      color: #A78BFA;
+    }
+    .tm-btn-fork:hover:not(:disabled) {
+      background: rgba(167, 139, 250, 0.2);
+      border-color: #A78BFA;
+      color: var(--text-primary);
+    }
+    .tm-turn-display {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-feature-settings: "tnum" 1;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      min-width: 85px;
+      text-align: center;
+    }
+    .tm-center-track {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      position: relative;
+      min-width: 80px;
+    }
+    .tm-center-track input[type="range"] {
+      width: 100%;
+      height: 4px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      accent-color: #A78BFA;
+      cursor: pointer;
+    }
+    .tm-ticks {
+      display: flex;
+      justify-content: space-between;
+      height: 6px;
+      padding: 0 4px;
+      position: relative;
+    }
+    .tm-tick {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border-strong);
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .tm-tick:hover {
+      transform: scale(1.4);
+      background: var(--accent);
+    }
+    .tm-tick.selected {
+      background: #A78BFA;
+      box-shadow: 0 0 4px rgba(167, 139, 250, 0.6);
+      transform: scale(1.3);
+    }
+    .tm-tick.snapshot {
+      border: 1px solid #A78BFA;
+    }
+    .tm-tick.halt {
+      background: var(--danger);
+    }
+    .tm-branch-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .tm-branch-select {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 3px 6px;
+      cursor: pointer;
+      outline: none;
+    }
+    .tm-branch-select:hover {
+      border-color: var(--border-strong);
+    }
+
+    /* Distributed Redis Fleet Cluster Bar & Alert (ADR 0034) */
+    .fleet-bar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 7px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-shrink: 0;
+      font-size: 12px;
+      transition: opacity 0.2s ease;
+    }
+    .fleet-left-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+    .fleet-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+    .fleet-badge.tripped {
+      background: var(--danger-subtle);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: var(--danger);
+    }
+    .fleet-badge.standby {
+      background: rgba(148, 163, 184, 0.12);
+      border-color: rgba(148, 163, 184, 0.3);
+      color: var(--text-secondary);
+    }
+    .fleet-badge.archived {
+      background: rgba(148, 163, 184, 0.12);
+      border-color: rgba(148, 163, 184, 0.3);
+      color: var(--text-primary);
+    }
+    .fleet-backend-tag {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-canvas);
+      padding: 2px 7px;
+      border-radius: 3px;
+      border: 1px solid var(--border-subtle);
+    }
+    .fleet-workers-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 320px;
+      overflow-x: auto;
+    }
+    .fleet-worker-pill {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      padding: 2px 7px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .fleet-worker-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .fleet-meters-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+      justify-content: center;
+    }
+    .fleet-meter-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .fleet-meter-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    .fleet-meter-val {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .fleet-progress-bg {
+      width: 48px;
+      height: 4px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .fleet-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: background-color 0.2s ease;
+    }
+    .fleet-progress-fill.warning {
+      background: var(--warning);
+    }
+    .fleet-progress-fill.danger {
+      background: var(--danger);
+    }
+    .fleet-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-fleet-trip {
+      background: var(--danger-subtle);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: var(--danger);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-fleet-trip:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: var(--danger);
+    }
+    .btn-fleet-reset {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn-fleet-reset:hover:not(:disabled) {
+      background: var(--bg-surface-hover);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .fleet-trip-alert-banner {
+      width: 100%;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 4px;
+      padding: 8px 14px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      animation: toastSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .fleet-trip-alert-text {
+      font-size: 12px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+    }
+    .fleet-trip-alert-text strong {
+      color: var(--danger);
+      margin-right: 6px;
+    }
+
+    /* Toast Notification System */
+    .toast-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-primary);
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: toastSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .toast-item.success { border-left-color: var(--success); }
+    .toast-item.warning { border-left-color: var(--warning); }
+    .toast-item.danger { border-left-color: var(--danger); }
+    .toast-item.purple { border-left-color: #A78BFA; }
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     /* View Switcher Controls */
     .view-toggle {
       display: inline-flex;
@@ -2053,6 +2478,252 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       max-height: 260px;
       white-space: pre;
     }
+
+    /* Inspector Tabs & Diff Inspector (Seam 16 / ADR 0027) */
+    .insp-tab-bar {
+      display: flex;
+      gap: 3px;
+      background: var(--bg-canvas);
+      padding: 3px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .insp-tab-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .insp-tab-btn:hover {
+      color: var(--text-primary);
+    }
+    .insp-tab-btn.active {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+      border-bottom: 2px solid var(--accent);
+    }
+    .diff-badge-pill {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10B981;
+    }
+    .diff-badge-pill.has-changes {
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+    }
+
+    /* Diff View Container */
+    .diff-view-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .diff-toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--bg-canvas);
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+    }
+    .diff-toolbar-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .diff-select {
+      flex: 1;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    .diff-mode-toggle {
+      display: flex;
+      gap: 3px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      padding: 3px 4px;
+    }
+    .diff-mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .diff-mode-btn.active {
+      background: var(--border-strong);
+      color: var(--text-primary);
+    }
+    .diff-filter-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .diff-filter-chip {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 3px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      padding: 3px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .diff-filter-chip.active {
+      border-color: var(--accent);
+      color: var(--text-primary);
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .diff-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 4px 6px;
+    }
+    .diff-entries-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 280px;
+      overflow-y: auto;
+      background: var(--bg-canvas);
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+    }
+    .diff-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 10px;
+      border-radius: 3px;
+      border-left: 3px solid transparent;
+      background: rgba(255, 255, 255, 0.015);
+    }
+    .diff-row.added {
+      border-left-color: #10B981;
+      background: rgba(16, 185, 129, 0.06);
+    }
+    .diff-row.modified {
+      border-left-color: #F59E0B;
+      background: rgba(245, 158, 11, 0.06);
+    }
+    .diff-row.removed {
+      border-left-color: #EF4444;
+      background: rgba(239, 68, 68, 0.06);
+    }
+    .diff-row.unchanged {
+      border-left-color: var(--border-subtle);
+      opacity: 0.6;
+    }
+    .diff-header-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .diff-path {
+      font-weight: 600;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+    .diff-tag {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+    .diff-tag.added { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+    .diff-tag.modified { background: rgba(245, 158, 11, 0.2); color: #F59E0B; }
+    .diff-tag.removed { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+    .diff-tag.unchanged { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); }
+    .diff-tag.redacted { background: rgba(167, 139, 250, 0.2); color: var(--branch-purple); }
+    .diff-val-change {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 12px;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .diff-val-old {
+      color: #EF4444;
+      text-decoration: line-through;
+      opacity: 0.8;
+    }
+    .diff-val-new {
+      color: #10B981;
+    }
+    .diff-val-arrow {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    /* Split Diff Mode */
+    .diff-split-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 12px;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--border-subtle);
+    }
+    .diff-split-col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+    .diff-split-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -2081,9 +2752,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn-action btn-secondary" id="btnFleetToggle" title="Toggle Distributed Redis Fleet Bar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+        <span>Redis Fleet</span>
+      </button>
       <button class="btn-action btn-secondary" id="btnApiKeys">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         <span>API Keys</span>
+      </button>
+      <button class="btn-action btn-secondary" id="btnMfaModal" title="Security & MFA Settings (ADR 0037)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"></rect><circle cx="12" cy="16" r="1"></circle><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        <span>Security / MFA</span>
       </button>
       <button class="btn-action btn-primary" id="btnSimulate">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>
@@ -2211,6 +2890,300 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         </div>
         <span class="chaos-status" id="chaosStatus">Ready</span>
       </div>
+      <div class="time-machine-bar" id="timeMachineBar">
+        <div class="tm-left-group">
+          <div class="tm-badge">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>
+            <span>Time-Machine</span>
+          </div>
+          <button class="tm-btn" id="btnStepBack" title="Step back to previous turn (Key: [)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
+          </button>
+          <div class="tm-turn-display" id="scrubberTurnDisplay">Turn 0 / 0</div>
+          <button class="tm-btn" id="btnStepForward" title="Step forward to next turn (Key: ])">
+            <span>Next</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="tm-btn" id="btnJumpHead" title="Jump to latest turn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+            <span>Head</span>
+          </button>
+        </div>
+
+        <div class="tm-center-track">
+          <input type="range" id="scrubberSlider" min="1" max="1" value="1" step="1" title="Scrub through turns timeline" />
+          <div class="tm-ticks" id="scrubberTicks"></div>
+        </div>
+
+        <div class="tm-right-group">
+          <div class="tm-branch-wrapper">
+            <span class="tm-branch-label">Branch:</span>
+            <select id="branchSelector" class="tm-branch-select" title="Switch active DAG branch">
+              <option value="main">main</option>
+            </select>
+          </div>
+          <button class="tm-btn tm-btn-fork" id="btnTimeMachineFork" title="Fork branch from selected turn (Key: F)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            <span>Fork...</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Distributed Redis Fleet Cluster Bar (ADR 0034) -->
+      <div class="fleet-bar" id="fleetBar">
+        <div class="fleet-left-group">
+          <div class="fleet-badge" id="fleetClusterBadge">
+            <span class="status-indicator" id="fleetDot"></span>
+            <span id="fleetStatusText">REDIS: CONNECTED</span>
+          </div>
+          <span class="fleet-backend-tag" id="fleetBackendTag">RESP2 (127.0.0.1:6379)</span>
+          <div class="fleet-badge leader-badge" id="fleetLeaderBadge" title="Distributed Cluster Leader (ADR 0035)">
+            <span class="status-indicator" id="fleetLeaderDot"></span>
+            <span id="fleetLeaderText">LEADER [SRV-NODE-LOCAL]</span>
+          </div>
+          <span class="fleet-backend-tag" id="fleetNodesCountTag" title="Registered Active Cluster Server Nodes">1 Node</span>
+          <span class="fleet-badge archived" id="fleetArchiveStatusBadge" style="display: none;" title="Swarm Cold Storage Status (ADR 0036)">COLD ARCHIVE</span>
+          <div class="fleet-workers-container" id="fleetWorkersList" title="Active Cluster Worker Pods">
+            <span class="fleet-worker-pill"><span class="fleet-worker-dot"></span>worker-01</span>
+          </div>
+          <div class="fleet-badge" id="fleetRoleBadge" title="Enterprise RBAC Role (ADR 0037)">
+            <span class="status-indicator" id="fleetRoleDot" style="background: var(--accent);"></span>
+            <span id="fleetRoleText">ROLE: ADMIN</span>
+          </div>
+          <div class="fleet-badge" id="fleetMfaBadge" title="MFA Verification Status (ADR 0037)">
+            <span class="status-indicator" id="fleetMfaDot" style="background: var(--success);"></span>
+            <span id="fleetMfaText">MFA: ACTIVE</span>
+          </div>
+          <div class="fleet-badge" id="otlpGatewayBadge" title="OpenTelemetry OTLP Ingestion Gateway (ADR 0038)">
+            <span class="status-indicator" id="otlpDot" style="background: var(--accent);"></span>
+            <span id="otlpText">OTLP: /V1/TRACES</span>
+          </div>
+          <div class="fleet-badge" id="sseStatusBadge" title="Server-Sent Events (SSE) Stream (ADR 0039)">
+            <span class="status-indicator" id="sseDot" style="background: var(--text-muted);"></span>
+            <span id="sseText">SSE: STANDBY</span>
+          </div>
+          <div class="fleet-badge" id="pushNotificationBadge" title="Enterprise WebPush Alerts (ADR 0039)" style="cursor: pointer;">
+            <span class="status-indicator" id="pushDot" style="background: var(--text-muted);"></span>
+            <span id="pushText">PUSH: OFF</span>
+          </div>
+          <div class="fleet-badge" id="ebpfGatewayBadge" title="Kernel-Level Socket LLM Interception Gateway (ADR 0040)">
+            <span class="status-indicator" id="ebpfDot" style="background: var(--success);"></span>
+            <span id="ebpfText">EBPF: ATTACHED</span>
+          </div>
+          <div class="fleet-badge" id="raftConsensusBadge" title="Raft Distributed Consensus Engine (ADR 0041)">
+            <span class="status-indicator" id="raftDot" style="background: var(--accent);"></span>
+            <span id="raftText">RAFT: LEADER (T0)</span>
+          </div>
+          <div class="fleet-badge" id="selfHealingBadge" title="Autonomous Self-Healing Policy Controller (ADR 0042)">
+            <span class="status-indicator" id="selfHealingDot" style="background: var(--success);"></span>
+            <span id="selfHealingText">HEAL: ACTIVE (0)</span>
+          </div>
+          <div class="fleet-badge" id="rootCauseBadge" title="Distributed Root-Cause Causal Inference (ADR 0043)">
+            <span class="status-indicator" id="rootCauseDot" style="background: var(--success);"></span>
+            <span id="rootCauseText">RCA: NOMINAL</span>
+          </div>
+          <div class="fleet-badge" id="grpcGatewayBadge" title="Ultra-High-Throughput gRPC Streaming Gateway (ADR 0044)">
+            <span class="status-indicator" id="grpcGatewayDot" style="background: var(--success);"></span>
+            <span id="grpcGatewayText">GRPC: READY</span>
+          </div>
+          <div class="fleet-badge" id="driftBadge" title="Embedding-Free Vector Semantic Drift & Hallucination Detector (ADR 0045)">
+            <span class="status-indicator" id="driftDot" style="background: var(--success);"></span>
+            <span id="driftText">DRIFT: NOMINAL</span>
+          </div>
+          <div class="fleet-badge" id="rebalancerBadge" title="Adaptive Dynamic Quota Re-balancing (ADR 0046)">
+            <span class="status-indicator" id="rebalancerDot" style="background: var(--success);"></span>
+            <span id="rebalancerText">QUOTA: BALANCED</span>
+          </div>
+          <div class="fleet-badge" id="coalitionBadge" title="Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (ADR 0047)">
+            <span class="status-indicator" id="coalitionDot" style="background: var(--success);"></span>
+            <span id="coalitionText">COALITIONS: OPTIMAL</span>
+          </div>
+          <div class="fleet-badge" id="shmBadge" title="Zero-Copy Shared-Memory IPC Ring Buffer (ADR 0048)">
+            <span class="status-indicator" id="shmDot" style="background: var(--success);"></span>
+            <span id="shmText">SHM: ACTIVE (0 PENDING)</span>
+          </div>
+          <div class="fleet-badge" id="dpBadge" title="Differential Privacy & Cryptographic State Anonymization (ADR 0049)">
+            <span class="status-indicator" id="dpDot" style="background: var(--success);"></span>
+            <span id="dpText">DP: PROTECTED (EPS=1.0)</span>
+          </div>
+          <div class="fleet-badge" id="forecastBadge" title="Predictive Multi-Agent Failure Forecasting & Early-Warning Entropy Martingales (ADR 0050)">
+            <span class="status-indicator" id="forecastDot" style="background: var(--success);"></span>
+            <span id="forecastText">FORECAST: STABLE</span>
+          </div>
+          <div class="fleet-badge" id="byzantineBadge" title="Multi-Agent Byzantine Attack & Prompt Injection Stress Harness (ADR 0051)">
+            <span class="status-indicator" id="byzantineDot" style="background: var(--success);"></span>
+            <span id="byzantineText">BYZANTINE: SHIELDED (100%)</span>
+          </div>
+          <div class="fleet-badge" id="honeypotBadge" title="Multi-Agent Dynamic Honeypot & Deception Sandboxing (ADR 0052)">
+            <span class="status-indicator" id="honeypotDot" style="background: var(--success);"></span>
+            <span id="honeypotText">HONEYPOT: ARMED (0 TRAPPED)</span>
+          </div>
+          <div class="fleet-badge" id="modelCheckBadge" title="Bounded Model Checking & Multi-Agent Invariant Verification (ADR 0053)">
+            <span class="status-indicator" id="modelCheckDot" style="background: var(--success);"></span>
+            <span id="modelCheckText">BMC: VERIFIED (K=10)</span>
+          </div>
+          <div class="fleet-badge" id="topologyHealBadge" title="Autonomous Dynamic Topology Healing & Auto-Patching (ADR 0054)">
+            <span class="status-indicator" id="topologyHealDot" style="background: var(--success);"></span>
+            <span id="topologyHealText">HEAL: NOMINAL</span>
+          </div>
+          <div class="fleet-badge" id="artifactBadge" title="Multi-Modal Audio/Visual Telemetry Inspection & Artifact Watermarking (ADR 0055)">
+            <span class="status-indicator" id="artifactDot" style="background: var(--text-muted);"></span>
+            <span id="artifactText">ARTIFACTS: 0 RECORDED</span>
+          </div>
+          <div class="fleet-badge" id="meshBadge" title="Decentralized Epidemic Gossip Telemetry Mesh Sync (ADR 0056)">
+            <span class="status-indicator" id="meshDot" style="background: var(--success);"></span>
+            <span id="meshText">MESH: CONVERGED (0 PEERS)</span>
+          </div>
+          <div class="fleet-badge" id="shardBadge" title="Autonomous Dynamic Workload Sharding & Compute-Aware Load Balancer (ADR 0057)">
+            <span class="status-indicator" id="shardDot" style="background: var(--success);"></span>
+            <span id="shardText">SHARDING: BALANCED (1 NODE)</span>
+          </div>
+          <div class="fleet-badge" id="schemaBadge" title="Autonomous Semantic Schema Migration & State Translation Engine (ADR 0058)">
+            <span class="status-indicator" id="schemaDot" style="background: var(--success);"></span>
+            <span id="schemaText">SCHEMA: V2.0.0 (3 VERSIONS)</span>
+          </div>
+          <div class="fleet-badge" id="epistemicBadge" title="Dynamic Multi-Agent Epistemic Logic & Knowledge Base State Synchronization (ADR 0059)">
+            <span class="status-indicator" id="epistemicDot" style="background: var(--success);"></span>
+            <span id="epistemicText">EPISTEMIC: OK (0 CLAIMS)</span>
+          </div>
+          <div class="fleet-badge" id="zkProofBadge" title="Zero-Knowledge Causal Proof Generation & Cryptographic Audit (ADR 0060)">
+            <span class="status-indicator" id="zkProofDot" style="background: var(--success);"></span>
+            <span id="zkProofText">ZK-PROOF: VERIFIED (0)</span>
+          </div>
+          <div class="fleet-badge" id="codecBadge" title="Canonical Causal Encoding & Byte-Deterministic Contract Engine (ADR 0061)">
+            <span class="status-indicator" id="codecDot" style="background: var(--success);"></span>
+            <span id="codecText">CODEC: RFC-8785 JCS</span>
+          </div>
+          <div class="fleet-badge" id="safetyBadge" title="Unified Safety Authority & Linearizable Execution Permits (ADR 0062)">
+            <span class="status-indicator" id="safetyDot" style="background: var(--success);"></span>
+            <span id="safetyText">SAFETY: AUTHORITATIVE (E1)</span>
+          </div>
+          <div class="fleet-badge" id="ledgerBadge" title="Fenced Effect Ledger & Monotonic Idempotency Barrier (ADR 0063)">
+            <span class="status-indicator" id="ledgerDot" style="background: var(--success);"></span>
+            <span id="ledgerText">EFFECT LEDGER: FENCED (0)</span>
+          </div>
+          <div class="fleet-badge" id="ingressBadge" title="Loss-Aware Causal Ingestion & Evidentiary Completeness Rule (ADR 0064)">
+            <span class="status-indicator" id="ingressDot" style="background: var(--success);"></span>
+            <span id="ingressText">INGRESS: LOSS-AWARE (0 GAP)</span>
+          </div>
+          <div class="fleet-badge" id="auditBadge" title="Durable Audit Anchor & Merkle Audit Receipt Engine (ADR 0065)">
+            <span class="status-indicator" id="auditDot" style="background: var(--success);"></span>
+            <span id="auditText">AUDIT: ANCHORED (E0)</span>
+          </div>
+          <div class="fleet-badge" id="verifierBadge" title="Bounded Verification Semantics & Explicit Counterexample Engine (ADR 0066)">
+            <span class="status-indicator" id="verifierDot" style="background: var(--success);"></span>
+            <span id="verifierText">VERIFIER: BOUNDED SAFE</span>
+          </div>
+          <div class="fleet-badge" id="remediationBadge" title="Governed Remediation & Fenced Action State Machine (ADR 0067)">
+            <span class="status-indicator" id="remediationDot" style="background: var(--success);"></span>
+            <span id="remediationText">REMEDIATION: GOVERNED (0)</span>
+          </div>
+          <div class="fleet-badge" id="reconcilerBadge" title="Partition Reconciliation & Conflict Lattice Engine (ADR 0068)">
+            <span class="status-indicator" id="reconcilerDot" style="background: var(--success);"></span>
+            <span id="reconcilerText">RECONCILER: CONVERGED (0)</span>
+          </div>
+          <div class="fleet-badge" id="privacyLedgerBadge" title="Privacy Release Ledger & Differential Privacy Accountant (ADR 0069)">
+            <span class="status-indicator" id="privacyLedgerDot" style="background: var(--success);"></span>
+            <span id="privacyLedgerText">PRIVACY: RELEASE FENCED (0)</span>
+          </div>
+          <div class="fleet-badge" id="evolutionBadge" title="Migration Preservation & Partial Isomorphisms (ADR 0070)">
+            <span class="status-indicator" id="evolutionDot" style="background: var(--success);"></span>
+            <span id="evolutionText">SCHEMA: LOSSLESS PRESERVED</span>
+          </div>
+          <div class="fleet-badge" id="acceptanceBadge" title="Enterprise Acceptance Harness & Multi-Dimensional Release Verification Gate (ADR 0071)">
+            <span class="status-indicator" id="acceptanceDot" style="background: var(--success);"></span>
+            <span id="acceptanceText">ACCEPTANCE: CERTIFIED (6/6)</span>
+          </div>
+          <div class="fleet-badge" id="consensusBadge" title="Consensus Authority Binding & Linearizable Quorum Fencing (ADR 0072)">
+            <span class="status-indicator" id="consensusDot" style="background: var(--success);"></span>
+            <span id="consensusText">CONSENSUS: QUORUM COMMITTED</span>
+          </div>
+          <div class="fleet-badge" id="downstreamBadge" title="Downstream Effect Protocol & 2PC Outcome-Unknown (ADR 0073)">
+            <span class="status-indicator" id="downstreamDot" style="background: var(--success);"></span>
+            <span id="downstreamText">DOWNSTREAM: RECONCILED</span>
+          </div>
+          <div class="fleet-badge" id="evidenceBadge" title="Critical Evidence Spool & NIST SP 800-53 Write-Ahead Journal (ADR 0074)">
+            <span class="status-indicator" id="evidenceDot" style="background: var(--success);"></span>
+            <span id="evidenceText">EVIDENCE: SPOOL COMMITTED</span>
+          </div>
+          <div class="fleet-badge" id="witnessBadge" title="Independent Root Witness & Public-Key Chains (ADR 0075)">
+            <span class="status-indicator" id="witnessDot" style="background: var(--success);"></span>
+            <span id="witnessText">WITNESS: ASYMMETRIC VERIFIED</span>
+          </div>
+          <div class="fleet-badge" id="capabilityBadge" title="Tenant Identity Boundary & Attenuated Capability Tokens (ADR 0076)">
+            <span class="status-indicator" id="capabilityDot" style="background: var(--success);"></span>
+            <span id="capabilityText">CAPABILITY: ATTENUATED OK</span>
+          </div>
+          <div class="fleet-badge" id="compensationBadge" title="Effect-Aware Compensation Algebra & Monotone Approval Lattices (ADR 0077)">
+            <span class="status-indicator" id="compensationDot" style="background: var(--success);"></span>
+            <span id="compensationText">COMPENSATION: ALGEBRA OK</span>
+          </div>
+          <div class="fleet-badge" id="datasetPrivacyBadge" title="Durable Dataset-Level Privacy Accountant & Quorum Ledger (ADR 0078)">
+            <span class="status-indicator" id="datasetPrivacyDot" style="background: var(--success);"></span>
+            <span id="datasetPrivacyText">DATASET PRIVACY: BUDGET OK</span>
+          </div>
+          <div class="fleet-badge" id="interopBadge" title="Protocol Interoperability Lab & OTLP/gRPC Conformance Matrix (ADR 0079)">
+            <span class="status-indicator" id="interopDot" style="background: var(--success);"></span>
+            <span id="interopText">INTEROP LAB: CONFORMANT</span>
+          </div>
+          <div class="fleet-badge" id="provenanceBadge" title="Verifiable Release Provenance & Signed Artifact DAG (ADR 0080)">
+            <span class="status-indicator" id="provenanceDot" style="background: var(--success);"></span>
+            <span id="provenanceText">PROVENANCE: SLSA L3 OK</span>
+          </div>
+          <div class="fleet-badge" id="datacenterBadge" title="Datacenter Failure Exercise & Region Loss Fault Injection (ADR 0081)">
+            <span class="status-indicator" id="datacenterDot" style="background: var(--success);"></span>
+            <span id="datacenterText">DATACENTER: QUORUM RESILIENT</span>
+          </div>
+          <div class="fleet-badge" id="gatewayBadge" title="Autonomous Action Gateway & Governed Downstream Execution (ADR 0082)">
+            <span class="status-indicator" id="gatewayDot" style="background: var(--success);"></span>
+            <span id="gatewayText">GATEWAY: AUTONOMOUS OK</span>
+          </div>
+        </div>
+
+
+
+
+
+
+        <div class="fleet-meters-container" id="fleetMetersGroup">
+          <div class="fleet-meter-item" title="Cumulative Fleet Turns Quota">
+            <span class="fleet-meter-label">Turns</span>
+            <span class="fleet-meter-val" id="fleetTurnsVal">0 / --</span>
+            <div class="fleet-progress-bg"><div class="fleet-progress-fill" id="fleetTurnsFill"></div></div>
+          </div>
+          <div class="fleet-meter-item" title="Cumulative Fleet Token Budget">
+            <span class="fleet-meter-label">Tokens</span>
+            <span class="fleet-meter-val" id="fleetTokensVal">0 / --</span>
+            <div class="fleet-progress-bg"><div class="fleet-progress-fill" id="fleetTokensFill"></div></div>
+          </div>
+          <div class="fleet-meter-item" title="Cumulative Fleet Dollar Cost">
+            <span class="fleet-meter-label">Cost</span>
+            <span class="fleet-meter-val" id="fleetCostVal">$0.00 / --</span>
+            <div class="fleet-progress-bg"><div class="fleet-progress-fill" id="fleetCostFill"></div></div>
+          </div>
+        </div>
+
+        <div class="fleet-actions-group">
+          <button class="btn-fleet-reset" id="btnLeaderStepDown" style="display: none;" title="Voluntarily relinquish cluster leadership to standby node">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span>Step Down</span>
+          </button>
+          <button class="btn-fleet-reset" id="btnArchiveSwarm" title="Archive completed swarm telemetry to S3/GCS cold storage (ADR 0036)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Archive Cold</span>
+          </button>
+          <button class="btn-fleet-trip" id="btnFleetTrip" title="Broadcast immediate emergency trip to all cluster workers">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            <span>Emergency Trip</span>
+          </button>
+          <button class="btn-fleet-reset" id="btnFleetReset" title="Flush Redis fleet state and re-arm circuit breaker">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            <span>Reset Fleet</span>
+          </button>
+        </div>
+      </div>
+
       <div class="dag-panel" id="dagPanel" style="display: none;">
         <div class="dag-stats">
           <div class="dag-stat-item"><span class="dag-stat-label">Agents:</span> <span class="dag-stat-val" id="dagNodeCount">0</span></div>
@@ -2233,6 +3206,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           </svg>
         </div>
       </div>
+
+      <!-- Distributed Redis Fleet Trip Alert Banner (ADR 0034) -->
+      <div class="fleet-trip-alert-banner" id="fleetTripAlert">
+        <div class="fleet-trip-alert-text">
+          <strong>FLEET CIRCUIT TRIPPED:</strong>
+          <span id="fleetTripReason">Distributed budget exceeded</span>
+          <span style="color: var(--text-muted); margin-left: 8px;" id="fleetTrippedBy">by worker-01</span>
+        </div>
+        <button class="btn-fleet-reset" id="btnFleetAlertReset">Re-arm Fleet Circuit</button>
+      </div>
+
       <div class="stream-feed" id="streamFeed">
         <div class="turn-card" style="text-align: center; color: var(--text-muted); padding: 32px;">
           Ready. Click [Run Swarm Simulation] above or emit spans from SDK to observe causal stream.
@@ -2255,18 +3239,74 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <span class="prop-value" id="inspTurnId">None selected</span>
         </div>
         <div class="prop-row">
-          <span class="prop-label">Inspection Payload</span>
-          <div class="json-box" id="inspPayload">{
+          <div class="insp-tab-bar" id="inspTabBar">
+            <button class="insp-tab-btn active" id="tabInspPayload" data-view="viewPayload">Payload</button>
+            <button class="insp-tab-btn" id="tabInspSnapshot" data-view="viewSnapshot">State</button>
+            <button class="insp-tab-btn" id="tabInspDiff" data-view="viewDiff">
+              <span>Diff</span>
+              <span class="diff-badge-pill" id="diffBadgePill" style="display: none;">0</span>
+            </button>
+          </div>
+          
+          <div id="viewPayload" class="insp-view">
+            <div class="json-box" id="inspPayload">{
   "status": "listening",
   "transport": "WebSocket + SSE",
   "protocol": "SwarmWatch v0.1.0"
 }</div>
+          </div>
+
+          <div id="viewSnapshot" class="insp-view" style="display: none;">
+            <div class="json-box" id="inspSnapshot">{
+  "status": "No state snapshot recorded for current turn"
+}</div>
+          </div>
+
+          <div id="viewDiff" class="insp-view diff-view-panel" style="display: none;">
+            <div class="diff-toolbar">
+              <div class="diff-toolbar-row">
+                <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Base:</span>
+                <select id="diffTargetSelect" class="diff-select" title="Select comparison base snapshot">
+                  <option value="prev">Previous Turn (N-1)</option>
+                  <option value="root">Initial Turn (Root)</option>
+                  <option value="fork">Fork Origin</option>
+                </select>
+                <div class="diff-mode-toggle">
+                  <button class="diff-mode-btn active" id="btnDiffUnified" title="Unified Diff View">Unified</button>
+                  <button class="diff-mode-btn" id="btnDiffSplit" title="Split Side-by-Side View">Split</button>
+                </div>
+              </div>
+              <div class="diff-filter-bar">
+                <button class="diff-filter-chip active" data-filter="all" id="diffFilterAll">All (<span id="diffCountAll">0</span>)</button>
+                <button class="diff-filter-chip" data-filter="changed" id="diffFilterChanged">Changed (<span id="diffCountChanged">0</span>)</button>
+                <button class="diff-filter-chip" data-filter="added" id="diffFilterAdded" style="color: #10B981;">+<span id="diffCountAdded">0</span></button>
+                <button class="diff-filter-chip" data-filter="modified" id="diffFilterModified" style="color: #F59E0B;">~<span id="diffCountModified">0</span></button>
+                <button class="diff-filter-chip" data-filter="removed" id="diffFilterRemoved" style="color: #EF4444;">-<span id="diffCountRemoved">0</span></button>
+                <button class="diff-filter-chip" data-filter="redacted" id="diffFilterRedacted" style="color: #A78BFA;">[R] <span id="diffCountRedacted">0</span></button>
+              </div>
+            </div>
+
+            <div class="diff-meta-row" id="diffMetaRow">
+              <span id="diffBaseLabel">Base: Previous Turn</span>
+              <span id="diffFingerprintDelta">SHA: -</span>
+            </div>
+
+            <div class="diff-entries-list" id="diffEntriesList">
+              <div style="color: var(--text-muted); text-align: center; padding: 20px 0;">Select a turn to inspect state mutations.</div>
+            </div>
+          </div>
         </div>
         <div class="prop-row" style="margin-top: 8px;">
-          <button class="btn-action btn-secondary btn-block" id="btnFork">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-            <span>Fork State from this Turn</span>
-          </button>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-action btn-secondary" id="btnInspStepBack" style="flex: 1; height: 32px; padding: 0 8px; font-size: 12px;" title="Step back to this turn (Key: [)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              <span>Step-Back</span>
+            </button>
+            <button class="btn-action btn-secondary tm-btn-fork" id="btnFork" style="flex: 1.2; height: 32px; padding: 0 8px; font-size: 12px;" title="Fork new branch from this turn (Key: F)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+              <span>Fork Branch</span>
+            </button>
+          </div>
         </div>
         <div class="prop-row" style="margin-top: 10px; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
           <span class="prop-label">Circuit Policy Tuning</span>
@@ -2337,12 +3377,210 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- Enterprise MFA & RBAC Control Modal (ADR 0037) -->
+  <div id="mfaModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.85); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 4px; width: 620px; max-width: 90vw; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--text-primary);">Enterprise MFA &amp; RBAC Control</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">RFC 6238 TOTP Authenticator &amp; Role Verification (ADR 0037)</div>
+        </div>
+        <button id="btnCloseMfaModal" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Close</button>
+      </div>
+
+      <!-- Current Session Identity -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 10px 12px;">
+        <div>
+          <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Operator ID</div>
+          <div id="mfaUsernameDisplay" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-primary); margin-top: 2px;">admin</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Role Assigned</div>
+          <div id="mfaRoleDisplay" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--accent); margin-top: 2px;">ADMIN</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">MFA Status</div>
+          <div id="mfaStatusDisplay" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--success); margin-top: 2px;">ACTIVE</div>
+        </div>
+      </div>
+
+      <!-- Step-Up Verification Section -->
+      <div style="display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 12px; background: var(--bg-canvas);">
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-primary);">Step-Up Authentication Challenge</div>
+        <div style="font-size: 12px; color: var(--text-muted);">Destructive cluster actions (fleet trip/reset, policy mutations, key revocation) require step-up challenge verification.</div>
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+          <input type="text" id="mfaStepUpInput" placeholder="Enter 6-digit TOTP or backup code" style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;">
+          <button id="btnVerifyStepUp" class="btn-action btn-secondary" style="height: 30px; padding: 0 12px;">Authorize Session</button>
+        </div>
+        <div id="mfaStepUpStatus" style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); min-height: 16px;"></div>
+      </div>
+
+      <!-- TOTP Enrollment Section -->
+      <div style="display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 12px; background: var(--bg-canvas);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 12px; font-weight: 600; color: var(--text-primary);">TOTP Enrollment</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Configure Google Authenticator / 1Password compatible RFC 6238 TOTP.</div>
+          </div>
+          <button id="btnEnrollMfa" class="btn-action btn-primary" style="height: 28px; padding: 0 10px; font-size: 12px;">Enroll New Token</button>
+        </div>
+
+        <div id="mfaEnrollSection" style="display: none; flex-direction: column; gap: 10px; margin-top: 6px;">
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 10px;">
+            <div style="font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 4px;">TOTP Secret Key (RFC 3548 Base32)</div>
+            <div id="mfaSecretKey" style="font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); user-select: all; word-break: break-all;">-</div>
+            <div id="mfaUriText" style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 4px; word-break: break-all;">-</div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Single-Use Recovery Backup Codes</div>
+            <div id="mfaBackupCodes" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-family: var(--font-mono); font-size: 12px; background: var(--bg-surface); padding: 8px; border-radius: 4px; border: 1px solid var(--border-subtle); color: var(--text-secondary);"></div>
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+            <input type="text" id="mfaCodeInput" placeholder="Enter 6-digit TOTP code to verify" style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 6px 10px; color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;">
+            <button id="btnVerifyMfaActivation" class="btn-action btn-primary" style="height: 30px; padding: 0 12px;">Confirm &amp; Activate</button>
+          </div>
+          <div id="mfaEnrollStatus" style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); min-height: 16px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Time-Machine Fork Modal -->
+  <div id="forkModal" style="display: none; position: fixed; inset: 0; background: rgba(8, 11, 17, 0.88); z-index: 1050; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: 4px; width: 620px; max-width: 92vw; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.5"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+            <span style="font-weight: 700; font-size: 14px; color: var(--text-primary);">Fork Swarm Execution Branch</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Branch out an isolated timeline from the causal state snapshot at the selected turn.</div>
+        </div>
+        <button id="btnCloseForkModal" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Esc</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Origin Turn / Span</span>
+          <span id="forkOriginTurn" style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--text-primary);">-</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Causal Agents</span>
+          <span id="forkOriginAgents" style="font-size: 12px; color: var(--text-secondary);">-</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px; grid-column: 1 / -1;">
+          <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">State Snapshot Hash</span>
+          <span id="forkOriginHash" style="font-family: var(--font-mono); font-size: 12px; color: #A78BFA;">sha256:verified</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <label for="forkBranchName" style="font-size: 12px; font-weight: 600; color: var(--text-muted);">New Branch Identifier</label>
+        <input type="text" id="forkBranchName" placeholder="e.g. branch-fork-turn-3" style="background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 8px 12px; color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none;" />
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">State Snapshot Preview</span>
+          <span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">sanitized • zero secrets</span>
+        </div>
+        <div id="forkStatePreview" class="json-box" style="max-height: 160px;">{}</div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-subtle); padding-top: 14px;">
+        <button id="btnCancelFork" class="btn-action btn-secondary" style="height: 32px; padding: 0 14px;">Cancel</button>
+        <button id="btnExecuteFork" class="btn-action btn-primary" style="height: 32px; padding: 0 16px; background: #A78BFA; border-color: #A78BFA; color: #080B11;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Fork & Switch Branch</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; pointer-events: none;"></div>
+
   <script>
     (function() {
       var spans = [];
       var isSimulating = false;
       var selectedTurn = null;
       var socket = null;
+
+      var currentBranch = 'main';
+      var activeSwarmId = 'swarm-live-01';
+      var selectedTurnIndex = -1;
+      var cachedSnapshots = {};
+
+      var scrubberSlider = document.getElementById('scrubberSlider');
+      var scrubberTurnDisplay = document.getElementById('scrubberTurnDisplay');
+      var scrubberTicks = document.getElementById('scrubberTicks');
+      var btnStepBack = document.getElementById('btnStepBack');
+      var btnStepForward = document.getElementById('btnStepForward');
+      var btnJumpHead = document.getElementById('btnJumpHead');
+      var btnTimeMachineFork = document.getElementById('btnTimeMachineFork');
+      var branchSelector = document.getElementById('branchSelector');
+
+      var forkModal = document.getElementById('forkModal');
+      var btnCloseForkModal = document.getElementById('btnCloseForkModal');
+      var btnCancelFork = document.getElementById('btnCancelFork');
+      var btnExecuteFork = document.getElementById('btnExecuteFork');
+      var forkOriginTurn = document.getElementById('forkOriginTurn');
+      var forkOriginAgents = document.getElementById('forkOriginAgents');
+      var forkOriginHash = document.getElementById('forkOriginHash');
+      var forkBranchName = document.getElementById('forkBranchName');
+      var forkStatePreview = document.getElementById('forkStatePreview');
+
+      var btnInspStepBack = document.getElementById('btnInspStepBack');
+      var btnFork = document.getElementById('btnFork');
+
+      var tabInspPayload = document.getElementById('tabInspPayload');
+      var tabInspSnapshot = document.getElementById('tabInspSnapshot');
+      var tabInspDiff = document.getElementById('tabInspDiff');
+      var viewPayload = document.getElementById('viewPayload');
+      var viewSnapshot = document.getElementById('viewSnapshot');
+      var viewDiff = document.getElementById('viewDiff');
+      var inspSnapshot = document.getElementById('inspSnapshot');
+      var diffBadgePill = document.getElementById('diffBadgePill');
+      var diffTargetSelect = document.getElementById('diffTargetSelect');
+      var btnDiffUnified = document.getElementById('btnDiffUnified');
+      var btnDiffSplit = document.getElementById('btnDiffSplit');
+      var diffEntriesList = document.getElementById('diffEntriesList');
+      var diffBaseLabel = document.getElementById('diffBaseLabel');
+      var diffFingerprintDelta = document.getElementById('diffFingerprintDelta');
+      var currentDiffFilter = 'all';
+      var currentDiffMode = 'unified';
+      var currentDiffData = null;
+
+      function showToast(message, type, durationMs) {
+        type = type || 'info';
+        durationMs = durationMs || 3500;
+        var container = document.getElementById('toastContainer');
+        if (!container) return;
+        var toast = document.createElement('div');
+        toast.className = 'toast-item ' + type;
+        
+        var iconSvg = '';
+        if (type === 'success') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else if (type === 'purple') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>';
+        } else if (type === 'danger') {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        } else {
+          iconSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        }
+
+        toast.innerHTML = iconSvg + '<span>' + message + '</span>';
+        container.appendChild(toast);
+        setTimeout(function() {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(8px)';
+          setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 250);
+        }, durationMs);
+      }
 
       var chaosStatus = document.getElementById('chaosStatus');
       var chaosButtons = [
@@ -2479,14 +3717,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
       async function selectSpan(span) {
         selectedTurn = span;
+        selectedTurnIndex = spans.findIndex(function(s) { return s.id === span.id; });
         document.querySelectorAll('.turn-card').forEach(function(card) {
           card.classList.remove('selected');
         });
         var card = document.getElementById('card_' + span.id);
         if (card) card.classList.add('selected');
 
-        document.getElementById('inspTurnId').textContent = span.id + " (" + span.source + " -> " + span.target + ")";
+        var turnNum = selectedTurnIndex >= 0 ? (selectedTurnIndex + 1) : 1;
+        document.getElementById('inspTurnId').textContent = span.id + " (Turn " + turnNum + ": " + span.source + " -> " + span.target + ")";
         var inspectorData = {
+          turn_index: turnNum,
           span_id: span.id,
           source_agent: span.source,
           target_agent: span.target,
@@ -2496,17 +3737,602 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           timestamp: span.timestamp,
           payload: span.payload
         };
+
+        var snap = cachedSnapshots[span.id];
+        if (!snap) {
+          try {
+            var snapRes = await fetch('/api/v1/snapshots/' + span.id);
+            if (snapRes.ok) {
+              snap = await snapRes.json();
+              if (snap && snap.state_data) {
+                cachedSnapshots[span.id] = snap;
+              }
+            }
+          } catch(e) {}
+        }
+
+        if (snap && snap.state_data) {
+          inspectorData.state_snapshot = snap.state_data;
+          inspectorData.state_hash = snap.state_hash;
+          if (inspSnapshot) {
+            inspSnapshot.textContent = JSON.stringify(snap.state_data, null, 2);
+          }
+        } else {
+          if (inspSnapshot) {
+            inspSnapshot.textContent = JSON.stringify({
+              status: "No explicit state snapshot recorded for " + span.id,
+              source_agent: span.source,
+              target_agent: span.target,
+              tokens: span.tokens
+            }, null, 2);
+          }
+        }
+
+        document.getElementById('inspPayload').textContent = JSON.stringify(inspectorData, null, 2);
+        updateTimeMachineUI();
+        await updateStateDiffInspector();
+      }
+
+      function isValRedactedClient(val) {
+        if (typeof val === 'string') {
+          return val.indexOf('[REDACTED') !== -1 || val === '[REDACTED]';
+        }
+        if (val && typeof val === 'object') {
+          if (Array.isArray(val)) {
+            return val.some(isValRedactedClient);
+          }
+          return Object.values(val).some(isValRedactedClient);
+        }
+        return false;
+      }
+
+      function computeStateDiffClient(stateA, stateB, hashA, hashB) {
+        var a = (stateA && typeof stateA === 'object') ? stateA : {};
+        var b = (stateB && typeof stateB === 'object') ? stateB : {};
+        var entries = [];
+        var summary = {
+          added_count: 0,
+          modified_count: 0,
+          removed_count: 0,
+          unchanged_count: 0,
+          redacted_count: 0,
+          total_changes: 0
+        };
+
+        function diffRec(objA, objB, currentPath) {
+          if (
+            objA && typeof objA === 'object' && !Array.isArray(objA) &&
+            objB && typeof objB === 'object' && !Array.isArray(objB)
+          ) {
+            var keysA = Object.keys(objA);
+            var keysB = Object.keys(objB);
+            var allKeys = Array.from(new Set(keysA.concat(keysB))).sort();
+
+            for (var i = 0; i < allKeys.length; i++) {
+              var k = allKeys[i];
+              var keyPath = currentPath ? (currentPath + '.' + k) : k;
+              if (!(k in objA)) {
+                var val = objB[k];
+                var red = isValRedactedClient(val);
+                entries.push({
+                  path: keyPath,
+                  kind: 'added',
+                  old_value: undefined,
+                  new_value: val,
+                  is_redacted: red
+                });
+                summary.added_count++;
+                if (red) summary.redacted_count++;
+              } else if (!(k in objB)) {
+                var val = objA[k];
+                var red = isValRedactedClient(val);
+                entries.push({
+                  path: keyPath,
+                  kind: 'removed',
+                  old_value: val,
+                  new_value: undefined,
+                  is_redacted: red
+                });
+                summary.removed_count++;
+                if (red) summary.redacted_count++;
+              } else {
+                diffRec(objA[k], objB[k], keyPath);
+              }
+            }
+          } else {
+            var eq = JSON.stringify(objA) === JSON.stringify(objB);
+            if (eq) {
+              var red = isValRedactedClient(objA);
+              entries.push({
+                path: currentPath,
+                kind: 'unchanged',
+                old_value: objA,
+                new_value: objB,
+                is_redacted: red
+              });
+              summary.unchanged_count++;
+              if (red) summary.redacted_count++;
+            } else {
+              var red = isValRedactedClient(objA) || isValRedactedClient(objB);
+              entries.push({
+                path: currentPath,
+                kind: 'modified',
+                old_value: objA,
+                new_value: objB,
+                is_redacted: red
+              });
+              summary.modified_count++;
+              if (red) summary.redacted_count++;
+            }
+          }
+        }
+
+        diffRec(a, b, '');
+        summary.total_changes = summary.added_count + summary.modified_count + summary.removed_count;
+
+        return {
+          summary: summary,
+          entries: entries,
+          hash_a: hashA || '-',
+          hash_b: hashB || '-'
+        };
+      }
+
+      async function updateStateDiffInspector() {
+        if (!selectedTurn) return;
+
+        updateDiffTargetOptions();
+
+        var currSpan = selectedTurn;
+        var currIdx = selectedTurnIndex;
+        var currSnap = cachedSnapshots[currSpan.id];
+        var currState = (currSnap && currSnap.state_data) ? currSnap.state_data : {
+          source_agent: currSpan.source,
+          target_agent: currSpan.target,
+          entropy: currSpan.entropy,
+          tokens: currSpan.tokens,
+          payload: (currSpan.payload || '').slice(0, 60)
+        };
+        var currHash = (currSnap && currSnap.state_hash) ? currSnap.state_hash : ('sha256:' + currSpan.id);
+
+        var targetVal = diffTargetSelect ? diffTargetSelect.value : 'prev';
+        var baseSpan = null;
+        var baseLabel = 'Previous Turn';
+
+        if (targetVal === 'root') {
+          baseSpan = spans.length > 0 ? spans[0] : null;
+          baseLabel = 'Initial Turn (1)';
+        } else if (targetVal === 'fork') {
+          baseSpan = spans.find(function(s) { return s.id.indexOf('_fork_') !== -1; }) || (spans.length > 0 ? spans[0] : null);
+          baseLabel = 'Fork Origin';
+        } else if (targetVal === 'prev') {
+          baseSpan = (currIdx > 0 && currIdx < spans.length) ? spans[currIdx - 1] : null;
+          baseLabel = baseSpan ? ('Turn ' + currIdx) : 'Initial Turn';
+        } else {
+          baseSpan = spans.find(function(s) { return s.id === targetVal; });
+          baseLabel = baseSpan ? baseSpan.id : targetVal;
+        }
+
+        var baseState = {};
+        var baseHash = '-';
+        if (baseSpan) {
+          var baseSnap = cachedSnapshots[baseSpan.id];
+          if (!baseSnap) {
+            try {
+              var bRes = await fetch('/api/v1/snapshots/' + baseSpan.id);
+              if (bRes.ok) {
+                baseSnap = await bRes.json();
+                if (baseSnap && baseSnap.state_data) {
+                  cachedSnapshots[baseSpan.id] = baseSnap;
+                }
+              }
+            } catch(e) {}
+          }
+          if (baseSnap && baseSnap.state_data) {
+            baseState = baseSnap.state_data;
+            baseHash = baseSnap.state_hash;
+          } else {
+            baseState = {
+              source_agent: baseSpan.source,
+              target_agent: baseSpan.target,
+              entropy: baseSpan.entropy,
+              tokens: baseSpan.tokens,
+              payload: (baseSpan.payload || '').slice(0, 60)
+            };
+            baseHash = 'sha256:' + baseSpan.id;
+          }
+        }
+
+        var diffData = null;
+        if (baseSpan && currSpan) {
+          try {
+            var diffUrl = '/api/v1/swarms/' + encodeURIComponent(activeSwarmId) +
+              '/snapshots/diff?base_span_id=' + encodeURIComponent(baseSpan.id) +
+              '&target_span_id=' + encodeURIComponent(currSpan.id);
+            var dRes = await fetch(diffUrl);
+            if (dRes.ok) {
+              diffData = await dRes.json();
+            }
+          } catch(e) {}
+        }
+
+        if (!diffData) {
+          diffData = computeStateDiffClient(baseState, currState, baseHash, currHash);
+        }
+
+        currentDiffData = diffData;
+
+        if (diffBadgePill) {
+          diffBadgePill.textContent = diffData.summary.total_changes.toString();
+          diffBadgePill.style.display = 'inline-block';
+          if (diffData.summary.total_changes > 0) {
+            diffBadgePill.className = 'diff-badge-pill has-changes';
+          } else {
+            diffBadgePill.className = 'diff-badge-pill';
+          }
+        }
+
+        var countAll = document.getElementById('diffCountAll');
+        var countChanged = document.getElementById('diffCountChanged');
+        var countAdded = document.getElementById('diffCountAdded');
+        var countModified = document.getElementById('diffCountModified');
+        var countRemoved = document.getElementById('diffCountRemoved');
+        var countRedacted = document.getElementById('diffCountRedacted');
+
+        if (countAll) countAll.textContent = diffData.entries.length.toString();
+        if (countChanged) countChanged.textContent = diffData.summary.total_changes.toString();
+        if (countAdded) countAdded.textContent = diffData.summary.added_count.toString();
+        if (countModified) countModified.textContent = diffData.summary.modified_count.toString();
+        if (countRemoved) countRemoved.textContent = diffData.summary.removed_count.toString();
+        if (countRedacted) countRedacted.textContent = diffData.summary.redacted_count.toString();
+
+        if (diffBaseLabel) {
+          diffBaseLabel.textContent = 'Base: ' + baseLabel + (baseSpan ? (' (' + baseSpan.id + ')') : ' (Genesis)');
+        }
+        if (diffFingerprintDelta) {
+          var hA = (diffData.hash_a || baseHash || '').slice(0, 10);
+          var hB = (diffData.hash_b || currHash || '').slice(0, 10);
+          diffFingerprintDelta.textContent = 'SHA: ' + hA + ' \u2192 ' + hB;
+        }
+
+        renderDiffEntries();
+      }
+
+      function updateDiffTargetOptions() {
+        if (!diffTargetSelect || !selectedTurn) return;
+        var currentVal = diffTargetSelect.value;
+        var html = '<option value="prev">Previous Turn (N-1)</option>' +
+                   '<option value="root">Initial Turn (Root)</option>' +
+                   '<option value="fork">Fork Origin</option>';
+
+        for (var i = 0; i < spans.length; i++) {
+          var s = spans[i];
+          if (s.id !== selectedTurn.id) {
+            html += '<option value="' + s.id + '">Turn ' + (i + 1) + ' (' + s.id + ')</option>';
+          }
+        }
+        diffTargetSelect.innerHTML = html;
+        if (currentVal && diffTargetSelect.querySelector('option[value="' + currentVal + '"]')) {
+          diffTargetSelect.value = currentVal;
+        } else {
+          diffTargetSelect.value = 'prev';
+        }
+      }
+
+      function renderDiffEntries() {
+        if (!diffEntriesList || !currentDiffData) return;
+
+        var entries = currentDiffData.entries || [];
+        var filtered = entries.filter(function(e) {
+          if (currentDiffFilter === 'all') return true;
+          if (currentDiffFilter === 'changed') return e.kind !== 'unchanged';
+          if (currentDiffFilter === 'added') return e.kind === 'added';
+          if (currentDiffFilter === 'modified') return e.kind === 'modified';
+          if (currentDiffFilter === 'removed') return e.kind === 'removed';
+          if (currentDiffFilter === 'redacted') return e.is_redacted;
+          return true;
+        });
+
+        if (filtered.length === 0) {
+          diffEntriesList.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px 0;">No properties match filter [' + currentDiffFilter + '].</div>';
+          return;
+        }
+
+        var html = '';
+        for (var i = 0; i < filtered.length; i++) {
+          var item = filtered[i];
+          var kindClass = item.kind;
+          var tagLabel = item.kind.toUpperCase();
+          if (item.is_redacted) {
+            tagLabel += ' \u2022 REDACTED';
+          }
+
+          if (currentDiffMode === 'split') {
+            var oldStr = item.old_value !== undefined ? JSON.stringify(item.old_value) : '<span style="color: var(--text-muted);">(none)</span>';
+            var newStr = item.new_value !== undefined ? JSON.stringify(item.new_value) : '<span style="color: var(--text-muted);">(none)</span>';
+
+            html += '<div class="diff-row ' + kindClass + '">' +
+                      '<div class="diff-header-line">' +
+                        '<span class="diff-path">' + escapeHtml(item.path) + '</span>' +
+                        '<span class="diff-tag ' + (item.is_redacted ? 'redacted' : kindClass) + '">' + tagLabel + '</span>' +
+                      '</div>' +
+                      '<div class="diff-split-grid">' +
+                        '<div class="diff-split-col"><span class="diff-split-label">Antecedent</span><span class="diff-val-old">' + oldStr + '</span></div>' +
+                        '<div class="diff-split-col"><span class="diff-split-label">Target</span><span class="diff-val-new">' + newStr + '</span></div>' +
+                      '</div>' +
+                    '</div>';
+          } else {
+            var valLine = '';
+            if (item.kind === 'added') {
+              valLine = '<span class="diff-val-new">+ ' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            } else if (item.kind === 'removed') {
+              valLine = '<span class="diff-val-old">- ' + escapeHtml(JSON.stringify(item.old_value)) + '</span>';
+            } else if (item.kind === 'modified') {
+              valLine = '<span class="diff-val-old">' + escapeHtml(JSON.stringify(item.old_value)) + '</span>' +
+                        '<span class="diff-val-arrow">\u2192</span>' +
+                        '<span class="diff-val-new">' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            } else {
+              valLine = '<span style="color: var(--text-muted);">= ' + escapeHtml(JSON.stringify(item.new_value)) + '</span>';
+            }
+
+            html += '<div class="diff-row ' + kindClass + '">' +
+                      '<div class="diff-header-line">' +
+                        '<span class="diff-path">' + escapeHtml(item.path) + '</span>' +
+                        '<span class="diff-tag ' + (item.is_redacted ? 'redacted' : kindClass) + '">' + tagLabel + '</span>' +
+                      '</div>' +
+                      '<div class="diff-val-change">' + valLine + '</div>' +
+                    '</div>';
+          }
+        }
+
+        diffEntriesList.innerHTML = html;
+      }
+
+      function escapeHtml(str) {
+        if (typeof str !== 'string') str = String(str);
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function updateTimeMachineUI() {
+        var total = spans.length;
+        if (total === 0) {
+          if (scrubberSlider) { scrubberSlider.min = '0'; scrubberSlider.max = '0'; scrubberSlider.value = '0'; scrubberSlider.disabled = true; }
+          if (scrubberTurnDisplay) scrubberTurnDisplay.textContent = 'Turn 0 / 0';
+          if (btnStepBack) btnStepBack.disabled = true;
+          if (btnStepForward) btnStepForward.disabled = true;
+          if (btnJumpHead) btnJumpHead.disabled = true;
+          if (btnTimeMachineFork) btnTimeMachineFork.disabled = true;
+          if (btnInspStepBack) btnInspStepBack.disabled = true;
+          if (btnFork) btnFork.disabled = true;
+          if (scrubberTicks) scrubberTicks.innerHTML = '';
+          return;
+        }
+
+        if (scrubberSlider) {
+          scrubberSlider.disabled = false;
+          scrubberSlider.min = '1';
+          scrubberSlider.max = total.toString();
+          scrubberSlider.value = (selectedTurnIndex >= 0 ? selectedTurnIndex + 1 : total).toString();
+        }
+
+        var activeTurnNum = selectedTurnIndex >= 0 ? (selectedTurnIndex + 1) : total;
+        if (scrubberTurnDisplay) scrubberTurnDisplay.textContent = 'Turn ' + activeTurnNum + ' / ' + total;
+
+        if (btnStepBack) btnStepBack.disabled = (selectedTurnIndex <= 0);
+        if (btnStepForward) btnStepForward.disabled = (selectedTurnIndex >= total - 1);
+        if (btnJumpHead) btnJumpHead.disabled = (selectedTurnIndex === total - 1 || selectedTurnIndex === -1);
+        if (btnTimeMachineFork) btnTimeMachineFork.disabled = false;
+        if (btnInspStepBack) btnInspStepBack.disabled = (selectedTurnIndex <= 0);
+        if (btnFork) btnFork.disabled = false;
+
+        // Render Ticks
+        if (scrubberTicks) {
+          scrubberTicks.innerHTML = '';
+          for (var i = 0; i < total; i++) {
+            var tick = document.createElement('div');
+            var isSelected = (i === selectedTurnIndex) || (selectedTurnIndex === -1 && i === total - 1);
+            var isHalt = (i === total - 1 && spans[i].entropy <= 0.35);
+            var hasSnapshot = !!cachedSnapshots[spans[i].id];
+            tick.className = 'tm-tick' + (isSelected ? ' selected' : '') + (isHalt ? ' halt' : '') + (hasSnapshot ? ' snapshot' : '');
+            tick.title = 'Turn ' + (i + 1) + ': ' + spans[i].id + ' (' + spans[i].source + ' -> ' + spans[i].target + ')';
+            (function(idx) {
+              tick.addEventListener('click', function() {
+                selectSpanByIndex(idx);
+              });
+            })(i);
+            scrubberTicks.appendChild(tick);
+          }
+        }
+      }
+
+      function selectSpanByIndex(index) {
+        if (index < 0 || index >= spans.length) return;
+        selectedTurnIndex = index;
+        var span = spans[index];
+        selectSpan(span);
+        var feed = document.getElementById('spansFeed');
+        if (index === 0 && feed) {
+          feed.scrollTop = 0;
+        } else {
+          var card = document.getElementById('card_' + span.id);
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+
+      function stepBack() {
+        if (selectedTurnIndex > 0) {
+          selectSpanByIndex(selectedTurnIndex - 1);
+          showToast('Time-Machine: Stepped back to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        } else if (selectedTurnIndex === -1 && spans.length > 1) {
+          selectSpanByIndex(spans.length - 2);
+          showToast('Time-Machine: Stepped back to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        }
+      }
+
+      function stepForward() {
+        if (selectedTurnIndex >= 0 && selectedTurnIndex < spans.length - 1) {
+          selectSpanByIndex(selectedTurnIndex + 1);
+          showToast('Time-Machine: Stepped forward to Turn ' + (selectedTurnIndex + 1), 'purple', 1800);
+        }
+      }
+
+      function jumpToHead() {
+        if (spans.length > 0) {
+          selectSpanByIndex(spans.length - 1);
+          showToast('Time-Machine: Jumped to Live Head (Turn ' + spans.length + ')', 'purple', 1800);
+        }
+      }
+
+      async function openForkModal() {
+        var span = selectedTurn || (spans.length > 0 ? spans[spans.length - 1] : null);
+        if (!span) {
+          showToast('Select a turn in the execution stream to fork from.', 'warning');
+          return;
+        }
+        var turnNum = spans.findIndex(function(s) { return s.id === span.id; }) + 1;
+        forkOriginTurn.textContent = span.id + ' (Turn ' + (turnNum > 0 ? turnNum : 1) + ')';
+        forkOriginAgents.textContent = span.source + ' -> ' + span.target;
+        
+        var snap = cachedSnapshots[span.id];
+        if (snap && snap.state_hash) {
+          forkOriginHash.textContent = snap.state_hash.substring(0, 18) + '...';
+        } else {
+          forkOriginHash.textContent = 'sha256:' + span.id.replace(/[^a-f0-9]/gi, 'a').padEnd(16, '0').slice(0, 16);
+        }
+
+        var defaultBranchName = 'branch-fork-' + (span.id.replace(/^span_/, 'turn_'));
+        forkBranchName.value = defaultBranchName;
+
+        var statePayload = (snap && snap.state_data) ? snap.state_data : {
+          source_agent: span.source,
+          target_agent: span.target,
+          entropy_level: span.entropy,
+          token_budget_remaining: 100000 - (span.tokens || 1000),
+          active_task: span.payload ? span.payload.slice(0, 80) : "Swarm task execution"
+        };
+        forkStatePreview.textContent = JSON.stringify(statePayload, null, 2);
+
+        forkModal.style.display = 'flex';
+        forkBranchName.focus();
+      }
+
+      function closeForkModal() {
+        if (forkModal) forkModal.style.display = 'none';
+      }
+
+      async function executeFork() {
+        var span = selectedTurn || (spans.length > 0 ? spans[spans.length - 1] : null);
+        if (!span) return;
+
+        var newBranch = forkBranchName.value.trim();
+        if (!newBranch) {
+          showToast('Please specify a valid branch identifier', 'warning');
+          return;
+        }
+
         try {
-          var snapRes = await fetch('/api/v1/snapshots/' + span.id);
-          if (snapRes.ok) {
-            var snap = await snapRes.json();
-            if (snap && snap.state_data) {
-              inspectorData.state_snapshot = snap.state_data;
-              inspectorData.state_hash = snap.state_hash;
+          btnExecuteFork.disabled = true;
+          btnExecuteFork.textContent = 'Forking...';
+          var res = await fetch('/api/v1/branches/fork', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              swarm_id: activeSwarmId,
+              target_span_id: span.id,
+              new_branch_id: newBranch
+            })
+          });
+
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+              command: 'CMD_FORK_BRANCH',
+              target_span_id: span.id,
+              new_branch_id: newBranch
+            }));
+          }
+
+          closeForkModal();
+          showToast('Branch [' + newBranch + '] forked successfully from ' + span.id + '!', 'purple', 4000);
+
+          await loadBranches();
+          await switchBranch(newBranch);
+        } catch(e) {
+          showToast('Failed to fork branch: ' + e.message, 'danger');
+        } finally {
+          btnExecuteFork.disabled = false;
+          btnExecuteFork.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Fork & Switch Branch</span>';
+        }
+      }
+
+      async function loadBranches() {
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(activeSwarmId) + '/branches');
+          if (res.ok) {
+            var branchList = await res.json();
+            if (Array.isArray(branchList) && branchList.length > 0) {
+              if (branchSelector) {
+                branchSelector.innerHTML = '';
+                branchList.forEach(function(b) {
+                  var opt = document.createElement('option');
+                  opt.value = b;
+                  opt.textContent = b;
+                  opt.style.background = 'var(--bg-surface)';
+                  opt.style.color = 'var(--text-primary)';
+                  if (b === currentBranch) opt.selected = true;
+                  branchSelector.appendChild(opt);
+                });
+              }
             }
           }
         } catch(e) {}
-        document.getElementById('inspPayload').textContent = JSON.stringify(inspectorData, null, 2);
+      }
+
+      async function switchBranch(newBranch) {
+        currentBranch = newBranch;
+        var bLabel = document.getElementById('branchLabel');
+        if (bLabel) bLabel.textContent = newBranch;
+        if (branchSelector) branchSelector.value = newBranch;
+
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(activeSwarmId) + '/spans?branch_id=' + encodeURIComponent(newBranch));
+          if (res.ok) {
+            var raw = await res.json();
+            if (Array.isArray(raw) && raw.length > 0) {
+              var feed = document.getElementById('streamFeed');
+              if (feed) feed.innerHTML = '';
+              spans = [];
+              raw.forEach(function(s) {
+                var payloadStr = '';
+                if (s.input_payload && typeof s.input_payload === 'object' && s.input_payload.content) {
+                  payloadStr = s.input_payload.content;
+                } else if (s.input_payload) {
+                  payloadStr = typeof s.input_payload === 'object' ? JSON.stringify(s.input_payload) : s.input_payload;
+                }
+                var formatted = {
+                  id: s.id,
+                  source: s.source_agent,
+                  target: s.target_agent,
+                  duration: s.duration_ms || 400,
+                  tokens: s.token_count || 1200,
+                  entropy: s.entropy_score || 1.85,
+                  timestamp: s.start_time ? new Date(s.start_time).toLocaleTimeString() : new Date().toLocaleTimeString(),
+                  payload: payloadStr
+                };
+                spans.push(formatted);
+                renderSpan(formatted);
+              });
+              document.getElementById('metricSpans').textContent = spans.length.toString();
+              document.getElementById('turnCounter').textContent = spans.length + ' Turns (' + newBranch + ')';
+              selectSpanByIndex(spans.length - 1);
+              showToast('Switched to branch [' + newBranch + ']', 'info', 2000);
+            } else {
+              showToast('Branch [' + newBranch + '] active (awaiting execution spans)', 'info', 2000);
+            }
+          }
+        } catch(e) {}
+        renderTopology();
       }
 
       function renderSpan(span) {
@@ -2968,6 +4794,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       function resetConsole() {
         spans = [];
         selectedTurn = null;
+        selectedTurnIndex = -1;
+        cachedSnapshots = {};
+        currentBranch = 'main';
+        var bLabel = document.getElementById('branchLabel');
+        if (bLabel) bLabel.textContent = 'main';
         isSimulating = false;
         if (chaosStatus) chaosStatus.textContent = "Ready";
         setChaosButtonsDisabled(false);
@@ -2991,6 +4822,20 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           transport: "WebSocket + SSE",
           protocol: "SwarmWatch v0.1.0"
         }, null, 2);
+        if (inspSnapshot) {
+          inspSnapshot.textContent = JSON.stringify({
+            status: "No state snapshot recorded for current turn"
+          }, null, 2);
+        }
+        currentDiffData = null;
+        if (diffBadgePill) {
+          diffBadgePill.style.display = 'none';
+          diffBadgePill.textContent = '0';
+        }
+        if (diffEntriesList) {
+          diffEntriesList.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 20px 0;">Select a turn to inspect state mutations.</div>';
+        }
+        updateTimeMachineUI();
         renderTopology();
       }
 
@@ -3037,6 +4882,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 isSimulating = false;
                 var btn = document.getElementById('btnSimulate');
                 if (btn) btn.disabled = false;
+              } else if (msg.type === 'fleet_metric_update' && msg.metrics) {
+                updateFleetUI(msg.metrics);
+              } else if (msg.type === 'fleet_trip_broadcast') {
+                renderFleetTripAlert(msg.payload || msg);
+              } else if (msg.type === 'fleet_state_reset') {
+                clearFleetTripAlert();
+                fetchFleetMetrics();
+              } else if (msg.type === 'cluster_leader_changed') {
+                fetchFleetMetrics();
+              } else if (msg.type === 'swarm_archived') {
+                var archBadge = document.getElementById('fleetArchiveStatusBadge');
+                if (archBadge) archBadge.style.display = 'inline-flex';
+                showToast('Swarm archived to cold storage: ' + (msg.archive_key || msg.swarm_id), 'success');
+              } else if (msg.type === 'swarm_restored') {
+                var archBadge = document.getElementById('fleetArchiveStatusBadge');
+                if (archBadge) archBadge.style.display = 'none';
+                showToast('Swarm restored from cold storage: ' + msg.swarm_id, 'info');
               }
             } catch(e) {}
           };
@@ -3061,32 +4923,118 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
       document.getElementById('btnSimulate').addEventListener('click', runSimulation);
       document.getElementById('btnReset').addEventListener('click', resetConsole);
-      document.getElementById('btnFork').addEventListener('click', async function() {
-        if (!selectedTurn) {
-          alert('Please click a turn in the Execution Stream first to select the branch point.');
+      if (btnStepBack) btnStepBack.addEventListener('click', stepBack);
+      if (btnStepForward) btnStepForward.addEventListener('click', stepForward);
+      if (btnJumpHead) btnJumpHead.addEventListener('click', jumpToHead);
+      if (btnTimeMachineFork) btnTimeMachineFork.addEventListener('click', openForkModal);
+      if (btnInspStepBack) btnInspStepBack.addEventListener('click', stepBack);
+      if (btnFork) btnFork.addEventListener('click', openForkModal);
+      if (btnCloseForkModal) btnCloseForkModal.addEventListener('click', closeForkModal);
+      if (btnCancelFork) btnCancelFork.addEventListener('click', closeForkModal);
+      if (btnExecuteFork) btnExecuteFork.addEventListener('click', executeFork);
+
+      if (scrubberSlider) {
+        scrubberSlider.addEventListener('input', function() {
+          var val = parseInt(scrubberSlider.value, 10);
+          if (val >= 1 && val <= spans.length) {
+            selectSpanByIndex(val - 1);
+          }
+        });
+      }
+
+      if (branchSelector) {
+        branchSelector.addEventListener('change', function() {
+          switchBranch(this.value);
+        });
+      }
+
+      function switchInspTab(viewId) {
+        document.querySelectorAll('.insp-tab-btn').forEach(function(b) {
+          b.classList.remove('active');
+          if (b.getAttribute('data-view') === viewId) b.classList.add('active');
+        });
+        document.querySelectorAll('.insp-view').forEach(function(v) {
+          v.style.display = 'none';
+        });
+        var targetView = document.getElementById(viewId);
+        if (targetView) targetView.style.display = viewId === 'viewDiff' ? 'flex' : 'block';
+      }
+
+      if (tabInspPayload) {
+        tabInspPayload.addEventListener('click', function() {
+          switchInspTab('viewPayload');
+        });
+      }
+      if (tabInspSnapshot) {
+        tabInspSnapshot.addEventListener('click', function() {
+          switchInspTab('viewSnapshot');
+        });
+      }
+      if (tabInspDiff) {
+        tabInspDiff.addEventListener('click', function() {
+          switchInspTab('viewDiff');
+        });
+      }
+
+      if (btnDiffUnified) {
+        btnDiffUnified.addEventListener('click', function() {
+          currentDiffMode = 'unified';
+          btnDiffUnified.classList.add('active');
+          if (btnDiffSplit) btnDiffSplit.classList.remove('active');
+          renderDiffEntries();
+        });
+      }
+      if (btnDiffSplit) {
+        btnDiffSplit.addEventListener('click', function() {
+          currentDiffMode = 'split';
+          btnDiffSplit.classList.add('active');
+          if (btnDiffUnified) btnDiffUnified.classList.remove('active');
+          renderDiffEntries();
+        });
+      }
+      if (diffTargetSelect) {
+        diffTargetSelect.addEventListener('change', function() {
+          updateStateDiffInspector();
+        });
+      }
+      diffFilterChips = document.querySelectorAll('.diff-filter-chip');
+      diffFilterChips.forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          diffFilterChips.forEach(function(c) { c.classList.remove('active'); });
+          this.classList.add('active');
+          currentDiffFilter = this.getAttribute('data-filter') || 'all';
+          renderDiffEntries();
+        });
+      });
+
+      // Keyboard shortcuts: [ for Step-Back, ] for Step-Forward, F for Fork Modal, Esc to close
+      window.addEventListener('keydown', function(e) {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+          if (e.key === 'Escape') {
+            closeForkModal();
+            if (apiKeyModal) apiKeyModal.style.display = 'none';
+            if (mfaModal) mfaModal.style.display = 'none';
+          }
+          if (e.key === 'Enter' && forkModal && forkModal.style.display === 'flex') {
+            executeFork();
+          }
           return;
         }
-        var newBranch = 'branch_fork_' + selectedTurn.id;
-        document.getElementById('branchLabel').textContent = newBranch;
-        try {
-          await fetch('/api/v1/branches/fork', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              swarm_id: 'swarm-live-01',
-              target_span_id: selectedTurn.id,
-              new_branch_id: newBranch
-            })
-          });
-        } catch(e) {}
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            command: 'CMD_FORK_BRANCH',
-            target_span_id: selectedTurn.id,
-            new_branch_id: newBranch
-          }));
+
+        if (e.key === '[') {
+          e.preventDefault();
+          stepBack();
+        } else if (e.key === ']') {
+          e.preventDefault();
+          stepForward();
+        } else if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          openForkModal();
+        } else if (e.key === 'Escape') {
+          closeForkModal();
+          if (apiKeyModal) apiKeyModal.style.display = 'none';
+          if (mfaModal) mfaModal.style.display = 'none';
         }
-        alert('Time Machine: Swarm state successfully branched at ' + selectedTurn.id + ' into branch [' + newBranch + '].');
       });
 
       var sliderEntropy = document.getElementById('sliderEntropy');
@@ -3196,9 +5144,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 btn.addEventListener('click', async function() {
                   var id = this.getAttribute('data-revoke-id');
                   if (confirm('Revoke this API Key permanently?')) {
-                    var delRes = await fetch('/api/v1/keys/' + id, { method: 'DELETE' });
+                    var hdrs = {};
+                    var activeMfa = sessionStorage.getItem('swarmwatch_mfa_code');
+                    if (activeMfa) hdrs['X-MFA-Code'] = activeMfa;
+                    var delRes = await fetch('/api/v1/keys/' + id, { method: 'DELETE', headers: hdrs });
                     if (delRes.ok) {
                       loadApiKeys();
+                    } else if (delRes.status === 403) {
+                      alert('MFA step-up verification required to revoke API keys. Please verify via Security / MFA modal.');
+                      if (mfaModal) mfaModal.style.display = 'flex';
                     }
                   }
                 });
@@ -3247,7 +5201,1656 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         });
       }
 
+      // =========================================================================
+      // Enterprise MFA & Role-Based Access Control (Seam 26 / ADR 0037)
+      // =========================================================================
+      var mfaModal = document.getElementById('mfaModal');
+      var btnMfaModal = document.getElementById('btnMfaModal');
+      var btnCloseMfaModal = document.getElementById('btnCloseMfaModal');
+      var btnEnrollMfa = document.getElementById('btnEnrollMfa');
+      var btnVerifyMfaActivation = document.getElementById('btnVerifyMfaActivation');
+      var btnVerifyStepUp = document.getElementById('btnVerifyStepUp');
+      var mfaEnrollSection = document.getElementById('mfaEnrollSection');
+      var mfaSecretKey = document.getElementById('mfaSecretKey');
+      var mfaUriText = document.getElementById('mfaUriText');
+      var mfaBackupCodes = document.getElementById('mfaBackupCodes');
+      var mfaCodeInput = document.getElementById('mfaCodeInput');
+      var mfaStepUpInput = document.getElementById('mfaStepUpInput');
+      var mfaEnrollStatus = document.getElementById('mfaEnrollStatus');
+      var mfaStepUpStatus = document.getElementById('mfaStepUpStatus');
+      var fleetRoleBadge = document.getElementById('fleetRoleBadge');
+      var fleetRoleText = document.getElementById('fleetRoleText');
+      var fleetMfaBadge = document.getElementById('fleetMfaBadge');
+      var fleetMfaText = document.getElementById('fleetMfaText');
+      var mfaUsernameDisplay = document.getElementById('mfaUsernameDisplay');
+      var mfaRoleDisplay = document.getElementById('mfaRoleDisplay');
+      var mfaStatusDisplay = document.getElementById('mfaStatusDisplay');
+
+      async function refreshAuthSession() {
+        try {
+          var res = await fetch('/api/v1/auth/users');
+          if (res.ok) {
+            var users = await res.json();
+            var adminUser = users.find(function(u) { return u.username === 'admin'; }) || users[0];
+            if (adminUser) {
+              if (mfaUsernameDisplay) mfaUsernameDisplay.textContent = adminUser.username;
+              if (mfaRoleDisplay) mfaRoleDisplay.textContent = (adminUser.role || 'ADMIN').toUpperCase();
+              if (fleetRoleText) fleetRoleText.textContent = 'ROLE: ' + (adminUser.role || 'ADMIN').toUpperCase();
+              var mfaActive = !!adminUser.mfa_enabled;
+              if (mfaStatusDisplay) {
+                mfaStatusDisplay.textContent = mfaActive ? 'ACTIVE' : 'UNENROLLED';
+                mfaStatusDisplay.style.color = mfaActive ? 'var(--success)' : 'var(--text-muted)';
+              }
+              if (fleetMfaText) {
+                fleetMfaText.textContent = mfaActive ? 'MFA: ACTIVE' : 'MFA: NONE';
+              }
+              if (fleetMfaBadge) {
+                fleetMfaBadge.className = mfaActive ? 'fleet-badge' : 'fleet-badge standby';
+              }
+            }
+          }
+        } catch(e) {}
+      }
+
+      async function refreshOtlpStats() {
+        try {
+          var res = await fetch('/api/v1/otlp/stats');
+          if (res.ok) {
+            var stats = await res.json();
+            var otlpText = document.getElementById('otlpText');
+            if (otlpText && stats.total_spans_received > 0) {
+              otlpText.textContent = 'OTLP: ' + stats.total_spans_received + ' SPANS';
+            }
+          }
+        } catch(e) {}
+      }
+      refreshOtlpStats();
+
+      // -------------------------------------------------------------------
+      // Server-Sent Events (SSE) & WebPush Integration (Seam 28 / ADR 0039)
+      // -------------------------------------------------------------------
+      function initSseStream() {
+        var sseDot = document.getElementById('sseDot');
+        var sseText = document.getElementById('sseText');
+        if (!window.EventSource) return;
+
+        try {
+          var evtSource = new EventSource('/api/v1/events/stream');
+          evtSource.onopen = function() {
+            if (sseDot) sseDot.style.background = 'var(--success)';
+            if (sseText) sseText.textContent = 'SSE: STREAMING';
+          };
+          evtSource.onerror = function() {
+            if (sseDot) sseDot.style.background = 'var(--warning)';
+            if (sseText) sseText.textContent = 'SSE: RECONNECTING';
+          };
+          evtSource.addEventListener('circuit_trip', function(e) {
+            handleRealtimeTripAlert(e.data);
+          });
+          evtSource.addEventListener('fleet_trip', function(e) {
+            handleRealtimeTripAlert(e.data);
+          });
+        } catch (e) {}
+      }
+
+      function handleRealtimeTripAlert(rawData) {
+        try {
+          var data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+          if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification('SwarmWatch Circuit Trip: ' + (data.swarm_id || 'Alert'), {
+              body: data.reason || 'Circuit breaker tripped on runaway loop',
+              tag: 'swarmwatch-trip'
+            });
+          }
+        } catch (e) {}
+      }
+
+      var pushNotificationBadge = document.getElementById('pushNotificationBadge');
+      var pushDot = document.getElementById('pushDot');
+      var pushText = document.getElementById('pushText');
+
+      if (pushNotificationBadge && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          if (pushDot) pushDot.style.background = 'var(--success)';
+          if (pushText) pushText.textContent = 'PUSH: ACTIVE';
+        }
+        pushNotificationBadge.addEventListener('click', async function() {
+          if (Notification.permission !== 'granted') {
+            var perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+              if (pushDot) pushDot.style.background = 'var(--success)';
+              if (pushText) pushText.textContent = 'PUSH: ACTIVE';
+              try {
+                var vapidRes = await fetch('/api/v1/push/vapid-public-key');
+                if (vapidRes.ok) {
+                  var vapidData = await vapidRes.json();
+                  await fetch('/api/v1/push/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      endpoint: 'https://browser.push.local/' + Math.random().toString(36).substring(2),
+                      keys: { p256dh: vapidData.public_key, auth: 'local-auth-secret' }
+                    })
+                  });
+                }
+              } catch(e) {}
+            }
+          }
+      initSseStream();
+
+      // -------------------------------------------------------------------
+      // Kernel-Level Socket LLM Interception Gateway (Seam 29 / ADR 0040)
+      // -------------------------------------------------------------------
+      async function refreshEbpfStatus() {
+        var ebpfDot = document.getElementById('ebpfDot');
+        var ebpfText = document.getElementById('ebpfText');
+        try {
+          var res = await fetch('/api/v1/ebpf/status');
+          if (res.ok) {
+            var data = await res.json();
+            if (data.status === 'attached') {
+              if (ebpfDot) ebpfDot.style.background = 'var(--success)';
+              if (ebpfText) ebpfText.textContent = 'EBPF: ' + (data.packets_intercepted || 0) + ' PKTS';
+            } else {
+              if (ebpfDot) ebpfDot.style.background = 'var(--text-muted)';
+              if (ebpfText) ebpfText.textContent = 'EBPF: DETACHED';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEbpfStatus();
+      setInterval(refreshEbpfStatus, 8000);
+
+      // -------------------------------------------------------------------
+      // Raft Distributed Consensus Engine (Seam 30 / ADR 0041)
+      // -------------------------------------------------------------------
+      async function refreshRaftStatus() {
+        var raftDot = document.getElementById('raftDot');
+        var raftText = document.getElementById('raftText');
+        try {
+          var res = await fetch('/api/v1/raft/status');
+          if (res.ok) {
+            var data = await res.json();
+            var role = data.role || 'FOLLOWER';
+            var term = data.term || 0;
+            if (role === 'LEADER') {
+              if (raftDot) raftDot.style.background = 'var(--success)';
+              if (raftText) raftText.textContent = 'RAFT: LEADER (T' + term + ')';
+            } else if (role === 'CANDIDATE') {
+              if (raftDot) raftDot.style.background = 'var(--warning)';
+              if (raftText) raftText.textContent = 'RAFT: CANDIDATE (T' + term + ')';
+            } else {
+              if (raftDot) raftDot.style.background = 'var(--accent)';
+              if (raftText) raftText.textContent = 'RAFT: FOLLOWER (T' + term + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRaftStatus();
+      setInterval(refreshRaftStatus, 6000);
+
+      // -------------------------------------------------------------------
+      // Autonomous Self-Healing Policy Controller (Seam 31 / ADR 0042)
+      // -------------------------------------------------------------------
+      async function refreshSelfHealingStatus() {
+        var selfHealingDot = document.getElementById('selfHealingDot');
+        var selfHealingText = document.getElementById('selfHealingText');
+        try {
+          var res = await fetch('/api/v1/self-healing/status');
+          if (res.ok) {
+            var data = await res.json();
+            var activeCount = data.active_actions_count || 0;
+            var isEnabled = data.enabled !== false;
+            if (!isEnabled) {
+              if (selfHealingDot) selfHealingDot.style.background = 'var(--text-muted)';
+              if (selfHealingText) selfHealingText.textContent = 'HEAL: OFF';
+            } else if (activeCount > 0) {
+              if (selfHealingDot) selfHealingDot.style.background = 'var(--warning)';
+              if (selfHealingText) selfHealingText.textContent = 'HEAL: REMEDIATED (' + activeCount + ')';
+            } else {
+              if (selfHealingDot) selfHealingDot.style.background = 'var(--success)';
+              if (selfHealingText) selfHealingText.textContent = 'HEAL: ACTIVE (0)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSelfHealingStatus();
+      setInterval(refreshSelfHealingStatus, 7000);
+
+      // -------------------------------------------------------------------
+      // Distributed Root-Cause Causal Inference (Seam 32 / ADR 0043)
+      // -------------------------------------------------------------------
+      async function refreshRootCauseStatus() {
+        var rootCauseDot = document.getElementById('rootCauseDot');
+        var rootCauseText = document.getElementById('rootCauseText');
+        try {
+          var res = await fetch('/api/v1/swarms/swarm-live-01/root-cause');
+          if (res.ok) {
+            var data = await res.json();
+            if (data.has_anomaly && data.attribution) {
+              if (rootCauseDot) rootCauseDot.style.background = 'var(--danger)';
+              if (rootCauseText) {
+                var agent = data.attribution.root_cause_agent || 'agent';
+                var turn = data.attribution.root_cause_turn || 1;
+                rootCauseText.textContent = 'RCA: ' + agent + ' (T' + turn + ')';
+              }
+            } else {
+              if (rootCauseDot) rootCauseDot.style.background = 'var(--success)';
+              if (rootCauseText) rootCauseText.textContent = 'RCA: NOMINAL';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRootCauseStatus();
+      setInterval(refreshRootCauseStatus, 8000);
+
+      // -------------------------------------------------------------------
+      // Ultra-High-Throughput gRPC Streaming Gateway (Seam 33 / ADR 0044)
+      // -------------------------------------------------------------------
+      async function refreshGrpcStatus() {
+        var grpcDot = document.getElementById('grpcGatewayDot');
+        var grpcText = document.getElementById('grpcGatewayText');
+        try {
+          var res = await fetch('/api/v1/grpc/status');
+          if (res.ok) {
+            var data = await res.json();
+            var totalSpans = data.total_spans_received || 0;
+            var trips = data.trips_triggered || 0;
+            var activeStreams = data.active_streams || 0;
+            if (trips > 0) {
+              if (grpcDot) grpcDot.style.background = 'var(--warning)';
+              if (grpcText) grpcText.textContent = 'GRPC: TRIPPED (' + trips + ')';
+            } else if (activeStreams > 0) {
+              if (grpcDot) grpcDot.style.background = 'var(--accent)';
+              if (grpcText) grpcText.textContent = 'GRPC: ACTIVE (' + totalSpans + ')';
+            } else {
+              if (grpcDot) grpcDot.style.background = 'var(--success)';
+              if (grpcText) grpcText.textContent = 'GRPC: READY (' + totalSpans + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshGrpcStatus();
+      setInterval(refreshGrpcStatus, 7500);
+
+      // -------------------------------------------------------------------
+      // Embedding-Free Vector Semantic Drift & Hallucination Detector (ADR 0045)
+      // -------------------------------------------------------------------
+      async function refreshDriftStatus() {
+        var driftDot = document.getElementById('driftDot');
+        var driftText = document.getElementById('driftText');
+        try {
+          var res = await fetch('/api/v1/swarms/swarm-live-01/drift');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.current_status || 'nominal';
+            var score = data.current_drift_score || 0.0;
+            if (st === 'tripped' || data.is_tripped) {
+              if (driftDot) driftDot.style.background = 'var(--danger)';
+              if (driftText) driftText.textContent = 'DRIFT: TRIPPED';
+            } else if (st === 'divergent') {
+              if (driftDot) driftDot.style.background = 'var(--danger)';
+              if (driftText) driftText.textContent = 'DRIFT: ' + score.toFixed(2);
+            } else if (st === 'warning') {
+              if (driftDot) driftDot.style.background = 'var(--warning)';
+              if (driftText) driftText.textContent = 'DRIFT: ' + score.toFixed(2);
+            } else {
+              if (driftDot) driftDot.style.background = 'var(--success)';
+              if (driftText) driftText.textContent = 'DRIFT: NOMINAL';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshDriftStatus();
+      setInterval(refreshDriftStatus, 8500);
+
+      // -------------------------------------------------------------------
+      // Adaptive Dynamic Quota Re-balancing (ADR 0046)
+      // -------------------------------------------------------------------
+      async function refreshRebalancerStatus() {
+        var rebalancerDot = document.getElementById('rebalancerDot');
+        var rebalancerText = document.getElementById('rebalancerText');
+        try {
+          var res = await fetch('/api/v1/swarms/swarm-live-01/rebalancer');
+          if (res.ok) {
+            var data = await res.json();
+            var td = data.tier_distribution || {};
+            var throttled = (td.throttled || 0) + (td.quarantined || 0);
+            var boosted = td.boosted || 0;
+            if (throttled > 0) {
+              if (rebalancerDot) rebalancerDot.style.background = 'var(--warning)';
+              if (rebalancerText) rebalancerText.textContent = 'QUOTA: THROTTLED (' + throttled + ')';
+            } else if (boosted > 0) {
+              if (rebalancerDot) rebalancerDot.style.background = 'var(--accent)';
+              if (rebalancerText) rebalancerText.textContent = 'QUOTA: BOOSTED (' + boosted + ')';
+            } else {
+              if (rebalancerDot) rebalancerDot.style.background = 'var(--success)';
+              if (rebalancerText) rebalancerText.textContent = 'QUOTA: BALANCED';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRebalancerStatus();
+      setInterval(refreshRebalancerStatus, 9000);
+
+      // -------------------------------------------------------------------
+      // Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (ADR 0047)
+      // -------------------------------------------------------------------
+      async function refreshCoalitionStatus() {
+        var coalitionDot = document.getElementById('coalitionDot');
+        var coalitionText = document.getElementById('coalitionText');
+        try {
+          var res = await fetch('/api/v1/swarms/swarm-live-01/coalitions');
+          if (res.ok) {
+            var data = await res.json();
+            var coalitions = data.coalitions || [];
+            var deadlocks = coalitions.filter(function(c) { return c.is_deadlocked; }).length;
+            var bottlenecks = (data.bottleneck_agents || []).length;
+            if (deadlocks > 0) {
+              if (coalitionDot) coalitionDot.style.background = 'var(--danger)';
+              if (coalitionText) coalitionText.textContent = 'COALITIONS: DEADLOCK (' + deadlocks + ')';
+            } else if (bottlenecks > 0) {
+              if (coalitionDot) coalitionDot.style.background = 'var(--warning)';
+              if (coalitionText) coalitionText.textContent = 'COALITIONS: BOTTLENECK (' + bottlenecks + ')';
+            } else if (coalitions.length > 0) {
+              if (coalitionDot) coalitionDot.style.background = 'var(--accent)';
+              if (coalitionText) coalitionText.textContent = 'COALITIONS: ' + coalitions.length + ' ACTIVE';
+            } else {
+              if (coalitionDot) coalitionDot.style.background = 'var(--success)';
+              if (coalitionText) coalitionText.textContent = 'COALITIONS: OPTIMAL';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshCoalitionStatus();
+      setInterval(refreshCoalitionStatus, 9500);
+
+      // -------------------------------------------------------------------
+      // Zero-Copy Shared-Memory Ring Buffer IPC Gateway (ADR 0048)
+      // -------------------------------------------------------------------
+      async function refreshShmStatus() {
+        var shmDot = document.getElementById('shmDot');
+        var shmText = document.getElementById('shmText');
+        try {
+          var res = await fetch('/api/v1/shm/status');
+          if (res.ok) {
+            var data = await res.json();
+            var pending = data.pending_records || 0;
+            var dropped = data.dropped_records || 0;
+            if (dropped > 0) {
+              if (shmDot) shmDot.style.background = 'var(--warning)';
+              if (shmText) shmText.textContent = 'SHM: OVERFLOW (' + dropped + ' DROPPED)';
+            } else if (pending > 0) {
+              if (shmDot) shmDot.style.background = 'var(--accent)';
+              if (shmText) shmText.textContent = 'SHM: STREAMING (' + pending + ' PENDING)';
+            } else {
+              if (shmDot) shmDot.style.background = 'var(--success)';
+              if (shmText) shmText.textContent = 'SHM: ACTIVE (0 PENDING)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshShmStatus();
+      setInterval(refreshShmStatus, 8000);
+
+      // -------------------------------------------------------------------
+      // Differential Privacy & Cryptographic State Anonymization (ADR 0049)
+      // -------------------------------------------------------------------
+      async function refreshPrivacyStatus() {
+        var dpDot = document.getElementById('dpDot');
+        var dpText = document.getElementById('dpText');
+        try {
+          var res = await fetch('/api/v1/privacy/status');
+          if (res.ok) {
+            var data = await res.json();
+            var eps = data.epsilon !== undefined ? data.epsilon : 1.0;
+            var isExhausted = data.is_exhausted || false;
+            var spentPct = data.budget_spent_pct || 0;
+            if (isExhausted) {
+              if (dpDot) dpDot.style.background = 'var(--danger)';
+              if (dpText) dpText.textContent = 'DP: BUDGET EXHAUSTED';
+            } else if (spentPct > 75) {
+              if (dpDot) dpDot.style.background = 'var(--warning)';
+              if (dpText) dpText.textContent = 'DP: BUDGET LOW (' + spentPct + '%)';
+            } else {
+              if (dpDot) dpDot.style.background = 'var(--success)';
+              if (dpText) dpText.textContent = 'DP: PROTECTED (ε=' + eps + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshPrivacyStatus();
+      setInterval(refreshPrivacyStatus, 8500);
+
+      // -------------------------------------------------------------------
+      // Predictive Multi-Agent Failure Forecasting & Early-Warning Martingales (ADR 0050)
+      // -------------------------------------------------------------------
+      async function refreshForecastStatus() {
+        var forecastDot = document.getElementById('forecastDot');
+        var forecastText = document.getElementById('forecastText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/forecast');
+          if (res.ok) {
+            var data = await res.json();
+            var lvl = data.risk_level || 'nominal';
+            var turnsLeft = data.turns_to_trip;
+            var prob = (data.risk_probability || 0) * 100;
+            if (lvl === 'critical_collapse') {
+              if (forecastDot) forecastDot.style.background = 'var(--danger)';
+              if (forecastText) forecastText.textContent = 'FORECAST: CRITICAL (' + prob.toFixed(0) + '%)';
+            } else if (lvl === 'early_warning') {
+              if (forecastDot) forecastDot.style.background = 'var(--warning)';
+              if (forecastText) forecastText.textContent = 'FORECAST: WARNING (' + (turnsLeft !== null ? turnsLeft + 'T' : prob.toFixed(0) + '%') + ')';
+            } else {
+              if (forecastDot) forecastDot.style.background = 'var(--success)';
+              if (forecastText) forecastText.textContent = 'FORECAST: STABLE';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshForecastStatus();
+      setInterval(refreshForecastStatus, 9000);
+
+      // -------------------------------------------------------------------
+      // Multi-Agent Byzantine Attack & Prompt Injection Stress Harness (ADR 0051)
+      // -------------------------------------------------------------------
+      async function refreshByzantineStatus() {
+        var byzantineDot = document.getElementById('byzantineDot');
+        var byzantineText = document.getElementById('byzantineText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/byzantine/status');
+          if (res.ok) {
+            var data = await res.json();
+            var status = data.status || 'SHIELDED';
+            var score = Math.round((data.bft_resilience_score !== undefined ? data.bft_resilience_score : 1.0) * 100);
+            var isolated = data.total_agents_isolated || 0;
+            if (status === 'COMPROMISED') {
+              if (byzantineDot) byzantineDot.style.background = 'var(--danger)';
+              if (byzantineText) byzantineText.textContent = 'BYZANTINE: COMPROMISED (' + score + '%)';
+            } else if (status === 'ISOLATING' || isolated > 0) {
+              if (byzantineDot) byzantineDot.style.background = 'var(--warning)';
+              if (byzantineText) byzantineText.textContent = 'BYZANTINE: ISOLATING (' + score + '% | ' + isolated + 'Q)';
+            } else {
+              if (byzantineDot) byzantineDot.style.background = 'var(--success)';
+              if (byzantineText) byzantineText.textContent = 'BYZANTINE: SHIELDED (' + score + '%)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshByzantineStatus();
+      setInterval(refreshByzantineStatus, 9500);
+
+      // -------------------------------------------------------------------
+      // Multi-Agent Dynamic Honeypot & Deception Sandboxing (ADR 0052)
+      // -------------------------------------------------------------------
+      async function refreshHoneypotStatus() {
+        var honeypotDot = document.getElementById('honeypotDot');
+        var honeypotText = document.getElementById('honeypotText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/honeypot/status');
+          if (res.ok) {
+            var data = await res.json();
+            var status = data.status || 'DEFUSED';
+            var trapped = data.total_diverted_turns || 0;
+            var sandboxed = (data.active_sandboxed_agents || []).length;
+            if (status === 'DECEIVING' || sandboxed > 0) {
+              if (honeypotDot) honeypotDot.style.background = 'var(--warning)';
+              if (honeypotText) honeypotText.textContent = 'HONEYPOT: DECEIVING (' + trapped + ' TRAPPED | ' + sandboxed + 'S)';
+            } else if (status === 'ARMED') {
+              if (honeypotDot) honeypotDot.style.background = 'var(--success)';
+              if (honeypotText) honeypotText.textContent = 'HONEYPOT: ARMED (' + trapped + ' TRAPPED)';
+            } else {
+              if (honeypotDot) honeypotDot.style.background = 'var(--text-muted)';
+              if (honeypotText) honeypotText.textContent = 'HONEYPOT: DEFUSED';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshHoneypotStatus();
+      setInterval(refreshHoneypotStatus, 9800);
+
+      // -------------------------------------------------------------------
+      // Bounded Model Checking & Multi-Agent Invariant Verification (ADR 0053)
+      // -------------------------------------------------------------------
+      async function refreshModelCheckStatus() {
+        var modelCheckDot = document.getElementById('modelCheckDot');
+        var modelCheckText = document.getElementById('modelCheckText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/model-check/status');
+          if (res.ok) {
+            var data = await res.json();
+            var verdict = data.verdict || 'VERIFIED';
+            var boundK = data.max_depth_bound || 10;
+            var states = data.total_states_explored || 0;
+            if (verdict === 'VIOLATED') {
+              if (modelCheckDot) modelCheckDot.style.background = 'var(--danger)';
+              var viol = data.violated_invariant || 'INVARIANT';
+              if (modelCheckText) modelCheckText.textContent = 'BMC: VIOLATED (' + viol + ')';
+            } else if (verdict === 'VACUOUS') {
+              if (modelCheckDot) modelCheckDot.style.background = 'var(--text-muted)';
+              if (modelCheckText) modelCheckText.textContent = 'BMC: VACUOUS';
+            } else {
+              if (modelCheckDot) modelCheckDot.style.background = 'var(--success)';
+              if (modelCheckText) modelCheckText.textContent = 'BMC: VERIFIED (k=' + boundK + ' | ' + states + 'S)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshModelCheckStatus();
+      setInterval(refreshModelCheckStatus, 10200);
+
+      // -------------------------------------------------------------------
+      // Autonomous Dynamic Topology Healing & Auto-Patching (ADR 0054)
+      // -------------------------------------------------------------------
+      async function refreshTopologyHealStatus() {
+        var topologyHealDot = document.getElementById('topologyHealDot');
+        var topologyHealText = document.getElementById('topologyHealText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/topology-heal/status');
+          if (res.ok) {
+            var data = await res.json();
+            var status = data.status || 'NOMINAL';
+            var count = data.active_patches_count || 0;
+            if (status === 'PATCHED' && count > 0) {
+              if (topologyHealDot) topologyHealDot.style.background = 'var(--accent)';
+              if (topologyHealText) topologyHealText.textContent = 'HEAL: PATCHED (' + count + ' ACTIVE)';
+            } else {
+              if (topologyHealDot) topologyHealDot.style.background = 'var(--success)';
+              if (topologyHealText) topologyHealText.textContent = 'HEAL: NOMINAL';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshTopologyHealStatus();
+      setInterval(refreshTopologyHealStatus, 10500);
+
+      // -------------------------------------------------------------------
+      // Multi-Modal Audio/Visual Telemetry Inspection & Artifact Watermarking (ADR 0055)
+      // -------------------------------------------------------------------
+      async function refreshArtifactStatus() {
+        var artifactDot = document.getElementById('artifactDot');
+        var artifactText = document.getElementById('artifactText');
+        try {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          var res = await fetch('/api/v1/swarms/' + targetSwarm + '/artifacts');
+          if (res.ok) {
+            var data = await res.json();
+            var count = data.artifacts_count || 0;
+            var arts = data.artifacts || [];
+            var hasTampered = arts.some(function(a) { return a.watermark && a.watermark.tamper_detected; });
+            if (hasTampered) {
+              if (artifactDot) artifactDot.style.background = 'var(--danger)';
+              if (artifactText) artifactText.textContent = 'ARTIFACTS: TAMPERED';
+            } else if (count > 0) {
+              if (artifactDot) artifactDot.style.background = 'var(--success)';
+              if (artifactText) artifactText.textContent = 'ARTIFACTS: SECURED (' + count + ')';
+            } else {
+              if (artifactDot) artifactDot.style.background = 'var(--text-muted)';
+              if (artifactText) artifactText.textContent = 'ARTIFACTS: 0 RECORDED';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshArtifactStatus();
+      setInterval(refreshArtifactStatus, 10800);
+
+      // -------------------------------------------------------------------
+      // Decentralized Epidemic Gossip Telemetry Mesh Sync (ADR 0056)
+      // -------------------------------------------------------------------
+      async function refreshMeshStatus() {
+        var meshDot = document.getElementById('meshDot');
+        var meshText = document.getElementById('meshText');
+        try {
+          var res = await fetch('/api/v1/mesh/status');
+          if (res.ok) {
+            var data = await res.json();
+            var health = data.convergence_health || 'converged';
+            var peers = data.active_peers_count || 0;
+            if (health === 'partitioned') {
+              if (meshDot) meshDot.style.background = 'var(--danger)';
+              if (meshText) meshText.textContent = 'MESH: PARTITIONED';
+            } else if (health === 'syncing') {
+              if (meshDot) meshDot.style.background = 'var(--warning)';
+              if (meshText) meshText.textContent = 'MESH: SYNCING (' + peers + ' PEERS)';
+            } else {
+              if (meshDot) meshDot.style.background = 'var(--success)';
+              if (meshText) meshText.textContent = 'MESH: CONVERGED (' + peers + ' PEERS)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshMeshStatus();
+      setInterval(refreshMeshStatus, 11200);
+
+      // -------------------------------------------------------------------
+      // ADR 0057: Autonomous Dynamic Workload Sharding Status Polling
+      // -------------------------------------------------------------------
+      async function refreshShardStatus() {
+        var shardDot = document.getElementById('shardDot');
+        var shardText = document.getElementById('shardText');
+        try {
+          var res = await fetch('/api/v1/sharding/status');
+          if (res.ok) {
+            var data = await res.json();
+            var nodes = data.nodes || {};
+            var totalNodes = data.total_physical_nodes || Object.keys(nodes).length || 1;
+            var hasOverloaded = false;
+            var hasCongested = false;
+            for (var nid in nodes) {
+              if (nodes[nid].health_tier === 'overloaded') hasOverloaded = true;
+              if (nodes[nid].health_tier === 'congested') hasCongested = true;
+            }
+            if (hasOverloaded) {
+              if (shardDot) shardDot.style.background = 'var(--warning)';
+              if (shardText) shardText.textContent = 'SHARDING: SPILLOVER (' + totalNodes + ' NODES)';
+            } else if (hasCongested) {
+              if (shardDot) shardDot.style.background = 'var(--warning)';
+              if (shardText) shardText.textContent = 'SHARDING: CONGESTED (' + totalNodes + ' NODES)';
+            } else {
+              if (shardDot) shardDot.style.background = 'var(--success)';
+              var nodeLabel = totalNodes === 1 ? '1 NODE' : totalNodes + ' NODES';
+              if (shardText) shardText.textContent = 'SHARDING: BALANCED (' + nodeLabel + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshShardStatus();
+      setInterval(refreshShardStatus, 11500);
+
+      // -------------------------------------------------------------------
+      // ADR 0058: Autonomous Semantic Schema Migration Status Polling
+      // -------------------------------------------------------------------
+      async function refreshSchemaStatus() {
+        var schemaDot = document.getElementById('schemaDot');
+        var schemaText = document.getElementById('schemaText');
+        try {
+          var res = await fetch('/api/v1/schemas/status');
+          if (res.ok) {
+            var data = await res.json();
+            var totalV = data.total_versions || 0;
+            var regV = data.registered_versions || [];
+            var latest = regV.length > 0 ? regV[regV.length - 1] : 'v1.0.0';
+            var migrations = data.total_migrations_executed || 0;
+            if (schemaDot) schemaDot.style.background = 'var(--success)';
+            if (schemaText) schemaText.textContent = 'SCHEMA: ' + latest.toUpperCase() + ' (' + totalV + ' VERSIONS | ' + migrations + ' MIG)';
+          }
+        } catch (e) {}
+      }
+      refreshSchemaStatus();
+      setInterval(refreshSchemaStatus, 12000);
+
+      // -------------------------------------------------------------------
+      // ADR 0059: Dynamic Multi-Agent Epistemic Logic Status Polling
+      // -------------------------------------------------------------------
+      async function refreshEpistemicStatus() {
+        var epistemicDot = document.getElementById('epistemicDot');
+        var epistemicText = document.getElementById('epistemicText');
+        var sId = currentSwarmId || 'swarm-live-01';
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(sId) + '/epistemic/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'CONSISTENT';
+            var claimsCount = data.total_claims || 0;
+            var disson = data.dissonance_score || 0.0;
+            var confs = data.unresolved_conflicts || 0;
+            if (st === 'CONSISTENT') {
+              if (epistemicDot) epistemicDot.style.background = 'var(--success)';
+              if (epistemicText) epistemicText.textContent = 'EPISTEMIC: OK (' + claimsCount + ' claims)';
+            } else {
+              if (epistemicDot) epistemicDot.style.background = 'var(--danger)';
+              if (epistemicText) epistemicText.textContent = 'EPISTEMIC: DISSONANT (' + confs + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEpistemicStatus();
+      setInterval(refreshEpistemicStatus, 10500);
+
+      // -------------------------------------------------------------------
+      // ADR 0060: Zero-Knowledge Causal Proof Status Polling
+      // -------------------------------------------------------------------
+      async function refreshZkProofStatus() {
+        var zkProofDot = document.getElementById('zkProofDot');
+        var zkProofText = document.getElementById('zkProofText');
+        var sId = currentSwarmId || 'swarm-live-01';
+        try {
+          var res = await fetch('/api/v1/swarms/' + encodeURIComponent(sId) + '/proof/root');
+          if (res.ok) {
+            var data = await res.json();
+            var totalLeaves = data.total_leaves || 0;
+            if (zkProofDot) zkProofDot.style.background = 'var(--success)';
+            if (zkProofText) zkProofText.textContent = 'ZK-PROOF: VERIFIED (' + totalLeaves + ')';
+          }
+        } catch (e) {}
+      }
+      refreshZkProofStatus();
+      setInterval(refreshZkProofStatus, 11000);
+
+      // -------------------------------------------------------------------
+      // ADR 0061: Canonical Causal Encoding & JCS Codec Status
+      // -------------------------------------------------------------------
+      async function refreshCodecStatus() {
+        var codecDot = document.getElementById('codecDot');
+        var codecText = document.getElementById('codecText');
+        try {
+          var res = await fetch('/api/v1/codec/canonicalize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payload: { status: 'ping' }, version: 1 })
+          });
+          if (res.ok) {
+            if (codecDot) codecDot.style.background = 'var(--success)';
+            if (codecText) codecText.textContent = 'CODEC: RFC-8785 JCS';
+          }
+        } catch (e) {}
+      }
+      refreshCodecStatus();
+      setInterval(refreshCodecStatus, 12000);
+
+      // -------------------------------------------------------------------
+      // ADR 0062: Unified Safety Authority & Linearizable Execution Permits
+      // -------------------------------------------------------------------
+      async function refreshSafetyStatus() {
+        var safetyDot = document.getElementById('safetyDot');
+        var safetyText = document.getElementById('safetyText');
+        try {
+          var res = await fetch('/api/v1/safety/status');
+          if (res.ok) {
+            var data = await res.json();
+            if (safetyDot) {
+              if (data.global_state === 'TRIPPED') {
+                safetyDot.style.background = 'var(--danger)';
+              } else if (data.global_state === 'DRAINING') {
+                safetyDot.style.background = 'var(--warning)';
+              } else {
+                safetyDot.style.background = 'var(--success)';
+              }
+            }
+            if (safetyText) {
+              var ep = data.epoch !== undefined ? data.epoch : 1;
+              var st = data.global_state === 'TRIPPED' ? 'TRIPPED' : 'AUTHORITATIVE';
+              safetyText.textContent = 'SAFETY: ' + st + ' (E' + ep + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSafetyStatus();
+      setInterval(refreshSafetyStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0063: Fenced Effect Ledger & Monotonic Idempotency Barrier
+      // -------------------------------------------------------------------
+      async function refreshLedgerStatus() {
+        var ledgerDot = document.getElementById('ledgerDot');
+        var ledgerText = document.getElementById('ledgerText');
+        try {
+          var res = await fetch('/api/v1/effects/status');
+          if (res.ok) {
+            var data = await res.json();
+            if (ledgerDot) {
+              ledgerDot.style.background = 'var(--success)';
+            }
+            if (ledgerText) {
+              var cnt = data.committed_effects_count !== undefined ? data.committed_effects_count : 0;
+              ledgerText.textContent = 'EFFECT LEDGER: FENCED (' + cnt + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshLedgerStatus();
+      setInterval(refreshLedgerStatus, 11000);
+
+      // -------------------------------------------------------------------
+      // ADR 0064: Loss-Aware Causal Ingestion & Evidentiary Completeness Rule
+      // -------------------------------------------------------------------
+      async function refreshIngressStatus() {
+        var ingressDot = document.getElementById('ingressDot');
+        var ingressText = document.getElementById('ingressText');
+        try {
+          var res = await fetch('/api/v1/ingress/status');
+          if (res.ok) {
+            var data = await res.json();
+            var status = data.completeness_status || 'COMPLETE';
+            var gaps = data.total_gaps !== undefined ? data.total_gaps : 0;
+            if (ingressDot) {
+              if (status === 'COMPLETE') {
+                ingressDot.style.background = 'var(--success)';
+              } else if (status === 'SATURATED') {
+                ingressDot.style.background = 'var(--danger)';
+              } else {
+                ingressDot.style.background = 'var(--warning)';
+              }
+            }
+            if (ingressText) {
+              ingressText.textContent = 'INGRESS: LOSS-AWARE (' + gaps + ' GAP)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshIngressStatus();
+      setInterval(refreshIngressStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0065: Durable Audit Anchor & Merkle Audit Receipt Engine
+      // -------------------------------------------------------------------
+      async function refreshAuditStatus() {
+        var auditDot = document.getElementById('auditDot');
+        var auditText = document.getElementById('auditText');
+        try {
+          var res = await fetch('/api/v1/audit/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'ANCHORED';
+            var ep = data.latest_epoch !== undefined ? data.latest_epoch : 0;
+            if (auditDot) {
+              auditDot.style.background = st === 'ANCHORED' ? 'var(--success)' : 'var(--danger)';
+            }
+            if (auditText) {
+              auditText.textContent = 'AUDIT: ' + st + ' (E' + ep + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshAuditStatus();
+      setInterval(refreshAuditStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0066: Bounded Verification Semantics & Explicit Counterexample Engine
+      // -------------------------------------------------------------------
+      async function refreshVerifierStatus() {
+        var verifierDot = document.getElementById('verifierDot');
+        var verifierText = document.getElementById('verifierText');
+        try {
+          var res = await fetch('/api/v1/verifier/status');
+          if (res.ok) {
+            var data = await res.json();
+            var lastV = data.last_verdict || 'BOUNDED_SAFE';
+            var cov = Math.round((data.average_coverage_ratio || 1.0) * 100);
+            if (verifierDot) {
+              if (lastV === 'VIOLATED') {
+                verifierDot.style.background = 'var(--danger)';
+              } else if (lastV === 'INDETERMINATE') {
+                verifierDot.style.background = 'var(--warning)';
+              } else {
+                verifierDot.style.background = 'var(--success)';
+              }
+            }
+            if (verifierText) {
+              var shortV = lastV.replace('_', ' ');
+              verifierText.textContent = 'VERIFIER: ' + shortV + ' (' + cov + '%)';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshVerifierStatus();
+      setInterval(refreshVerifierStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0067: Governed Remediation & Fenced Action State Machine
+      // -------------------------------------------------------------------
+      async function refreshRemediationStatus() {
+        var remediationDot = document.getElementById('remediationDot');
+        var remediationText = document.getElementById('remediationText');
+        try {
+          var res = await fetch('/api/v1/remediation/status');
+          if (res.ok) {
+            var data = await res.json();
+            var activeCount = data.active_remediations_count || 0;
+            if (remediationDot) {
+              remediationDot.style.background = 'var(--success)';
+            }
+            if (remediationText) {
+              remediationText.textContent = 'REMEDIATION: GOVERNED (' + activeCount + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRemediationStatus();
+      setInterval(refreshRemediationStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0068: Partition Reconciliation & Conflict Lattice Engine
+      // -------------------------------------------------------------------
+      async function refreshReconcilerStatus() {
+        var reconcilerDot = document.getElementById('reconcilerDot');
+        var reconcilerText = document.getElementById('reconcilerText');
+        try {
+          var res = await fetch('/api/v1/reconciler/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'CONVERGED';
+            var activeConflicts = data.active_conflicts || 0;
+            var tripsPreserved = data.trips_preserved_count || 0;
+            if (reconcilerDot) {
+              if (activeConflicts > 0) {
+                reconcilerDot.style.background = 'var(--warning)';
+              } else if (tripsPreserved > 0) {
+                reconcilerDot.style.background = 'var(--danger)';
+              } else {
+                reconcilerDot.style.background = 'var(--success)';
+              }
+            }
+            if (reconcilerText) {
+              reconcilerText.textContent = 'RECONCILER: ' + st + ' (' + activeConflicts + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshReconcilerStatus();
+      setInterval(refreshReconcilerStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // ADR 0069: Privacy Release Ledger & Differential Privacy Accountant
+      // -------------------------------------------------------------------
+      async function refreshPrivacyLedgerStatus() {
+        var privacyLedgerDot = document.getElementById('privacyLedgerDot');
+        var privacyLedgerText = document.getElementById('privacyLedgerText');
+        try {
+          var res = await fetch('/api/v1/privacy-ledger/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'CONVERGED';
+            var releases = data.total_releases !== undefined ? data.total_releases : 0;
+            var constrained = data.budget_constrained_count !== undefined ? data.budget_constrained_count : 0;
+            if (privacyLedgerDot) {
+              if (constrained > 0 || st === 'BUDGET_CONSTRAINED') {
+                privacyLedgerDot.style.background = 'var(--danger)';
+              } else {
+                privacyLedgerDot.style.background = 'var(--success)';
+              }
+            }
+            if (privacyLedgerText) {
+              privacyLedgerText.textContent = 'PRIVACY: RELEASE FENCED (' + releases + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshPrivacyLedgerStatus();
+      setInterval(refreshPrivacyLedgerStatus, 10500);
+
+      // -------------------------------------------------------------------
+      // ADR 0070: Migration Preservation & Partial Isomorphisms
+      // -------------------------------------------------------------------
+      async function refreshEvolutionStatus() {
+        var evolutionDot = document.getElementById('evolutionDot');
+        var evolutionText = document.getElementById('evolutionText');
+        try {
+          var res = await fetch('/api/v1/schema-evolution/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'PRESERVED';
+            var total = data.total_migrations_count !== undefined ? data.total_migrations_count : 0;
+            var lossy = data.lossy_migrations_count !== undefined ? data.lossy_migrations_count : 0;
+            if (evolutionDot) {
+              if (lossy > 0) {
+                evolutionDot.style.background = 'var(--accent)';
+              } else {
+                evolutionDot.style.background = 'var(--success)';
+              }
+            }
+            if (evolutionText) {
+              evolutionText.textContent = 'SCHEMA: ' + st + ' (' + total + ')';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEvolutionStatus();
+      setInterval(refreshEvolutionStatus, 11000);
+
+      async function refreshAcceptanceStatus() {
+        var acceptanceDot = document.getElementById('acceptanceDot');
+        var acceptanceText = document.getElementById('acceptanceText');
+        try {
+          var res = await fetch('/api/v1/acceptance/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'NOMINAL';
+            if (acceptanceDot) {
+              if (st === 'CERTIFIED') {
+                acceptanceDot.style.background = 'var(--success)';
+              } else if (st === 'REJECTED') {
+                acceptanceDot.style.background = 'var(--danger)';
+              } else {
+                acceptanceDot.style.background = 'var(--accent)';
+              }
+            }
+            if (acceptanceText) {
+              var countStr = st === 'CERTIFIED' ? '6/6' : (st === 'REJECTED' ? 'FAIL' : '0/6');
+              var badgeStr = ('ACCEPTANCE: ' + st + ' (' + countStr + ')').toUpperCase();
+              if (badgeStr.length > 30) {
+                badgeStr = ('ACCEPTANCE: ' + st).toUpperCase();
+              }
+              acceptanceText.textContent = badgeStr;
+            }
+          }
+        } catch (e) {}
+      }
+      refreshAcceptanceStatus();
+      setInterval(refreshAcceptanceStatus, 12000);
+
+      // ADR 0072: Consensus Authority Binding & Linearizable Quorum Fencing
+      // -------------------------------------------------------------------
+      async function refreshConsensusStatus() {
+        var consensusDot = document.getElementById('consensusDot');
+        var consensusText = document.getElementById('consensusText');
+        try {
+          var res = await fetch('/api/v1/consensus/status');
+          if (res.ok) {
+            var data = await res.json();
+            var hasQuorum = Boolean(data.has_quorum);
+            if (consensusDot) {
+              consensusDot.style.background = hasQuorum ? 'var(--success)' : 'var(--danger)';
+            }
+            if (consensusText) {
+              var ep = data.epoch !== undefined ? data.epoch : 1;
+              var qStr = hasQuorum ? 'QUORUM OK' : 'SPLIT BRAIN';
+              var badgeStr = ('CONSENSUS: ' + qStr + ' (E' + ep + ')').toUpperCase();
+              if (badgeStr.length > 30) {
+                badgeStr = ('CONSENSUS: ' + qStr).toUpperCase();
+              }
+              consensusText.textContent = badgeStr;
+            }
+          }
+        } catch (e) {}
+      }
+      refreshConsensusStatus();
+      setInterval(refreshConsensusStatus, 10000);
+
+      async function refreshDownstreamStatus() {
+        var downstreamDot = document.getElementById('downstreamDot');
+        var downstreamText = document.getElementById('downstreamText');
+        try {
+          var res = await fetch('/api/v1/downstream-effects/status');
+          if (res.ok) {
+            var data = await res.json();
+            var unkCount = data.outcome_unknown_count || 0;
+            if (downstreamDot) {
+              downstreamDot.style.background = unkCount > 0 ? 'var(--warning)' : 'var(--success)';
+            }
+            if (downstreamText) {
+              var badgeStr = unkCount > 0 ? ('DOWNSTREAM: ' + unkCount + ' UNKNOWN') : 'DOWNSTREAM: RECONCILED';
+              downstreamText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshDownstreamStatus();
+      setInterval(refreshDownstreamStatus, 10000);
+
+      async function refreshEvidenceStatus() {
+        var evidenceDot = document.getElementById('evidenceDot');
+        var evidenceText = document.getElementById('evidenceText');
+        try {
+          var res = await fetch('/api/v1/evidence/status');
+          if (res.ok) {
+            var data = await res.json();
+            var st = data.status || 'ACTIVE';
+            if (evidenceDot) {
+              evidenceDot.style.background = st === 'ACTIVE' ? 'var(--success)' : 'var(--danger)';
+            }
+            if (evidenceText) {
+              var badgeStr = st === 'ACTIVE' ? 'EVIDENCE: SPOOL COMMITTED' : ('EVIDENCE: ' + st);
+              evidenceText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEvidenceStatus();
+      setInterval(refreshEvidenceStatus, 10000);
+
+      async function refreshWitnessStatus() {
+        var witnessDot = document.getElementById('witnessDot');
+        var witnessText = document.getElementById('witnessText');
+        try {
+          var res = await fetch('/api/v1/witness/status');
+          if (res.ok) {
+            var data = await res.json();
+            var active = data.active_public_key && data.active_public_key.length > 0;
+            if (witnessDot) {
+              witnessDot.style.background = active ? 'var(--success)' : 'var(--danger)';
+            }
+            if (witnessText) {
+              var badgeStr = active ? 'WITNESS: ASYMMETRIC VERIFIED' : 'WITNESS: KEY MISSING';
+              witnessText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshWitnessStatus();
+      setInterval(refreshWitnessStatus, 10000);
+
+      async function refreshCapabilityStatus() {
+        var capabilityDot = document.getElementById('capabilityDot');
+        var capabilityText = document.getElementById('capabilityText');
+        try {
+          var res = await fetch('/api/v1/capability/status');
+          if (res.ok) {
+            var data = await res.json();
+            var active = data.active_root_public_key && data.active_root_public_key.length > 0;
+            if (capabilityDot) {
+              capabilityDot.style.background = active ? 'var(--success)' : 'var(--danger)';
+            }
+            if (capabilityText) {
+              var badgeStr = active ? 'CAPABILITY: ATTENUATED OK' : 'CAPABILITY: INACTIVE';
+              capabilityText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshCapabilityStatus();
+      setInterval(refreshCapabilityStatus, 10000);
+
+      async function refreshCompensationStatus() {
+        var compensationDot = document.getElementById('compensationDot');
+        var compensationText = document.getElementById('compensationText');
+        try {
+          var res = await fetch('/api/v1/compensation/status');
+          if (res.ok) {
+            var data = await res.json();
+            var hasPending = data.total_escalations_pending > 0;
+            if (compensationDot) {
+              compensationDot.style.background = hasPending ? 'var(--warning)' : 'var(--success)';
+            }
+            if (compensationText) {
+              var badgeStr = hasPending
+                ? ('COMPENSATION: ' + data.total_escalations_pending + ' ESC PENDING')
+                : 'COMPENSATION: ALGEBRA OK';
+              compensationText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshCompensationStatus();
+      setInterval(refreshCompensationStatus, 10000);
+
+      async function refreshDatasetPrivacyStatus() {
+        var datasetPrivacyDot = document.getElementById('datasetPrivacyDot');
+        var datasetPrivacyText = document.getElementById('datasetPrivacyText');
+        try {
+          var res = await fetch('/api/v1/dataset-privacy/status');
+          if (res.ok) {
+            var data = await res.json();
+            var activeRes = data.total_active_reservations || 0;
+            if (datasetPrivacyDot) {
+              datasetPrivacyDot.style.background = 'var(--success)';
+            }
+            if (datasetPrivacyText) {
+              var badgeStr = activeRes > 0
+                ? ('DATASET PRIVACY: ' + activeRes + ' PENDING')
+                : 'DATASET PRIVACY: BUDGET OK';
+              datasetPrivacyText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshDatasetPrivacyStatus();
+      setInterval(refreshDatasetPrivacyStatus, 10000);
+
+      async function refreshInteropStatus() {
+        var interopDot = document.getElementById('interopDot');
+        var interopText = document.getElementById('interopText');
+        try {
+          var res = await fetch('/api/v1/interop/status');
+          if (res.ok) {
+            var data = await res.json();
+            var fatalDevs = data.fatal_deviations || 0;
+            var totalEx = data.total_exercises_run || 0;
+            if (interopDot) {
+              interopDot.style.background = fatalDevs > 0 ? 'var(--danger)' : 'var(--success)';
+            }
+            if (interopText) {
+              var badgeStr = fatalDevs > 0
+                ? ('INTEROP: ' + fatalDevs + ' FATAL')
+                : (totalEx > 0 ? ('INTEROP: ' + totalEx + ' PASSED') : 'INTEROP LAB: CONFORMANT');
+              interopText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshInteropStatus();
+      setInterval(refreshInteropStatus, 10000);
+
+      async function refreshProvenanceStatus() {
+        var provenanceDot = document.getElementById('provenanceDot');
+        var provenanceText = document.getElementById('provenanceText');
+        try {
+          var res = await fetch('/api/v1/provenance/status');
+          if (res.ok) {
+            var data = await res.json();
+            var failedVerifs = data.failed_verifications || 0;
+            var successVerifs = data.successful_verifications || 0;
+            if (provenanceDot) {
+              provenanceDot.style.background = failedVerifs > 0 ? 'var(--danger)' : 'var(--success)';
+            }
+            if (provenanceText) {
+              var badgeStr = failedVerifs > 0
+                ? ('PROVENANCE: ' + failedVerifs + ' FAILED')
+                : (successVerifs > 0 ? ('PROVENANCE: ' + successVerifs + ' VERIFIED') : 'PROVENANCE: SLSA L3 OK');
+              provenanceText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshProvenanceStatus();
+      setInterval(refreshProvenanceStatus, 10000);
+
+      async function refreshDatacenterStatus() {
+        var datacenterDot = document.getElementById('datacenterDot');
+        var datacenterText = document.getElementById('datacenterText');
+        try {
+          var res = await fetch('/api/v1/exercise/status');
+          if (res.ok) {
+            var data = await res.json();
+            var isTripped = data.cluster_globally_tripped || false;
+            var activePhase = data.active_phase || 'NOMINAL';
+            if (datacenterDot) {
+              datacenterDot.style.background = isTripped ? 'var(--danger)' : (activePhase === 'NOMINAL' ? 'var(--success)' : 'var(--warning)');
+            }
+            if (datacenterText) {
+              var badgeStr = isTripped
+                ? 'DATACENTER: SAFETY TRIPPED'
+                : (activePhase !== 'NOMINAL' ? ('DATACENTER: ' + activePhase) : 'DATACENTER: QUORUM RESILIENT');
+              datacenterText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshDatacenterStatus();
+      setInterval(refreshDatacenterStatus, 10000);
+
+      async function refreshGatewayStatus() {
+        var gatewayDot = document.getElementById('gatewayDot');
+        var gatewayText = document.getElementById('gatewayText');
+        try {
+          var res = await fetch('/api/v1/gateway/status');
+          if (res.ok) {
+            var data = await res.json();
+            var isTripped = data.circuit_tripped || false;
+            var pendingCount = data.pending_requests_count || 0;
+            if (gatewayDot) {
+              gatewayDot.style.background = isTripped ? 'var(--danger)' : (pendingCount > 0 ? 'var(--warning)' : 'var(--success)');
+            }
+            if (gatewayText) {
+              var badgeStr = isTripped
+                ? 'GATEWAY: CIRCUIT BLOCKED'
+                : (pendingCount > 0 ? ('GATEWAY: ' + pendingCount + ' PENDING') : 'GATEWAY: AUTONOMOUS OK');
+              gatewayText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshGatewayStatus();
+      setInterval(refreshGatewayStatus, 10000);
+
+
+      if (btnMfaModal) {
+
+        btnMfaModal.addEventListener('click', function() {
+          if (mfaModal) mfaModal.style.display = 'flex';
+          refreshAuthSession();
+        });
+      }
+      if (btnCloseMfaModal) {
+        btnCloseMfaModal.addEventListener('click', function() {
+          if (mfaModal) mfaModal.style.display = 'none';
+        });
+      }
+
+      if (btnEnrollMfa) {
+        btnEnrollMfa.addEventListener('click', async function() {
+          try {
+            mfaEnrollStatus.textContent = 'Enrolling TOTP credential...';
+            mfaEnrollStatus.style.color = 'var(--text-muted)';
+            var res = await fetch('/api/v1/auth/mfa/enroll', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: 'admin' })
+            });
+            if (res.ok) {
+              var data = await res.json();
+              mfaSecretKey.textContent = data.secret_base32 || '-';
+              mfaUriText.textContent = data.provisioning_uri || '';
+              if (mfaBackupCodes && Array.isArray(data.backup_codes)) {
+                mfaBackupCodes.innerHTML = '';
+                data.backup_codes.forEach(function(code) {
+                  var span = document.createElement('span');
+                  span.style.padding = '4px 6px';
+                  span.style.background = 'var(--bg-canvas)';
+                  span.style.borderRadius = '3px';
+                  span.style.border = '1px solid var(--border-subtle)';
+                  span.style.textAlign = 'center';
+                  span.textContent = code;
+                  mfaBackupCodes.appendChild(span);
+                });
+              }
+              mfaEnrollSection.style.display = 'flex';
+              mfaEnrollStatus.textContent = 'Scan or copy secret into authenticator app, then enter 6-digit code below:';
+              mfaEnrollStatus.style.color = 'var(--text-secondary)';
+            } else {
+              var errData = await res.json();
+              mfaEnrollStatus.textContent = 'Enrollment failed: ' + (errData.detail || 'Error');
+              mfaEnrollStatus.style.color = 'var(--danger)';
+            }
+          } catch(e) {
+            mfaEnrollStatus.textContent = 'Network error: ' + e.message;
+            mfaEnrollStatus.style.color = 'var(--danger)';
+          }
+        });
+      }
+
+      if (btnVerifyMfaActivation) {
+        btnVerifyMfaActivation.addEventListener('click', async function() {
+          var code = mfaCodeInput ? mfaCodeInput.value.trim() : '';
+          if (!code) {
+            mfaEnrollStatus.textContent = 'Please enter a 6-digit code.';
+            mfaEnrollStatus.style.color = 'var(--danger)';
+            return;
+          }
+          try {
+            var res = await fetch('/api/v1/auth/mfa/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: 'admin', code: code })
+            });
+            var data = await res.json();
+            if (res.ok && data.verified) {
+              mfaEnrollStatus.textContent = 'TOTP verified and activated successfully!';
+              mfaEnrollStatus.style.color = 'var(--success)';
+              sessionStorage.setItem('swarmwatch_mfa_code', code);
+              refreshAuthSession();
+            } else {
+              mfaEnrollStatus.textContent = 'Verification failed: ' + (data.detail || 'Invalid code');
+              mfaEnrollStatus.style.color = 'var(--danger)';
+            }
+          } catch(e) {
+            mfaEnrollStatus.textContent = 'Network error: ' + e.message;
+            mfaEnrollStatus.style.color = 'var(--danger)';
+          }
+        });
+      }
+
+      if (btnVerifyStepUp) {
+        btnVerifyStepUp.addEventListener('click', async function() {
+          var code = mfaStepUpInput ? mfaStepUpInput.value.trim() : '';
+          if (!code) {
+            mfaStepUpStatus.textContent = 'Please enter a 6-digit TOTP or backup code.';
+            mfaStepUpStatus.style.color = 'var(--danger)';
+            return;
+          }
+          try {
+            var res = await fetch('/api/v1/auth/mfa/challenge', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: 'admin', code: code })
+            });
+            var data = await res.json();
+            if (res.ok && data.verified) {
+              mfaStepUpStatus.textContent = 'Session authorized with Step-Up MFA (' + (data.method || 'totp') + ')';
+              mfaStepUpStatus.style.color = 'var(--success)';
+              sessionStorage.setItem('swarmwatch_mfa_code', code);
+              refreshAuthSession();
+            } else {
+              mfaStepUpStatus.textContent = 'Step-up challenge rejected: Invalid code or token';
+              mfaStepUpStatus.style.color = 'var(--danger)';
+            }
+          } catch(e) {
+            mfaStepUpStatus.textContent = 'Network error: ' + e.message;
+            mfaStepUpStatus.style.color = 'var(--danger)';
+          }
+        });
+      }
+
+      // =========================================================================
+      // Distributed Redis Fleet Cluster Widget Logic (Seam 23 & 24 / ADR 0034 & 0035)
+      // =========================================================================
+      var fleetBar = document.getElementById('fleetBar');
+      var btnFleetToggle = document.getElementById('btnFleetToggle');
+      var fleetClusterBadge = document.getElementById('fleetClusterBadge');
+      var fleetStatusText = document.getElementById('fleetStatusText');
+      var fleetBackendTag = document.getElementById('fleetBackendTag');
+      var fleetLeaderBadge = document.getElementById('fleetLeaderBadge');
+      var fleetLeaderText = document.getElementById('fleetLeaderText');
+      var fleetNodesCountTag = document.getElementById('fleetNodesCountTag');
+      var btnLeaderStepDown = document.getElementById('btnLeaderStepDown');
+      var fleetWorkersList = document.getElementById('fleetWorkersList');
+      var fleetTurnsVal = document.getElementById('fleetTurnsVal');
+      var fleetTurnsFill = document.getElementById('fleetTurnsFill');
+      var fleetTokensVal = document.getElementById('fleetTokensVal');
+      var fleetTokensFill = document.getElementById('fleetTokensFill');
+      var fleetCostVal = document.getElementById('fleetCostVal');
+      var fleetCostFill = document.getElementById('fleetCostFill');
+      var btnFleetTrip = document.getElementById('btnFleetTrip');
+      var btnFleetReset = document.getElementById('btnFleetReset');
+      var fleetTripAlert = document.getElementById('fleetTripAlert');
+      var fleetTripReason = document.getElementById('fleetTripReason');
+      var fleetTrippedBy = document.getElementById('fleetTrippedBy');
+      var btnFleetAlertReset = document.getElementById('btnFleetAlertReset');
+
+      if (btnFleetToggle && fleetBar) {
+        btnFleetToggle.addEventListener('click', function() {
+          var isHidden = fleetBar.style.display === 'none';
+          fleetBar.style.display = isHidden ? 'flex' : 'none';
+          if (isHidden) fetchFleetMetrics();
+        });
+      }
+
+      if (btnFleetTrip) btnFleetTrip.addEventListener('click', triggerEmergencyFleetTrip);
+      if (btnFleetReset) btnFleetReset.addEventListener('click', triggerFleetReset);
+      if (btnFleetAlertReset) btnFleetAlertReset.addEventListener('click', triggerFleetReset);
+      if (btnLeaderStepDown) btnLeaderStepDown.addEventListener('click', triggerLeaderStepDown);
+
+      function updateFleetUI(metrics) {
+        if (!metrics) return;
+        if (metrics.backend_type && fleetBackendTag) {
+          var bType = metrics.backend_type === 'MockRedisClient' ? 'MOCK IN-MEMORY' : (metrics.backend_type === 'RESPRedisClient' ? 'RESP2 (127.0.0.1:6379)' : metrics.backend_type);
+          fleetBackendTag.textContent = bType;
+        }
+        if (metrics.cluster_leader) {
+          var cl = metrics.cluster_leader;
+          if (fleetLeaderBadge && fleetLeaderText) {
+            if (cl.is_leader) {
+              fleetLeaderBadge.className = 'fleet-badge leader-badge';
+              fleetLeaderText.textContent = 'LEADER [' + escapeHtml(cl.local_node_id || 'local') + ']';
+              if (btnLeaderStepDown) btnLeaderStepDown.style.display = 'inline-flex';
+            } else {
+              fleetLeaderBadge.className = 'fleet-badge standby';
+              var leadId = cl.leader_node_id ? cl.leader_node_id : 'STANDBY';
+              fleetLeaderText.textContent = 'STANDBY [Leader: ' + escapeHtml(leadId) + ']';
+              if (btnLeaderStepDown) btnLeaderStepDown.style.display = 'none';
+            }
+          }
+          if (fleetNodesCountTag) {
+            var ncount = cl.nodes_count || (cl.roster ? cl.roster.length : 1);
+            fleetNodesCountTag.textContent = ncount + (ncount === 1 ? ' Node' : ' Nodes');
+          }
+        }
+        if (fleetWorkersList) {
+          fleetWorkersList.innerHTML = '';
+          var workers = metrics.active_workers || [];
+          if (workers.length === 0) {
+            fleetWorkersList.innerHTML = '<span class="fleet-worker-pill"><span class="fleet-worker-dot"></span>standby</span>';
+          } else {
+            workers.forEach(function(w) {
+              var pill = document.createElement('span');
+              pill.className = 'fleet-worker-pill';
+              pill.innerHTML = '<span class="fleet-worker-dot"></span>' + escapeHtml(w);
+              fleetWorkersList.appendChild(pill);
+            });
+          }
+        }
+        var pol = metrics.policy || {};
+        var maxTurns = pol.max_turns || null;
+        var tokBudget = pol.token_budget || null;
+        var costBudget = pol.cost_budget || null;
+
+        var turns = metrics.total_turns || 0;
+        var tokens = metrics.total_tokens || 0;
+        var cost = metrics.total_cost || 0.0;
+
+        if (fleetTurnsVal) fleetTurnsVal.textContent = turns + ' / ' + (maxTurns ? maxTurns : '--');
+        if (fleetTurnsFill) {
+          var pct = maxTurns ? Math.min(100, (turns / maxTurns) * 100) : 0;
+          fleetTurnsFill.style.width = pct + '%';
+          fleetTurnsFill.className = 'fleet-progress-fill' + (pct >= 100 ? ' danger' : (pct >= 80 ? ' warning' : ''));
+        }
+
+        if (fleetTokensVal) fleetTokensVal.textContent = tokens.toLocaleString() + ' / ' + (tokBudget ? tokBudget.toLocaleString() : '--');
+        if (fleetTokensFill) {
+          var pctT = tokBudget ? Math.min(100, (tokens / tokBudget) * 100) : 0;
+          fleetTokensFill.style.width = pctT + '%';
+          fleetTokensFill.className = 'fleet-progress-fill' + (pctT >= 100 ? ' danger' : (pctT >= 80 ? ' warning' : ''));
+        }
+
+        if (fleetCostVal) fleetCostVal.textContent = '$' + cost.toFixed(4) + ' / ' + (costBudget ? '$' + costBudget.toFixed(2) : '--');
+        if (fleetCostFill) {
+          var pctC = costBudget ? Math.min(100, (cost / costBudget) * 100) : 0;
+          fleetCostFill.style.width = pctC + '%';
+          fleetCostFill.className = 'fleet-progress-fill' + (pctC >= 100 ? ' danger' : (pctC >= 80 ? ' warning' : ''));
+        }
+
+        if (metrics.is_tripped) {
+          renderFleetTripAlert({
+            reason: metrics.trip_reason || 'Fleet quota ceiling reached',
+            tripped_by: metrics.tripped_by || 'cluster-worker',
+          });
+        } else {
+          clearFleetTripAlert();
+        }
+      }
+
+      function renderFleetTripAlert(data) {
+        if (fleetClusterBadge) {
+          fleetClusterBadge.className = 'fleet-badge tripped';
+          if (fleetStatusText) fleetStatusText.textContent = 'REDIS: TRIPPED';
+        }
+        if (fleetTripAlert) {
+          fleetTripAlert.style.display = 'flex';
+          if (fleetTripReason) fleetTripReason.textContent = data.reason || 'Distributed quota breach';
+          if (fleetTrippedBy) fleetTrippedBy.textContent = 'by ' + (data.tripped_by || 'peer-worker');
+        }
+      }
+
+      function clearFleetTripAlert() {
+        if (fleetClusterBadge) {
+          fleetClusterBadge.className = 'fleet-badge';
+          if (fleetStatusText) fleetStatusText.textContent = 'REDIS: CONNECTED';
+        }
+        if (fleetTripAlert) {
+          fleetTripAlert.style.display = 'none';
+        }
+      }
+
+      async function fetchFleetMetrics() {
+        try {
+          var res = await fetch('/api/v1/fleet/redis/metrics?swarm_id=swarm-live-01');
+          if (res.ok) {
+            var data = await res.json();
+            updateFleetUI(data);
+          }
+        } catch(e) {}
+      }
+
+      async function triggerEmergencyFleetTrip() {
+        var reason = prompt("Enter Emergency Trip Reason for Redis Fleet:", "Operator emergency halt via console");
+        if (!reason) return;
+        try {
+          var hdrs = { 'Content-Type': 'application/json' };
+          var activeMfa = sessionStorage.getItem('swarmwatch_mfa_code');
+          if (activeMfa) hdrs['X-MFA-Code'] = activeMfa;
+          var res = await fetch('/api/v1/fleet/redis/trip', {
+            method: 'POST',
+            headers: hdrs,
+            body: JSON.stringify({
+              swarm_id: 'swarm-live-01',
+              reason: reason,
+              tripped_by: 'console-operator',
+              metric_val: 1.0
+            })
+          });
+          if (res.ok) {
+            showToast('Distributed emergency trip broadcast to Redis fleet', 'danger');
+            fetchFleetMetrics();
+          } else if (res.status === 403) {
+            showToast('MFA step-up authorization required to trip fleet', 'danger');
+            if (mfaModal) mfaModal.style.display = 'flex';
+          }
+        } catch(e) {
+          showToast('Failed to trip fleet: ' + e.message, 'danger');
+        }
+      }
+
+      async function triggerFleetReset() {
+        try {
+          var hdrs = { 'Content-Type': 'application/json' };
+          var activeMfa = sessionStorage.getItem('swarmwatch_mfa_code');
+          if (activeMfa) hdrs['X-MFA-Code'] = activeMfa;
+          var res = await fetch('/api/v1/fleet/redis/reset', {
+            method: 'POST',
+            headers: hdrs,
+            body: JSON.stringify({ swarm_id: 'swarm-live-01' })
+          });
+          if (res.ok) {
+            showToast('Redis fleet state reset and circuit re-armed', 'success');
+            clearFleetTripAlert();
+            fetchFleetMetrics();
+          } else if (res.status === 403) {
+            showToast('MFA step-up authorization required to reset fleet', 'danger');
+            if (mfaModal) mfaModal.style.display = 'flex';
+          }
+        } catch(e) {
+          showToast('Failed to reset fleet: ' + e.message, 'danger');
+        }
+      }
+
+      async function triggerLeaderStepDown() {
+        if (!confirm("Step down as active cluster leader? Another standby node will assume leadership.")) return;
+        try {
+          var res = await fetch('/api/v1/cluster/leader/step-down', { method: 'POST' });
+          if (res.ok) {
+            showToast('Voluntarily relinquished cluster leadership', 'warning');
+            fetchFleetMetrics();
+          }
+        } catch(e) {
+          showToast('Failed to step down: ' + e.message, 'danger');
+        }
+      }
+
+      var btnArchiveSwarm = document.getElementById('btnArchiveSwarm');
+      if (btnArchiveSwarm) {
+        btnArchiveSwarm.addEventListener('click', async function() {
+          var targetSwarm = (typeof currentSwarmId !== 'undefined' && currentSwarmId) ? currentSwarmId : 'swarm-live-01';
+          if (!confirm("Archive telemetry for swarm '" + targetSwarm + "' to S3/GCS cold object storage?")) return;
+          try {
+            var res = await fetch('/api/v1/storage/archive/' + targetSwarm, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ delete_local: false })
+            });
+            var data = await res.json();
+            if (res.ok && data.record) {
+              var archBadge = document.getElementById('fleetArchiveStatusBadge');
+              if (archBadge) archBadge.style.display = 'inline-flex';
+              showToast("Swarm archived! Compression ratio: " + data.record.compression_ratio + "x", "success");
+            } else {
+              showToast("Archive failed: " + (data.detail || data.message || "Unknown error"), "danger");
+            }
+          } catch(e) {
+            showToast("Archive error: " + e.message, "danger");
+          }
+        });
+      }
+
+      fetchFleetMetrics();
+      setInterval(fetchFleetMetrics, 4000);
+
       loadProjects();
+      loadBranches();
 
       initWebSocket();
 
@@ -3277,8 +6880,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         SIMULATION_DATA.forEach(function(item) {
           spans.push(item);
           renderSpan(item);
-          selectSpan(item);
         });
+        selectSpanByIndex(0);
         document.getElementById('metricSpans').textContent = spans.length.toString();
         document.getElementById('turnCounter').textContent = spans.length + ' Turns Recorded';
         document.getElementById('metricEntropy').textContent = '0.18';
@@ -3289,6 +6892,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         newKeySecret.textContent = 'sw_live_9xK2mP4vL8nQ1wZ7eR3tY6uI';
         newKeyBanner.style.display = 'block';
       }
+      if (window.location.search.indexOf('modal=fork') !== -1) {
+        SIMULATION_DATA.forEach(function(item) {
+          spans.push(item);
+          renderSpan(item);
+        });
+        selectSpanByIndex(1);
+        openForkModal();
+      }
+      if (window.location.search.indexOf('modal=mfa') !== -1) {
+        if (mfaModal) mfaModal.style.display = 'flex';
+        if (mfaSecretKey) mfaSecretKey.textContent = 'JBSWY3DPEHPK3PXP';
+        if (mfaUriText) mfaUriText.textContent = 'otpauth://totp/SwarmWatch:admin?secret=JBSWY3DPEHPK3PXP&issuer=SwarmWatch';
+        if (mfaEnrollSection) mfaEnrollSection.style.display = 'flex';
+        if (mfaBackupCodes) {
+          mfaBackupCodes.innerHTML = '<span style="padding: 4px 6px; background: var(--bg-canvas); border-radius: 3px; border: 1px solid var(--border-subtle); text-align: center;">A1B2-C3D4</span><span style="padding: 4px 6px; background: var(--bg-canvas); border-radius: 3px; border: 1px solid var(--border-subtle); text-align: center;">E5F6-G7H8</span>';
+        }
+      }
+      refreshAuthSession();
 
       if (fullUrl.indexOf('view=dag') !== -1) {
         switchView('dag');
@@ -6860,6 +10481,145 @@ def create_app(
         if not receipt:
             raise HTTPException(status_code=404, detail=f"Receipt '{receipt_id}' not found")
         return receipt.to_dict()
+
+    # -------------------------------------------------------------------------
+    # ADR 0083: Dynamic Agent Federation & Swarm Mesh Topology Routing (Seam 72)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/federation/register-peer")
+    @app.post("/api/v1/mesh/register-peer")
+    async def mesh_register_peer_endpoint(req: MeshPeerRegisterModel):
+        """Registers a swarm agent node into the mesh topology graph with public key."""
+        try:
+            peer = global_mesh_router.register_peer(
+                node_id=req.node_id,
+                cluster_id=req.cluster_id,
+                tenant_id=req.tenant_id,
+                endpoint_url=req.endpoint_url,
+                public_key_hex=req.public_key_hex,
+                role=req.role,
+                capabilities=req.capabilities,
+                latency_ms=req.latency_ms,
+                signature=req.signature,
+            )
+            return peer.to_dict()
+        except MeshPeerAuthenticationError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except MeshFederationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/federation/establish-link")
+    @app.post("/api/v1/mesh/establish-link")
+    async def mesh_establish_link_endpoint(req: MeshLinkEstablishModel):
+        """Establishes a weighted directed or bidirectional edge between mesh peers."""
+        try:
+            success = global_mesh_router.establish_link(
+                source_node_id=req.source_node_id,
+                target_node_id=req.target_node_id,
+                weight_cost=req.weight_cost,
+                latency_ms=req.latency_ms,
+                bidirectional=req.bidirectional,
+            )
+            return {"status": "LINK_ESTABLISHED", "success": success}
+        except MeshDestinationUnreachableError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except MeshFederationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/federation/heartbeat")
+    @app.post("/api/v1/mesh/heartbeat")
+    async def mesh_heartbeat_endpoint(req: MeshHeartbeatModel):
+        """Refreshes peer liveness heartbeat to prevent stale node eviction."""
+        ok = global_mesh_router.heartbeat(req.node_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail=f"Peer '{req.node_id}' not found")
+        return {"status": "HEARTBEAT_ACK", "node_id": req.node_id}
+
+    @app.post("/api/v1/federation/route")
+    @app.post("/api/v1/mesh/route")
+    async def mesh_route_endpoint(req: MeshPacketRouteModel):
+        """Routes a data or execution packet across the swarm mesh with Dijkstra shortest path."""
+        import uuid
+        packet_id = req.packet_id or f"pkt-{uuid.uuid4().hex[:12]}"
+        packet = MeshPacket(
+            packet_id=packet_id,
+            source_node_id=req.source_node_id,
+            dest_node_id=req.dest_node_id,
+            tenant_id=req.tenant_id,
+            payload=req.payload,
+            capability_token=req.capability_token,
+            hop_count=req.hop_count,
+            max_hops=req.max_hops,
+            signature=req.signature,
+        )
+        try:
+            receipt = global_mesh_router.route_packet(packet)
+            return receipt.to_dict()
+        except MeshCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except MeshCapabilityFencingError as e:
+            raise HTTPException(status_code=403, detail=str(e))
+        except MeshHopLimitExceededError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except MeshRoutingLoopError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except MeshDestinationUnreachableError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except MeshFederationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/federation/path")
+    @app.get("/api/v1/mesh/path")
+    async def mesh_path_endpoint(source_node_id: str, dest_node_id: str, tenant_id: Optional[str] = None):
+        """Computes optimal shortest path between peers without dispatching a packet."""
+        try:
+            path = global_mesh_router.find_optimal_path(source_node_id, dest_node_id, tenant_id=tenant_id)
+            return {
+                "source_node_id": source_node_id,
+                "dest_node_id": dest_node_id,
+                "path": path,
+                "hops": max(0, len(path) - 1),
+            }
+        except MeshDestinationUnreachableError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except MeshFederationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/federation/peers")
+    @app.get("/api/v1/mesh-router/peers")
+    async def federation_peers_endpoint(tenant_id: Optional[str] = None):
+        """Lists registered mesh peers in federation router, optionally filtered by tenant ID."""
+        peers = global_mesh_router.list_peers(tenant_id=tenant_id)
+        return [p.to_dict() for p in peers]
+
+    @app.get("/api/v1/federation/links")
+    @app.get("/api/v1/mesh/links")
+    async def mesh_links_endpoint():
+        """Lists all active and inactive directed topology links in the mesh graph."""
+        links = global_mesh_router.list_links()
+        return [l.to_dict() for l in links]
+
+    @app.get("/api/v1/federation/status")
+    @app.get("/api/v1/mesh-router/status")
+    async def federation_status_endpoint():
+        """Returns live operational statistics for dynamic agent mesh federation."""
+        return global_mesh_router.status()
+
+    @app.get("/api/v1/federation/receipts")
+    @app.get("/api/v1/mesh/receipts")
+    async def mesh_receipts_endpoint(tenant_id: Optional[str] = None, limit: int = 100):
+        """Lists recorded tamper-evident mesh routing receipts."""
+        receipts = global_mesh_router.get_receipts(tenant_id=tenant_id, limit=limit)
+        return [r.to_dict() for r in receipts]
+
+    @app.get("/api/v1/federation/receipts/{receipt_id}")
+    @app.get("/api/v1/mesh/receipts/{receipt_id}")
+    async def mesh_receipt_by_id_endpoint(receipt_id: str):
+        """Retrieves a mesh routing receipt by receipt ID."""
+        receipt = global_mesh_router.get_receipt(receipt_id)
+        if not receipt:
+            raise HTTPException(status_code=404, detail=f"Routing receipt '{receipt_id}' not found")
+        return receipt.to_dict()
+
 
 
 

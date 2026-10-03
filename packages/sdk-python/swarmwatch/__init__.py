@@ -1070,7 +1070,26 @@ from swarmwatch.action_gateway import (
     ActionGateway,
     global_action_gateway,
 )
-
-
-
-
+from swarmwatch.mesh_federation import (
+    MeshFederationError,
+    MeshPeerAuthenticationError,
+    MeshRoutingLoopError,
+    MeshHopLimitExceededError,
+    MeshDestinationUnreachableError,
+    MeshCapabilityFencingError,
+    MeshCircuitTrippedError,
+    MeshNodeStatus,
+    MeshNodeRole,
+    MeshRoutingStatus,
+    PeerNode,
+    MeshLink,
+    PeerHandshakeRequest,
+    PeerHandshakeResponse,
+    MeshPacket,
+    MeshRoutingReceipt,
+    MeshFederationRouter,
+    global_mesh_router,
+    generate_peer_keypair,
+    sign_peer_data,
+    verify_peer_data,
+)

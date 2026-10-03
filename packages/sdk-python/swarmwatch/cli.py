@@ -610,6 +610,21 @@ def main(argv=None):
     gateway_parser.add_argument("--reversibility", choices=["REVERSIBLE", "COMPENSATABLE", "IRREVERSIBLE"], default=None, help="Action reversibility classification")
     gateway_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch federation` subcommand (Seam 72 / ADR 0083)
+    federation_parser = subparsers.add_parser("federation", aliases=["fed", "swarm-mesh", "mesh-router"], help="Dynamic Agent Federation and Swarm Mesh Topology Routing (ADR 0083)")
+    federation_parser.add_argument("action", choices=["peers", "links", "register", "link", "route", "path", "status", "receipts", "receipt"], default="status", nargs="?", help="Federation action (peers, links, register, link, route, path, status, receipts, receipt)")
+    federation_parser.add_argument("--node-id", default=None, help="Node ID for peer registration or heartbeat")
+    federation_parser.add_argument("--cluster-id", default="cluster-default", help="Cluster ID for peer registration")
+    federation_parser.add_argument("--tenant-id", default="tenant-default", help="Tenant ID context")
+    federation_parser.add_argument("--endpoint", default="http://127.0.0.1:8000", help="Endpoint URL for node")
+    federation_parser.add_argument("--role", default="WORKER", choices=["EDGE", "GATEWAY", "WORKER", "ROUTER"], help="Node role")
+    federation_parser.add_argument("--source", default=None, help="Source node ID for link/route/path")
+    federation_parser.add_argument("--target", default=None, help="Target or destination node ID for link/route/path")
+    federation_parser.add_argument("--weight", type=float, default=1.0, help="Link weight cost for Dijkstra")
+    federation_parser.add_argument("--token", default=None, help="Capability token for cross-tenant transit")
+    federation_parser.add_argument("--receipt-id", default=None, help="Receipt ID for lookup")
+    federation_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -5725,6 +5740,170 @@ def main(argv=None):
                 print(f"  Pending Approvals:  {st.get('pending_approvals_count', 0)}")
                 print(f"  Executed Receipts:  {st.get('executed_receipts_count', 0)}")
                 print(f"  Failed Receipts:    {st.get('failed_receipts_count', 0)}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("mesh", "federation"):
+        from swarmwatch.mesh_federation import (
+            global_mesh_router,
+            MeshPacket,
+            MeshFederationError,
+            MeshPeerAuthenticationError,
+            MeshRoutingLoopError,
+            MeshHopLimitExceededError,
+            MeshDestinationUnreachableError,
+            MeshCapabilityFencingError,
+            MeshCircuitTrippedError,
+            MeshNodeRole,
+        )
+
+        if args.action == "register":
+            if not args.node_id:
+                print("[ERROR] --node-id is required for register action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                peer = global_mesh_router.register_peer(
+                    node_id=args.node_id,
+                    cluster_id=args.cluster_id,
+                    tenant_id=args.tenant_id,
+                    endpoint_url=args.endpoint,
+                    public_key_hex="cli-registered-key",
+                    role=getattr(MeshNodeRole, args.role, MeshNodeRole.WORKER),
+                )
+                if args.format == "json":
+                    print(json.dumps(peer.to_dict(), indent=2))
+                else:
+                    print(f"Registered mesh peer '{peer.node_id}' in cluster '{peer.cluster_id}' (Tenant: {peer.tenant_id}, Role: {peer.role.value if hasattr(peer.role, 'value') else peer.role})")
+            except MeshFederationError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "link":
+            if not args.source or not args.target:
+                print("[ERROR] --source and --target are required for link action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                global_mesh_router.establish_link(args.source, args.target, weight_cost=args.weight)
+                if args.format == "json":
+                    print(json.dumps({"status": "LINK_ESTABLISHED", "source": args.source, "target": args.target, "weight": args.weight}))
+                else:
+                    print(f"Established bidirectional mesh link: {args.source} <--> {args.target} (Weight: {args.weight})")
+            except MeshFederationError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "path":
+            if not args.source or not args.target:
+                print("[ERROR] --source and --target are required for path action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                path = global_mesh_router.find_optimal_path(args.source, args.target, tenant_id=args.tenant_id)
+                res = {"source": args.source, "target": args.target, "path": path, "hops": max(0, len(path) - 1)}
+                if args.format == "json":
+                    print(json.dumps(res, indent=2))
+                else:
+                    print(f"Optimal Mesh Path: {' -> '.join(path)} ({len(path) - 1} hops)")
+            except MeshFederationError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "route":
+            if not args.source or not args.target:
+                print("[ERROR] --source and --target are required for route action", file=sys.stderr)
+                sys.exit(1)
+            import uuid
+            pkt = MeshPacket(
+                packet_id=f"pkt-{uuid.uuid4().hex[:12]}",
+                source_node_id=args.source,
+                dest_node_id=args.target,
+                tenant_id=args.tenant_id,
+                payload={"cli_dispatched": True},
+                capability_token=args.token,
+            )
+            try:
+                receipt = global_mesh_router.route_packet(pkt)
+                if args.format == "json":
+                    print(json.dumps(receipt.to_dict(), indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH MESH ROUTING RECEIPT (ADR 0083)                    |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Receipt ID:         {receipt.receipt_id}")
+                    print(f"  Packet ID:          {receipt.packet_id}")
+                    print(f"  Route Traversed:    {' -> '.join(receipt.path_traversed)}")
+                    print(f"  Total Hops:         {receipt.total_hops}")
+                    print(f"  Status:             {receipt.status.value if hasattr(receipt.status, 'value') else receipt.status}")
+                    print(f"  Duration (us):      {receipt.duration_us:.2f}µs")
+                    print(f"  SHA-256 Digest:     {receipt.receipt_hash[:32]}...")
+                    print("+---------------------------------------------------------------+\n")
+            except MeshFederationError as e:
+                print(f"[ROUTING ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "peers":
+            peers = global_mesh_router.list_peers(tenant_id=args.tenant_id if args.tenant_id != "tenant-default" else None)
+            if args.format == "json":
+                print(json.dumps([p.to_dict() for p in peers], indent=2))
+            else:
+                print(f"Federated Mesh Peers ({len(peers)}):")
+                for p in peers:
+                    role_str = p.role.value if hasattr(p.role, "value") else p.role
+                    st_str = p.status.value if hasattr(p.status, "value") else p.status
+                    print(f"  - [{p.node_id}] {p.endpoint_url} (Role: {role_str}, Status: {st_str}, Tenant: {p.tenant_id})")
+            sys.exit(0)
+
+        elif args.action == "links":
+            links = global_mesh_router.list_links()
+            if args.format == "json":
+                print(json.dumps([l.to_dict() for l in links], indent=2))
+            else:
+                print(f"Mesh Topology Links ({len(links)}):")
+                for l in links:
+                    st = "ACTIVE" if l.is_active else "INACTIVE"
+                    print(f"  - {l.source_node_id} -> {l.target_node_id} (Cost: {l.weight_cost}, Latency: {l.latency_ms:.1f}ms, [{st}])")
+            sys.exit(0)
+
+        elif args.action == "receipts":
+            receipts = global_mesh_router.get_receipts(tenant_id=args.tenant_id if args.tenant_id != "tenant-default" else None)
+            if args.format == "json":
+                print(json.dumps([r.to_dict() for r in receipts], indent=2))
+            else:
+                print(f"Mesh Routing Receipts ({len(receipts)}):")
+                for r in receipts:
+                    st_str = r.status.value if hasattr(r.status, "value") else r.status
+                    print(f"  - [{r.receipt_id}] {r.source_node_id}->{r.dest_node_id} ({st_str}, {r.total_hops} hops) in {r.duration_us:.1f}µs -> {r.receipt_hash[:20]}...")
+            sys.exit(0)
+
+        elif args.action == "receipt":
+            if not args.receipt_id:
+                print("[ERROR] --receipt-id is required for receipt action", file=sys.stderr)
+                sys.exit(1)
+            rcpt = global_mesh_router.get_receipt(args.receipt_id)
+            if not rcpt:
+                print(f"Receipt '{args.receipt_id}' not found.", file=sys.stderr)
+                sys.exit(1)
+            if args.format == "json":
+                print(json.dumps(rcpt.to_dict(), indent=2))
+            else:
+                print(f"Receipt: {rcpt.receipt_id} (Status: {rcpt.status}, Hash: {rcpt.receipt_hash})")
+            sys.exit(0)
+
+        elif args.action == "status":
+            st = global_mesh_router.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH DYNAMIC AGENT FEDERATION STATUS (ADR 0083)         |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Online Peers:       {st.get('online_peers_count', 0)} / {st.get('total_peers_count', 0)}")
+                print(f"  Active Links:       {st.get('active_links_count', 0)}")
+                print(f"  Active Sessions:    {st.get('active_sessions_count', 0)}")
+                print(f"  Total Receipts:     {st.get('total_receipts_recorded', 0)}")
+                print(f"  Circuit Tripped:    {st.get('circuit_tripped', False)}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

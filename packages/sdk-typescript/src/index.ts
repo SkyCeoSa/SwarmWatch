@@ -1000,5 +1000,33 @@ export {
   globalActionGateway,
 } from "./action_gateway.ts";
 
-
-
+// Dynamic Agent Federation & Swarm Mesh Topology Routing (Seam 72 / ADR 0083)
+export type {
+  PeerNodeData,
+  MeshLinkData,
+  PeerHandshakeRequestData,
+  PeerHandshakeResponseData,
+  MeshPacketData,
+  MeshRoutingReceiptData,
+} from "./mesh_federation.ts";
+export {
+  MeshFederationError,
+  MeshPeerAuthenticationError,
+  MeshRoutingLoopError,
+  MeshHopLimitExceededError,
+  MeshDestinationUnreachableError,
+  MeshCapabilityFencingError,
+  MeshCircuitTrippedError,
+  MeshNodeStatus as FederationNodeStatus,
+  MeshNodeRole,
+  MeshRoutingStatus,
+  PeerNode,
+  MeshLink,
+  MeshPacket,
+  MeshRoutingReceipt,
+  MeshFederationRouter,
+  globalMeshRouter,
+  generatePeerKeypair,
+  signPeerData,
+  verifyPeerData,
+} from "./mesh_federation.ts";

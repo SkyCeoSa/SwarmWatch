@@ -1680,6 +1680,30 @@ _Avoid_: Approval pending, unapproved error, quorum not reached, permission bloc
 The cryptographically verifiable execution proof recording execution status, microsecond duration, result summary, and canonical SHA-256 digest (`sw:act:v1:...`).
 _Avoid_: Tool execution log, action output, execution trace, receipt dump
 
+---
+
+### Dynamic Agent Federation & Swarm Mesh Topology Routing (Seam 72 / ADR 0083)
+
+**MeshFederationRouter**:
+The deep module coordinating decentralized zero-trust agent peer discovery, mutual cryptographic handshakes, loop-free Dijkstra shortest-path routing, hop-limit (TTL) enforcement, cross-tenant capability fencing, fail-closed circuit coupling, and tamper-evident routing receipts.
+_Avoid_: Peer proxy, swarm gateway, message bus, packet forwarder
+
+**PeerNode**:
+An authenticated node in the swarm mesh topology graph binding unique node identifier, cluster ID, tenant context, endpoint URL, public key, and operational role (`EDGE`, `GATEWAY`, `WORKER`, `ROUTER`).
+_Avoid_: Agent worker, cluster box, machine instance, endpoint host
+
+**MeshLink**:
+A directed or bidirectional weighted edge connecting two mesh peer nodes in the topology graph with associated traversal cost and estimated latency.
+_Avoid_: Network pipe, socket connection, edge channel, hop link
+
+**MeshPacket**:
+An immutable routed telemetry or task execution envelope carrying payload data, source/destination node IDs, tenant context, hop counters, traversal path, and capability authorization tokens.
+_Avoid_: Message frame, event packet, network chunk, telemetry datagram
+
+**MeshRoutingReceipt**:
+The cryptographically verifiable routing proof (`sw:mesh:v1:...`) recording packet identifier, traversed node sequence, hop count, status (`DELIVERED`, `ROUTED_RELAY`, `DROPPED_TTL`, `BLOCKED_CIRCUIT`, `FAILED_CAPABILITY`, `DESTINATION_UNREACHABLE`, `ROUTING_LOOP`), microsecond duration, and canonical SHA-256 digest.
+_Avoid_: Delivery log, route audit, path trace, routing dump
+
 
 
 
