@@ -975,4 +975,30 @@ export {
   globalDatacenterOrchestrator,
 } from "./datacenter_exercise.ts";
 
+// Autonomous Action Gateway & Governed Downstream Agent Execution (Seam 71 / ADR 0082)
+export type {
+  ActionRegistrationData,
+  ActionApprovalData,
+  ActionRequestData,
+  ActionExecutionReceiptData,
+  ActionHandler,
+  CapabilityValidator,
+} from "./action_gateway.ts";
+export {
+  ActionGatewayError,
+  UnauthorizedActionError,
+  ActionQuorumPendingError,
+  ActionCircuitBlockedError,
+  ActionExecutionFailedError,
+  ActionRiskLevel,
+  ActionApprovalStatus,
+  ActionRegistration,
+  ActionApproval,
+  ActionRequest,
+  ActionExecutionReceipt,
+  ActionGateway,
+  globalActionGateway,
+} from "./action_gateway.ts";
+
+
 

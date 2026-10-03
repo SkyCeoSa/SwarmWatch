@@ -354,6 +354,22 @@ from swarmwatch.datacenter_exercise import (
     DatacenterFailureOrchestrator,
     global_datacenter_orchestrator,
 )
+from swarmwatch.action_gateway import (
+    ActionGatewayError,
+    UnauthorizedActionError,
+    ActionQuorumPendingError,
+    ActionCircuitBlockedError,
+    ActionExecutionFailedError,
+    ActionRiskLevel,
+    ActionApprovalStatus,
+    ActionRegistration,
+    ActionRequest,
+    ActionApproval,
+    ActionExecutionReceipt,
+    ActionGateway,
+    global_action_gateway,
+)
+
 
 
 from swarmwatch.circuit import (
@@ -1098,6 +1114,31 @@ class ExerciseBroadcastTripRequest(BaseModel):
 class ExerciseRunRequest(BaseModel):
     scenario: str = "REGION_SEVERED"
     target_severed_regions: Optional[List[str]] = None
+
+
+class GatewayActionRequestModel(BaseModel):
+    tenant_id: str = "tenant-prod-01"
+    agent_id: str = "agent-01"
+    action_name: str
+    target_resource: str
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    capability_token: Optional[str] = None
+    estimated_cost_usd: float = 0.0
+    reversibility_class: Optional[str] = None
+    request_id: Optional[str] = None
+
+
+class GatewayActionApproveModel(BaseModel):
+    request_id: str
+    approver_principal: str
+    decision: str = "APPROVED"
+    comment: str = ""
+    signature: str = ""
+
+
+class GatewayActionExecuteModel(BaseModel):
+    request_id: str
+
 
 
 
@@ -6738,6 +6779,88 @@ def create_app(
         if not reports:
             raise HTTPException(status_code=404, detail="No failure exercise reports found")
         return reports[-1].to_dict()
+
+    # -------------------------------------------------------------------------
+    # ADR 0082: Autonomous Action Gateway & Governed Downstream Execution (Seam 71)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/gateway/request")
+    async def gateway_request_endpoint(req: GatewayActionRequestModel):
+        """Submits downstream agent action request for capability check and quorum evaluation."""
+        try:
+            action_req = global_action_gateway.request_action(
+                tenant_id=req.tenant_id,
+                agent_id=req.agent_id,
+                action_name=req.action_name,
+                target_resource=req.target_resource,
+                parameters=req.parameters,
+                capability_token=req.capability_token,
+                estimated_cost_usd=req.estimated_cost_usd,
+                reversibility_class=req.reversibility_class,
+                explicit_request_id=req.request_id,
+            )
+            return action_req.to_dict()
+        except UnauthorizedActionError as e:
+            raise HTTPException(status_code=403, detail=str(e))
+        except ActionCircuitBlockedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except ActionGatewayError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/gateway/approve")
+    async def gateway_approve_endpoint(req: GatewayActionApproveModel):
+        """Records human operator approval or rejection for a pending action request."""
+        try:
+            action_req = global_action_gateway.approve_action(
+                request_id=req.request_id,
+                approver_principal=req.approver_principal,
+                decision=req.decision,
+                comment=req.comment,
+                signature=req.signature,
+            )
+            return action_req.to_dict()
+        except ActionGatewayError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/gateway/execute")
+    async def gateway_execute_endpoint(req: GatewayActionExecuteModel):
+        """Dispatches an approved action to its registered executor and mints execution receipt."""
+        try:
+            receipt = global_action_gateway.execute_action(request_id=req.request_id)
+            return receipt.to_dict()
+        except ActionQuorumPendingError as e:
+            raise HTTPException(status_code=428, detail=str(e))  # 428 Precondition Required
+        except ActionCircuitBlockedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except ActionExecutionFailedError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        except ActionGatewayError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/gateway/pending")
+    async def gateway_pending_endpoint(tenant_id: Optional[str] = None):
+        """Lists pending action requests awaiting operator approval."""
+        pending = global_action_gateway.get_pending_approvals(tenant_id=tenant_id)
+        return [r.to_dict() for r in pending]
+
+    @app.get("/api/v1/gateway/status")
+    async def gateway_status_endpoint():
+        """Returns live operational diagnostics of the Action Gateway."""
+        return global_action_gateway.status()
+
+    @app.get("/api/v1/gateway/receipts")
+    async def gateway_receipts_endpoint(tenant_id: Optional[str] = None):
+        """Lists recorded execution receipts."""
+        receipts = global_action_gateway.get_receipts(tenant_id=tenant_id)
+        return [r.to_dict() for r in receipts]
+
+    @app.get("/api/v1/gateway/receipts/{receipt_id}")
+    async def gateway_receipt_by_id_endpoint(receipt_id: str):
+        """Retrieves an execution receipt by ID."""
+        receipt = global_action_gateway.get_receipt(receipt_id)
+        if not receipt:
+            raise HTTPException(status_code=404, detail=f"Receipt '{receipt_id}' not found")
+        return receipt.to_dict()
+
 
 
 

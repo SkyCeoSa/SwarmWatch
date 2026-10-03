@@ -1757,6 +1757,10 @@
             <span class="status-indicator" id="datacenterDot" style="background: var(--success);"></span>
             <span id="datacenterText">DATACENTER: QUORUM RESILIENT</span>
           </div>
+          <div class="fleet-badge" id="gatewayBadge" title="Autonomous Action Gateway & Governed Downstream Execution (ADR 0082)">
+            <span class="status-indicator" id="gatewayDot" style="background: var(--success);"></span>
+            <span id="gatewayText">GATEWAY: AUTONOMOUS OK</span>
+          </div>
         </div>
 
 
@@ -5081,6 +5085,30 @@
       }
       refreshDatacenterStatus();
       setInterval(refreshDatacenterStatus, 10000);
+
+      async function refreshGatewayStatus() {
+        var gatewayDot = document.getElementById('gatewayDot');
+        var gatewayText = document.getElementById('gatewayText');
+        try {
+          var res = await fetch('/api/v1/gateway/status');
+          if (res.ok) {
+            var data = await res.json();
+            var isTripped = data.circuit_tripped || false;
+            var pendingCount = data.pending_requests_count || 0;
+            if (gatewayDot) {
+              gatewayDot.style.background = isTripped ? 'var(--danger)' : (pendingCount > 0 ? 'var(--warning)' : 'var(--success)');
+            }
+            if (gatewayText) {
+              var badgeStr = isTripped
+                ? 'GATEWAY: CIRCUIT BLOCKED'
+                : (pendingCount > 0 ? ('GATEWAY: ' + pendingCount + ' PENDING') : 'GATEWAY: AUTONOMOUS OK');
+              gatewayText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshGatewayStatus();
+      setInterval(refreshGatewayStatus, 10000);
 
 
       if (btnMfaModal) {

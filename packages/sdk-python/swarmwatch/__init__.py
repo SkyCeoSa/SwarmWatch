@@ -548,6 +548,20 @@ __all__ = [
     "FailureExerciseReport",
     "DatacenterFailureOrchestrator",
     "global_datacenter_orchestrator",
+    # ADR 0082: Autonomous Action Gateway & Governed Downstream Agent Execution (Seam 71)
+    "ActionGatewayError",
+    "UnauthorizedActionError",
+    "ActionQuorumPendingError",
+    "ActionCircuitBlockedError",
+    "ActionExecutionFailedError",
+    "ActionRiskLevel",
+    "ActionApprovalStatus",
+    "ActionRegistration",
+    "ActionRequest",
+    "ActionApproval",
+    "ActionExecutionReceipt",
+    "ActionGateway",
+    "global_action_gateway",
 ]
 
 
@@ -1041,6 +1055,22 @@ from swarmwatch.datacenter_exercise import (
     DatacenterFailureOrchestrator,
     global_datacenter_orchestrator,
 )
+from swarmwatch.action_gateway import (
+    ActionGatewayError,
+    UnauthorizedActionError,
+    ActionQuorumPendingError,
+    ActionCircuitBlockedError,
+    ActionExecutionFailedError,
+    ActionRiskLevel,
+    ActionApprovalStatus,
+    ActionRegistration,
+    ActionRequest,
+    ActionApproval,
+    ActionExecutionReceipt,
+    ActionGateway,
+    global_action_gateway,
+)
+
 
 
 

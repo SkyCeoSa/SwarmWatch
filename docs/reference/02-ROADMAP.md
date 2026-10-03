@@ -577,10 +577,19 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-50 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
   - Dual-SDK parity across Python (`swarmwatch.datacenter_exercise`) and TypeScript (`@swarmwatch/sdk/src/datacenter_exercise.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/exercise/inject-partition`, `POST /api/v1/exercise/heal-partition`, `POST /api/v1/exercise/permit`, `POST /api/v1/exercise/trip`, `POST /api/v1/exercise/run`, `GET /api/v1/exercise/status`, `GET /api/v1/exercise/report`), CLI subcommand (`swarmwatch exercise run|inject|heal|permit|trip|status|report`), and Web Console `#datacenterBadge` widget.
-- **Upcoming Roadmap (Seams 71+)**:
-  - **Seam 71+**: Autonomous Action Gateway (ADR 0082 / Governed Downstream Agent Execution).
+- **Autonomous Action Gateway & Governed Downstream Execution (Seam 71 & ADR 0082 Dual-SDK Parity)**:
+  - Deep module `ActionGateway` providing a centralized, tamper-evident execution boundary for all downstream agent tool and side-effect calls.
+  - Cryptographic capability token verification (ADR 0076) and fail-closed safety circuit synchronization (ADR 0081) rejecting unauthorized or tripped requests with `UnauthorizedActionError` and `ActionCircuitBlockedError`.
+  - 4-tier risk classification lattice (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) based on action verb reversibility and estimated USD cost.
+  - Multi-party operator quorum gating (`ActionApprovalStatus.PENDING_APPROVAL` $\to$ `APPROVED` $\to$ `EXECUTED`), enforcing operator signoff for high and critical risk actions with `ActionQuorumPendingError`.
+  - Deterministic SHA-256 execution receipts (`ActionExecutionReceipt`) tracking duration with sub-microsecond precision and domain tag `sw:act:v1:...`.
+  - Sub-50 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls.
+  - Dual-SDK parity across Python (`swarmwatch.action_gateway`) and TypeScript (`@swarmwatch/sdk/src/action_gateway.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/gateway/request`, `POST /api/v1/gateway/approve`, `POST /api/v1/gateway/execute`, `GET /api/v1/gateway/pending`, `GET /api/v1/gateway/status`, `GET /api/v1/gateway/receipts`, `GET /api/v1/gateway/receipts/{receipt_id}`), CLI subcommand (`swarmwatch gateway request|approve|execute|pending|status|receipts|receipt`), and Web Console `#gatewayBadge` widget.
+- **Upcoming Roadmap (Seams 72+)**:
+  - **Seam 72+**: Dynamic Agent Federation & Swarm Mesh Topology Routing.
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (604 tests) and TypeScript (495 tests) runtimes (1,099 total tests across 62 test suites).
+  - Full local test suite passing 100% across Python (616 tests) and TypeScript (506 tests) runtimes (1,122 total tests across 63 test suites).
 
 
 

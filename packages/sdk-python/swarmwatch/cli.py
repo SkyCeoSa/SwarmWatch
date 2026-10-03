@@ -595,6 +595,21 @@ def main(argv=None):
     exercise_parser.add_argument("--reason", default="Entropy collapse emergency halt", help="Reason for emergency trip")
     exercise_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch gateway` subcommand (Seam 71 / ADR 0082)
+    gateway_parser = subparsers.add_parser("gateway", aliases=["gw", "action-gw"], help="Autonomous Action Gateway & Governed Downstream Execution (ADR 0082)")
+    gateway_parser.add_argument("action", choices=["request", "approve", "execute", "pending", "status", "receipts", "receipt"], default="status", nargs="?", help="Gateway action (request, approve, execute, pending, status, receipts, receipt)")
+    gateway_parser.add_argument("--action-name", default="db:query", help="Action name to invoke or request")
+    gateway_parser.add_argument("--resource", default="pg://main/data", help="Target resource URI or namespace")
+    gateway_parser.add_argument("--tenant-id", default="tenant-prod-01", help="Tenant ID context")
+    gateway_parser.add_argument("--agent-id", default="agent-01", help="Calling agent ID")
+    gateway_parser.add_argument("--request-id", default=None, help="Action request ID for approve/execute")
+    gateway_parser.add_argument("--receipt-id", default=None, help="Receipt ID for receipt lookup")
+    gateway_parser.add_argument("--approver", default="operator-admin", help="Approver principal ID")
+    gateway_parser.add_argument("--decision", choices=["APPROVED", "REJECTED"], default="APPROVED", help="Approval decision")
+    gateway_parser.add_argument("--cost", type=float, default=0.0, help="Estimated cost in USD")
+    gateway_parser.add_argument("--reversibility", choices=["REVERSIBLE", "COMPENSATABLE", "IRREVERSIBLE"], default=None, help="Action reversibility classification")
+    gateway_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -5582,6 +5597,134 @@ def main(argv=None):
                 print(f"  Permits Issued:     {st.get('issued_permits_count', 0)}")
                 print(f"  Events Recorded:    {st.get('events_recorded', 0)}")
                 print(f"  Exercises Run:      {st.get('total_exercises_run', 0)}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("gateway", "gw", "action-gw"):
+        from swarmwatch.action_gateway import (
+            global_action_gateway,
+            ActionApprovalStatus,
+            ActionGatewayError,
+            ActionQuorumPendingError,
+            UnauthorizedActionError,
+            ActionCircuitBlockedError,
+            ActionExecutionFailedError,
+        )
+
+        if args.action == "request":
+            try:
+                req = global_action_gateway.request_action(
+                    tenant_id=args.tenant_id,
+                    agent_id=args.agent_id,
+                    action_name=args.action_name,
+                    target_resource=args.resource,
+                    parameters={},
+                    estimated_cost_usd=args.cost,
+                    reversibility_class=args.reversibility,
+                )
+                if args.format == "json":
+                    print(json.dumps(req.to_dict(), indent=2))
+                else:
+                    print(f"Action Request Created: {req.request_id} (Status: {req.status.value}, Risk: {req.risk_level.value}, Quorum: {req.required_quorum_count})")
+            except ActionGatewayError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "approve":
+            if not args.request_id:
+                print("[ERROR] --request-id is required for approve action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                req = global_action_gateway.approve_action(
+                    request_id=args.request_id,
+                    approver_principal=args.approver,
+                    decision=args.decision,
+                )
+                if args.format == "json":
+                    print(json.dumps(req.to_dict(), indent=2))
+                else:
+                    print(f"Action Request Approved: {req.request_id} (Status: {req.status.value})")
+            except ActionGatewayError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "execute":
+            if not args.request_id:
+                print("[ERROR] --request-id is required for execute action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                receipt = global_action_gateway.execute_action(request_id=args.request_id)
+                if args.format == "json":
+                    print(json.dumps(receipt.to_dict(), indent=2))
+                else:
+                    print("\n+---------------------------------------------------------------+")
+                    print("| SWARMWATCH ACTION GATEWAY EXECUTION RECEIPT (ADR 0082)        |")
+                    print("+---------------------------------------------------------------+")
+                    print(f"  Receipt ID:         {receipt.receipt_id}")
+                    print(f"  Request ID:         {receipt.request_id}")
+                    print(f"  Action Name:        {receipt.action_name}")
+                    print(f"  Status:             {receipt.status}")
+                    print(f"  Duration (us):      {receipt.duration_us:.2f}µs")
+                    print(f"  SHA-256 Digest:     {receipt.receipt_hash[:24]}...")
+                    print("+---------------------------------------------------------------+\n")
+            except ActionQuorumPendingError as e:
+                print(f"[PENDING QUORUM] {e}", file=sys.stderr)
+                sys.exit(2)
+            except ActionGatewayError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
+        elif args.action == "pending":
+            pending = global_action_gateway.get_pending_approvals(tenant_id=args.tenant_id if args.tenant_id != "tenant-prod-01" else None)
+            if args.format == "json":
+                print(json.dumps([p.to_dict() for p in pending], indent=2))
+            else:
+                print(f"Pending Action Approvals ({len(pending)}):")
+                for p in pending:
+                    print(f"  - [{p.request_id}] {p.action_name} on {p.target_resource} (Risk: {p.risk_level.value}, Required Approvals: {p.required_quorum_count})")
+            sys.exit(0)
+
+        elif args.action == "receipt":
+            if not args.receipt_id:
+                print("[ERROR] --receipt-id is required for receipt action", file=sys.stderr)
+                sys.exit(1)
+            rcpt = global_action_gateway.get_receipt(args.receipt_id)
+            if not rcpt:
+                print(f"Receipt '{args.receipt_id}' not found.", file=sys.stderr)
+                sys.exit(1)
+            if args.format == "json":
+                print(json.dumps(rcpt.to_dict(), indent=2))
+            else:
+                print(f"Receipt: {rcpt.receipt_id} (Status: {rcpt.status}, Hash: {rcpt.receipt_hash})")
+            sys.exit(0)
+
+        elif args.action == "receipts":
+            receipts = global_action_gateway.get_receipts(tenant_id=args.tenant_id if args.tenant_id != "tenant-prod-01" else None)
+            if args.format == "json":
+                print(json.dumps([r.to_dict() for r in receipts], indent=2))
+            else:
+                print(f"Action Execution Receipts ({len(receipts)}):")
+                for r in receipts:
+                    print(f"  - [{r.receipt_id}] {r.action_name} ({r.status}) in {r.duration_us:.1f}µs -> {r.receipt_hash[:16]}...")
+            sys.exit(0)
+
+        elif args.action == "status":
+            st = global_action_gateway.status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ACTION GATEWAY STATUS (ADR 0082)                   |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Circuit Tripped:    {st.get('circuit_tripped', False)}")
+                print(f"  Executors:          {st.get('registered_executors_count', 0)}")
+                print(f"  Total Requests:     {st.get('total_requests', 0)}")
+                print(f"  Pending Approvals:  {st.get('pending_approvals_count', 0)}")
+                print(f"  Executed Receipts:  {st.get('executed_receipts_count', 0)}")
+                print(f"  Failed Receipts:    {st.get('failed_receipts_count', 0)}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:

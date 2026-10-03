@@ -987,6 +987,21 @@ _Avoid_: Hook call, function callback, middleware run
 - **FailureExerciseReport**: The cryptographically signed audit receipt containing exercise identifier, failure scenario, partition status, invariant verification results, and canonical SHA-256 digest (`sw:fail:v1:...`).
   _Avoid_: Chaos test report, drill summary, disaster recovery log, postmortem dump
 
+---
+
+### Autonomous Action Gateway & Governed Downstream Execution (Seam 71 / ADR 0082)
+- **ActionGateway**: The deep module mediating all agent external tool, database, API, and paid model calls through cryptographic capability check, risk tiering, operator quorum, and tamper-evident receipt minting.
+  _Avoid_: Tool router, action proxy, tool dispatcher, execution forwarder
+- **ActionRegistration**: The executor registration contract defining default risk tier, required human quorum count, reversibility class, and downstream callable handler.
+  _Avoid_: Tool registration, action handler config, hook registration
+- **ActionRequest**: The pending or approved execution permit recording tenant identity, agent principal, action name, resource target, risk level, approvals, and execution lifecycle status.
+  _Avoid_: Action payload, execution intent, tool request, command ticket
+- **ActionQuorumPendingError**: The fail-closed exception thrown when execution is attempted on an action that has not achieved required multi-party human operator approval quorum.
+  _Avoid_: Approval pending, unapproved error, quorum not reached, permission blocked
+- **ActionExecutionReceipt**: The cryptographically verifiable execution proof recording execution status, microsecond duration, result summary, and canonical SHA-256 digest (`sw:act:v1:...`).
+  _Avoid_: Tool execution log, action output, execution trace, receipt dump
+
+
 
 
 
