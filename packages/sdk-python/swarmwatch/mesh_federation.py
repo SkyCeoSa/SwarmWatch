@@ -248,7 +248,7 @@ class MeshPacket:
     source_node_id: str
     dest_node_id: str
     tenant_id: str
-    payload: Dict[str, Any]
+    payload: Dict[str, Any] = field(default_factory=dict)
     capability_token: Optional[str] = None
     hop_count: int = 0
     max_hops: int = 16

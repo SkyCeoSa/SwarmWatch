@@ -65,9 +65,9 @@ Whenever beginning a new session or designing new features, consult this index t
 
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
-| **Python Test Suite** | `.venv\Scripts\pytest packages/sdk-python/tests/` | 100% Pass (630/630 tests) |
-| **TypeScript Test Suite** | `npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (519/519 tests) |
-| **Combined Local Baseline** | Full Dual-SDK test suites | 100% Pass (1,149/1,149 tests) |
+| **Python Test Suite** | `.venv\Scripts\pytest packages/sdk-python/tests/` | 100% Pass (631/631 tests) |
+| **TypeScript Test Suite** | `npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (520/520 tests) |
+| **Combined Local Baseline** | Full Dual-SDK test suites | 100% Pass (1,151/1,151 tests) |
 | **Prometheus Exporter** | `curl http://127.0.0.1:8765/metrics` | 100% OpenMetrics 0.0.4 Valid |
 | **Package Distribution Integrity** | `python scripts/verify_release.py --strict` | 100% Valid (Wheel & Tarball) |
 | **Console Craft Floor** | Inspect `dashboard.html` (`#080B11`, `tnum`, badges $\le 30$ chars) | 0 Anti-Patterns |
