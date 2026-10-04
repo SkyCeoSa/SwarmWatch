@@ -624,11 +624,21 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Sub-250 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls ($0.00 USD token cost).
   - Dual-SDK parity across Python (`swarmwatch.zk_rollup`) and TypeScript (`@swarmwatch/sdk/src/zk_rollup.ts`) strictly complying with Node 22 `--experimental-strip-types`.
   - Control plane REST endpoints (`POST /api/v1/rollup/transition`, `POST /api/v1/rollup/commit`, `POST /api/v1/rollup/verify`, `POST /api/v1/rollup/challenge`, `GET /api/v1/rollup/batches`, `GET /api/v1/rollup/receipts`, `GET /api/v1/rollup/status`), CLI subcommand (`swarmwatch zk-rollup transition|commit|verify|batches|receipts|status`), and Web Console `#rollupBadge` widget (`ROLLUP: ROOT SYNC`).
-- **Upcoming Roadmap (Seams 76+)**:
-  - **Seam 76+**: Multi-Cluster Epistemic Proof Verification & Automated Cross-Swarm Dispute Resolution.
+- **Multi-Cluster Epistemic Proof Verification & Automated Cross-Swarm Dispute Resolution (Seam 76 & ADR 0087 Dual-SDK Parity)**:
+  - Deep module `EpistemicArbitrationEngine` coordinating formal epistemic claim registration, directed acyclic deduction graph (`EpistemicProofDAG`) topological verification, DFS cycle/circularity detection, deterministic evidentiary dominance scoring, and binding cross-swarm dispute arbitration.
+  - Directed Acyclic Deduction Graph (`EpistemicProofDAG`) with $O(|\mathcal{V}| + |\mathcal{E}|)$ cycle detection raising `EpistemicCircularityError` on circular reasoning loops ($A \vdash B \vdash A$).
+  - Deterministic evidentiary dominance scoring algebra: $S = 0.50 \cdot \overline{w}_{\text{leaf}} + 0.30 \cdot r_{\text{deduction}} + 0.15 \cdot (c \cdot \mu) - \lambda \cdot \text{depth}$ with modal weighting ($\mu \in \{1.00, 0.95, 0.80\}$).
+  - Binding dispute arbitration verdicts (`CLAIMANT_PREVAILS`, `RESPONDENT_PREVAILS`, `MUTUAL_INVALIDATION`, `DEADLOCKED`, `EPISTEMIC_DIVERGENCE_CIRCUIT_TRIP`) with margin threshold $\theta = 0.10$.
+  - Fail-closed safety circuit coupling: unresolvable deadlocks or high-stakes contradictions trip the global safety circuit, rejecting subsequent claims with `DisputeCircuitTrippedError`.
+  - Cryptographically verifiable tamper-evident dispute resolution receipts (`DisputeResolutionReceipt`) with canonical domain-tagged hash (`sw:dispute:v1:<sha256>`).
+  - Sub-250 microsecond execution latency (audit SLO $<250\mu\text{s}$); zero external LLM API calls ($0.00 USD token cost).
+  - Dual-SDK parity across Python (`swarmwatch.epistemic_arbitration`) and TypeScript (`@swarmwatch/sdk/src/epistemic_arbitration.ts`) strictly complying with Node 22 `--experimental-strip-types`.
+  - Control plane REST endpoints (`POST /api/v1/arbitration/claim`, `POST /api/v1/arbitration/dispute`, `POST /api/v1/arbitration/resolve`, `POST /api/v1/arbitration/verify-receipt`, `GET /api/v1/arbitration/claims`, `GET /api/v1/arbitration/disputes`, `GET /api/v1/arbitration/receipts`, `GET /api/v1/arbitration/status`), CLI subcommand (`swarmwatch epistemic-arbitration claim|dispute|resolve|verify|claims|disputes|receipts|status`), and Web Console `#arbitrationBadge` widget (`ARBITRATION: CLEAR`).
+- **Upcoming Roadmap (Seams 77+)**:
+  - **Seam 77+**: Autonomous Cross-Cluster State Synchronization & Distributed Hyper-Graph Reconciliation.
 - **Complete Test Coverage**:
-  - Full local test suite passing 100% across Python (662 tests) and TypeScript (551 tests) runtimes (1,213 total tests across 69 test suites).
-  - Standalone live console simulation suite (`scripts/simulate_seam75_zk_rollup.py`, `packages/sdk-python/tests/test_seam75_live_simulation.py`, `packages/sdk-typescript/tests/seam75_live_simulation.test.js`) certifying all 8 operational invariants with sub-250µs execution latency.
+  - Full local test suite passing 100% across Python (671 tests) and TypeScript (560 tests) runtimes (1,231 total tests across 71 test suites).
+  - Standalone live console simulation suite (`scripts/simulate_seam76_epistemic_arbitration.py`, `packages/sdk-python/tests/test_seam76_live_simulation.py`, `packages/sdk-typescript/tests/seam76_live_simulation.test.js`) certifying all 8 operational invariants with sub-250µs execution latency.
 
 
 

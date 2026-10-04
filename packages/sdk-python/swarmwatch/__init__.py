@@ -1143,3 +1143,23 @@ from swarmwatch.zk_rollup import (
     ZkRollupEngine,
     global_zk_rollup_engine,
 )
+from swarmwatch.epistemic_arbitration import (
+    EpistemicArbitrationError,
+    DisputeCircuitTrippedError,
+    InvalidEpistemicProofError,
+    EpistemicCircularityError,
+    EpistemicDeadlockError,
+    EpistemicContradictionCircuitError,
+    EpistemicModality,
+    ClaimPolarity,
+    DeductionRule,
+    DisputeStatus,
+    ArbitrationVerdict,
+    ProofNode,
+    EpistemicProofDAG,
+    EpistemicClaim,
+    DisputeCase,
+    DisputeResolutionReceipt,
+    EpistemicArbitrationEngine,
+    global_epistemic_arbitrator,
+)

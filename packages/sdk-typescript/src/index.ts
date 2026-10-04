@@ -1114,3 +1114,32 @@ export {
   globalZkRollupEngine,
 } from "./zk_rollup.ts";
 
+// Multi-Cluster Epistemic Proof Verification & Automated Cross-Swarm Dispute Resolution (Seam 76 / ADR 0087)
+export type {
+  EpistemicModality as EpistemicModalityType,
+  ClaimPolarity as ClaimPolarityType,
+  DeductionRule as DeductionRuleType,
+  DisputeStatus as DisputeStatusType,
+  ArbitrationVerdict as ArbitrationVerdictType,
+  ProofNode,
+  EpistemicClaim,
+  DisputeCase,
+  DisputeResolutionReceipt,
+} from "./epistemic_arbitration.ts";
+export {
+  EpistemicArbitrationError,
+  DisputeCircuitTrippedError,
+  InvalidEpistemicProofError,
+  EpistemicCircularityError,
+  EpistemicDeadlockError,
+  EpistemicContradictionCircuitError,
+  EpistemicModality,
+  ClaimPolarity,
+  DeductionRule,
+  DisputeStatus,
+  ArbitrationVerdict,
+  EpistemicProofDAG,
+  EpistemicArbitrationEngine,
+  globalEpistemicArbitrator,
+} from "./epistemic_arbitration.ts";
+

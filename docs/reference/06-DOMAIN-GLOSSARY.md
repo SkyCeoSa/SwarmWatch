@@ -1788,6 +1788,42 @@ _Avoid_: Sequence gap error, out of order crash, sequence jump fault
 The fail-closed exception raised when an atomic transition asserts an invalid pre-state value hash conflicting with the current sparse state tree slot.
 _Avoid_: Bad state error, state collision exception, invalid mutation crash
 
+---
+
+### Multi-Cluster Epistemic Proof Verification & Automated Cross-Swarm Dispute Resolution (Seam 76 / ADR 0087)
+
+**EpistemicArbitrationEngine**:
+The deterministic control-plane deep module evaluating directed acyclic deduction graphs (`EpistemicProofDAG`), verifying topological acyclicity, computing evidentiary dominance algebra, and rendering binding arbitration verdicts across swarms.
+_Avoid_: Proof validator, debate resolver, contention solver, claim manager
+
+**EpistemicProofDAG**:
+A finite directed acyclic graph $\mathcal{G} = (\mathcal{V}, \mathcal{E})$ encoding formal epistemic deductions from axiomatic and evidentiary grounding leaves up to a root proposition conclusion.
+_Avoid_: Proof tree, logic graph, deduction net, claim graph
+
+**EpistemicClaim**:
+An immutable, authenticated proposition asserted by an agent within a specific swarm, encoding subject, predicate, polarity (`TRUE` vs `FALSE`), epistemic modality (`KNOWS`, `JUSTIFIED`, `BELIEVES`), confidence, and cryptographic evidence hashes.
+_Avoid_: Assertion item, knowledge fact, proposition log, belief entry
+
+**DisputeCase**:
+A formalized adversarial contradiction context instantiated between two opposing epistemic claims asserting contradictory polarities on the identical subject and predicate.
+_Avoid_: Conflict ticket, disagreement case, argument item, split view
+
+**DisputeResolutionReceipt**:
+An immutable, tamper-evident cryptographic receipt (`sw:dispute:v1:<sha256>`) certifying the deterministic evaluation, score delta, and binding resolution verdict of an arbitrated cross-swarm dispute.
+_Avoid_: Dispute cert, arbitration ticket, decision voucher, verdict record
+
+**EvidentiaryDominanceAlgebra**:
+The deterministic scoring function evaluating the intrinsic epistemic weight of a proof DAG based on leaf grounding, deduction validity ratio, modal confidence, and path depth penalty.
+_Avoid_: Scoring formula, proof ranking, claim weighing, confidence calc
+
+**EpistemicCircularityError**:
+The fail-closed exception raised when depth-first cycle traversal detects circular reasoning ($A \vdash \dots \vdash A$) within a proof DAG.
+_Avoid_: Cycle crash, loop error, recursive proof fault, circular deduction exception
+
+**EpistemicDeadlockError**:
+The fail-closed exception raised when opposing epistemic claims exhibit score margins below the deterministic decision threshold $\theta$, requiring safety circuit escalation.
+_Avoid_: Tie fault, deadlock crash, equal score exception, standoff abort
+
 
 
 

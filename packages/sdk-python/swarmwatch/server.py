@@ -1331,6 +1331,34 @@ class RollupChallengeFraudRequest(BaseModel):
     evidence: Dict[str, Any]
 
 
+class ArbitrationClaimRequest(BaseModel):
+    swarm_id: str
+    agent_id: str
+    subject: str
+    predicate: str
+    polarity: str = "TRUE"
+    modality: str = "JUSTIFIED"
+    confidence: float = 1.0
+    evidence_hashes: List[str] = Field(default_factory=list)
+    proof_dag: Optional[Dict[str, Any]] = None
+    claim_id: Optional[str] = None
+
+
+class ArbitrationDisputeRequest(BaseModel):
+    claimant_claim_id: str
+    respondent_claim_id: str
+    dispute_id: Optional[str] = None
+
+
+class ArbitrationResolveRequest(BaseModel):
+    dispute_id: str
+    margin_threshold: Optional[float] = None
+
+
+class ArbitrationVerifyReceiptRequest(BaseModel):
+    receipt: Dict[str, Any]
+
+
 
 
 
@@ -11088,6 +11116,157 @@ def create_app(
     async def rollup_status_endpoint():
         """Returns real-time status and metrics of the ZK Rollup Engine."""
         return global_zk_rollup_engine.get_status()
+
+    # -------------------------------------------------------------------------
+    # ADR 0087: Multi-Cluster Epistemic Proof Verification & Dispute Resolution (Seam 76)
+    # -------------------------------------------------------------------------
+    @app.post("/api/v1/arbitration/claim")
+    async def arbitration_register_claim_endpoint(req: ArbitrationClaimRequest):
+        """Registers an authenticated epistemic claim with optional deduction DAG."""
+        from swarmwatch.epistemic_arbitration import (
+            global_epistemic_arbitrator,
+            ClaimPolarity,
+            EpistemicModality,
+            EpistemicProofDAG,
+            ProofNode,
+            DeductionRule,
+            EpistemicArbitrationError,
+            DisputeCircuitTrippedError,
+        )
+        try:
+            dag = None
+            if req.proof_dag:
+                nodes_raw = req.proof_dag.get("nodes", {})
+                dag = EpistemicProofDAG(
+                    dag_id=req.proof_dag.get("dag_id", ""),
+                    root_node_id=req.proof_dag.get("root_node_id", ""),
+                    max_depth=req.proof_dag.get("max_depth", 16),
+                )
+                for n_id, n_data in nodes_raw.items():
+                    dag.add_node(
+                        ProofNode(
+                            node_id=n_data.get("node_id", n_id),
+                            rule=DeductionRule(n_data.get("rule", "AXIOM")),
+                            premise_ids=n_data.get("premise_ids", []),
+                            conclusion=n_data.get("conclusion", ""),
+                            evidence_hash=n_data.get("evidence_hash"),
+                            evidence_weight=float(n_data.get("evidence_weight", 1.0)),
+                            is_valid=bool(n_data.get("is_valid", True)),
+                        )
+                    )
+
+            claim = global_epistemic_arbitrator.register_claim(
+                swarm_id=req.swarm_id,
+                agent_id=req.agent_id,
+                subject=req.subject,
+                predicate=req.predicate,
+                polarity=ClaimPolarity(req.polarity),
+                modality=EpistemicModality(req.modality),
+                confidence=req.confidence,
+                evidence_hashes=req.evidence_hashes,
+                proof_dag=dag,
+                claim_id=req.claim_id,
+            )
+            return claim.to_dict()
+        except DisputeCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except EpistemicArbitrationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/arbitration/dispute")
+    async def arbitration_open_dispute_endpoint(req: ArbitrationDisputeRequest):
+        """Opens a formal cross-swarm dispute between conflicting claims."""
+        from swarmwatch.epistemic_arbitration import (
+            global_epistemic_arbitrator,
+            EpistemicArbitrationError,
+            DisputeCircuitTrippedError,
+        )
+        try:
+            dispute = global_epistemic_arbitrator.open_dispute(
+                claimant_claim_id=req.claimant_claim_id,
+                respondent_claim_id=req.respondent_claim_id,
+                dispute_id=req.dispute_id,
+            )
+            return dispute.to_dict()
+        except DisputeCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except EpistemicArbitrationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/arbitration/resolve")
+    async def arbitration_resolve_dispute_endpoint(req: ArbitrationResolveRequest):
+        """Deterministically arbitrates a dispute case using evidentiary dominance algebra."""
+        from swarmwatch.epistemic_arbitration import (
+            global_epistemic_arbitrator,
+            EpistemicArbitrationError,
+            DisputeCircuitTrippedError,
+        )
+        try:
+            receipt = global_epistemic_arbitrator.resolve_dispute(
+                dispute_id=req.dispute_id,
+                margin_threshold=req.margin_threshold,
+            )
+            return receipt.to_dict()
+        except DisputeCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except EpistemicArbitrationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/arbitration/verify-receipt")
+    async def arbitration_verify_receipt_endpoint(req: ArbitrationVerifyReceiptRequest):
+        """Verifies the mathematical and cryptographic authenticity of an arbitration receipt."""
+        from swarmwatch.epistemic_arbitration import (
+            global_epistemic_arbitrator,
+            DisputeResolutionReceipt,
+            ArbitrationVerdict,
+        )
+        r_dict = req.receipt
+        receipt = DisputeResolutionReceipt(
+            receipt_id=r_dict.get("receipt_id", ""),
+            dispute_id=r_dict.get("dispute_id", ""),
+            subject=r_dict.get("subject", ""),
+            predicate=r_dict.get("predicate", ""),
+            verdict=ArbitrationVerdict(r_dict.get("verdict", "DEADLOCKED")),
+            prevailing_swarm_id=r_dict.get("prevailing_swarm_id"),
+            prevailing_claim_id=r_dict.get("prevailing_claim_id"),
+            claimant_score=float(r_dict.get("claimant_score", 0.0)),
+            respondent_score=float(r_dict.get("respondent_score", 0.0)),
+            score_delta=float(r_dict.get("score_delta", 0.0)),
+            receipt_hash=r_dict.get("receipt_hash", ""),
+            resolved_at_ns=int(r_dict.get("resolved_at_ns", 0)),
+            arbitrator_id=r_dict.get("arbitrator_id", "sw:arbitrator:v1"),
+        )
+        is_valid, err = global_epistemic_arbitrator.verify_resolution_receipt(receipt)
+        return {
+            "is_valid": is_valid,
+            "error_reason": err,
+            "receipt_id": receipt.receipt_id,
+            "receipt_hash": receipt.receipt_hash,
+        }
+
+    @app.get("/api/v1/arbitration/claims")
+    async def arbitration_list_claims_endpoint():
+        """Lists registered epistemic claims."""
+        from swarmwatch.epistemic_arbitration import global_epistemic_arbitrator
+        return [c.to_dict() for c in global_epistemic_arbitrator.get_claims()]
+
+    @app.get("/api/v1/arbitration/disputes")
+    async def arbitration_list_disputes_endpoint():
+        """Lists active and resolved dispute cases."""
+        from swarmwatch.epistemic_arbitration import global_epistemic_arbitrator
+        return [d.to_dict() for d in global_epistemic_arbitrator.get_disputes()]
+
+    @app.get("/api/v1/arbitration/receipts")
+    async def arbitration_list_receipts_endpoint():
+        """Lists issued dispute resolution receipts."""
+        from swarmwatch.epistemic_arbitration import global_epistemic_arbitrator
+        return [r.to_dict() for r in global_epistemic_arbitrator.get_receipts()]
+
+    @app.get("/api/v1/arbitration/status")
+    async def arbitration_status_endpoint():
+        """Returns operational status and circuit breaker metrics of the Epistemic Arbitration Engine."""
+        from swarmwatch.epistemic_arbitration import global_epistemic_arbitrator
+        return global_epistemic_arbitrator.get_status()
 
 
 

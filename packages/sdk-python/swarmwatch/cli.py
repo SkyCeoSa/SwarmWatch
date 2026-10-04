@@ -670,6 +670,23 @@ def main(argv=None):
     rollup_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
     rollup_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch epistemic-arbitration` subcommand (Seam 76 / ADR 0087)
+    arbitration_parser = subparsers.add_parser("epistemic-arbitration", aliases=["arbitration", "dispute"], help="Multi-Cluster Epistemic Proof Verification & Dispute Resolution (ADR 0087)")
+    arbitration_parser.add_argument("action", choices=["claim", "dispute", "resolve", "verify", "claims", "disputes", "receipts", "status"], default="status", nargs="?", help="Arbitration action (claim, dispute, resolve, verify, claims, disputes, receipts, status)")
+    arbitration_parser.add_argument("--swarm-id", default="swarm-alpha", help="Swarm identifier")
+    arbitration_parser.add_argument("--agent-id", default="agent-cli", help="Agent identifier")
+    arbitration_parser.add_argument("--subject", default="resource_slot_01", help="Claim subject entity")
+    arbitration_parser.add_argument("--predicate", default="is_valid", help="Claim predicate property")
+    arbitration_parser.add_argument("--polarity", default="TRUE", choices=["TRUE", "FALSE"], help="Claim polarity")
+    arbitration_parser.add_argument("--modality", default="JUSTIFIED", choices=["KNOWS", "JUSTIFIED", "BELIEVES"], help="Epistemic modality")
+    arbitration_parser.add_argument("--confidence", type=float, default=1.0, help="Claim confidence score [0..1]")
+    arbitration_parser.add_argument("--claimant-claim-id", default=None, help="Claimant claim ID for dispute")
+    arbitration_parser.add_argument("--respondent-claim-id", default=None, help="Respondent claim ID for dispute")
+    arbitration_parser.add_argument("--dispute-id", default=None, help="Dispute ID to resolve")
+    arbitration_parser.add_argument("--margin-threshold", type=float, default=0.10, help="Evidentiary score margin threshold")
+    arbitration_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
+    arbitration_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -6312,6 +6329,172 @@ def main(argv=None):
                 print(f"  Pending Transitions: {st['pending_transitions_count']}")
                 print(f"  Total Batches:       {st['batches_count']}")
                 print(f"  Proof Receipts:      {st['receipts_count']}")
+                print(f"  Circuit Tripped:     {st['circuit_tripped']}")
+                if st['circuit_tripped']:
+                    print(f"  Trip Reason:         {st['trip_reason']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("epistemic-arbitration", "arbitration", "dispute"):
+        from swarmwatch.epistemic_arbitration import (
+            global_epistemic_arbitrator as engine,
+            ClaimPolarity,
+            EpistemicModality,
+            ArbitrationVerdict,
+            DisputeResolutionReceipt,
+            EpistemicArbitrationError,
+            DisputeCircuitTrippedError,
+        )
+
+        if args.action == "claim":
+            try:
+                claim = engine.register_claim(
+                    swarm_id=args.swarm_id,
+                    agent_id=args.agent_id,
+                    subject=args.subject,
+                    predicate=args.predicate,
+                    polarity=ClaimPolarity(args.polarity),
+                    modality=EpistemicModality(args.modality),
+                    confidence=args.confidence,
+                )
+                if args.format == "json":
+                    print(json.dumps(claim.to_dict(), indent=2))
+                else:
+                    print(f"Claim Registered: {claim.claim_id}")
+                    print(f"  Swarm: {claim.swarm_id}, Agent: {claim.agent_id}")
+                    print(f"  Assertion: {claim.subject}.{claim.predicate} == {claim.polarity.value} ({claim.modality.value})")
+                    print(f"  Digest: {claim.digest}")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error registering claim: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "dispute":
+            if not args.claimant_claim_id or not args.respondent_claim_id:
+                print("Error: Both --claimant-claim-id and --respondent-claim-id are required.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                dispute = engine.open_dispute(
+                    claimant_claim_id=args.claimant_claim_id,
+                    respondent_claim_id=args.respondent_claim_id,
+                    dispute_id=args.dispute_id,
+                )
+                if args.format == "json":
+                    print(json.dumps(dispute.to_dict(), indent=2))
+                else:
+                    print(f"Dispute Opened: {dispute.dispute_id}")
+                    print(f"  Subject/Predicate: {dispute.subject}.{dispute.predicate}")
+                    print(f"  Claimant: {dispute.claimant_claim.claim_id} ({dispute.claimant_claim.polarity.value})")
+                    print(f"  Respondent: {dispute.respondent_claim.claim_id} ({dispute.respondent_claim.polarity.value})")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error opening dispute: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "resolve":
+            if not args.dispute_id:
+                print("Error: --dispute-id is required to resolve dispute.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                receipt = engine.resolve_dispute(
+                    dispute_id=args.dispute_id,
+                    margin_threshold=args.margin_threshold,
+                )
+                if args.format == "json":
+                    print(json.dumps(receipt.to_dict(), indent=2))
+                else:
+                    print(f"Dispute Resolved: {receipt.dispute_id}")
+                    print(f"  Verdict: {receipt.verdict.value}")
+                    if receipt.prevailing_swarm_id:
+                        print(f"  Prevailing Swarm: {receipt.prevailing_swarm_id}")
+                    print(f"  Scores: Claimant={receipt.claimant_score:.4f}, Respondent={receipt.respondent_score:.4f}, Delta={receipt.score_delta:.4f}")
+                    print(f"  Receipt Hash: {receipt.receipt_hash}")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Error resolving dispute: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "verify":
+            if not args.receipt_json:
+                print("Error: --receipt-json is required to verify receipt.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                raw_json = args.receipt_json
+                if os.path.exists(raw_json):
+                    with open(raw_json, "r", encoding="utf-8") as f:
+                        raw_json = f.read()
+                data = json.loads(raw_json)
+                receipt = DisputeResolutionReceipt(
+                    receipt_id=data.get("receipt_id", ""),
+                    dispute_id=data.get("dispute_id", ""),
+                    subject=data.get("subject", ""),
+                    predicate=data.get("predicate", ""),
+                    verdict=ArbitrationVerdict(data.get("verdict", "DEADLOCKED")),
+                    prevailing_swarm_id=data.get("prevailing_swarm_id"),
+                    prevailing_claim_id=data.get("prevailing_claim_id"),
+                    claimant_score=float(data.get("claimant_score", 0.0)),
+                    respondent_score=float(data.get("respondent_score", 0.0)),
+                    score_delta=float(data.get("score_delta", 0.0)),
+                    receipt_hash=data.get("receipt_hash", ""),
+                    resolved_at_ns=int(data.get("resolved_at_ns", 0)),
+                    arbitrator_id=data.get("arbitrator_id", "sw:arbitrator:v1"),
+                )
+                is_valid, err = engine.verify_resolution_receipt(receipt)
+                if args.format == "json":
+                    print(json.dumps({"valid": is_valid, "error": err, "receipt_hash": receipt.receipt_hash}, indent=2))
+                else:
+                    print(f"Receipt Verification: {'VALID' if is_valid else 'INVALID'}")
+                    if err:
+                        print(f"  Reason: {err}")
+                    print(f"  Receipt Hash: {receipt.receipt_hash}")
+                sys.exit(0 if is_valid else 1)
+            except Exception as e:
+                print(f"Verification error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "claims":
+            claims = engine.get_claims()
+            if args.format == "json":
+                print(json.dumps([c.to_dict() for c in claims], indent=2))
+            else:
+                print(f"Total Claims: {len(claims)}")
+                for c in claims:
+                    print(f"  Claim {c.claim_id}: {c.subject}.{c.predicate}={c.polarity.value} ({c.modality.value})")
+            sys.exit(0)
+
+        elif args.action == "disputes":
+            disputes = engine.get_disputes()
+            if args.format == "json":
+                print(json.dumps([d.to_dict() for d in disputes], indent=2))
+            else:
+                print(f"Total Disputes: {len(disputes)}")
+                for d in disputes:
+                    v_str = d.verdict.value if d.verdict else "OPEN"
+                    print(f"  Dispute {d.dispute_id}: {d.subject}.{d.predicate} -> {v_str}")
+            sys.exit(0)
+
+        elif args.action == "receipts":
+            receipts = engine.get_receipts()
+            if args.format == "json":
+                print(json.dumps([r.to_dict() for r in receipts], indent=2))
+            else:
+                print(f"Total Receipts: {len(receipts)}")
+                for r in receipts:
+                    print(f"  Receipt {r.receipt_id}: {r.dispute_id} -> {r.verdict.value} ({r.receipt_hash})")
+            sys.exit(0)
+
+        else:  # status
+            st = engine.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH EPISTEMIC ARBITRATION STATUS (ADR 0087)            |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Total Claims:        {st['claims_count']}")
+                print(f"  Total Disputes:      {st['disputes_count']}")
+                print(f"  Total Receipts:      {st['receipts_count']}")
+                print(f"  Margin Threshold:    {st['margin_threshold']:.4f}")
                 print(f"  Circuit Tripped:     {st['circuit_tripped']}")
                 if st['circuit_tripped']:
                     print(f"  Trip Reason:         {st['trip_reason']}")

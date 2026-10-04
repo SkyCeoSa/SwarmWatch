@@ -1773,6 +1773,10 @@
             <span class="status-indicator" id="rollupDot" style="background: var(--success);"></span>
             <span id="rollupText">ROLLUP: ROOT SYNC</span>
           </div>
+          <div class="fleet-badge" id="arbitrationBadge" title="Multi-Cluster Epistemic Proof Verification & Automated Cross-Swarm Dispute Resolution (ADR 0087)">
+            <span class="status-indicator" id="arbitrationDot" style="background: var(--success);"></span>
+            <span id="arbitrationText">ARBITRATION: CLEAR</span>
+          </div>
         </div>
 
 
@@ -5186,6 +5190,30 @@
       }
       refreshRollupStatus();
       setInterval(refreshRollupStatus, 10000);
+
+      // -------------------------------------------------------------------
+      // Multi-Cluster Epistemic Proof Verification & Dispute Resolution (ADR 0087 / Seam 76)
+      // -------------------------------------------------------------------
+      async function refreshArbitrationStatus() {
+        var arbitrationDot = document.getElementById('arbitrationDot');
+        var arbitrationText = document.getElementById('arbitrationText');
+        try {
+          var res = await fetch('/api/v1/arbitration/status');
+          if (res.ok) {
+            var data = await res.json();
+            var isTripped = data.circuit_tripped;
+            var disputesCount = data.disputes_count || 0;
+            if (arbitrationDot) {
+              arbitrationDot.style.background = isTripped ? 'var(--danger)' : (disputesCount > 0 ? 'var(--warning)' : 'var(--success)');
+            }
+            if (arbitrationText) {
+              arbitrationText.textContent = isTripped ? 'ARBITRATION: TRIPPED' : (disputesCount > 0 ? 'ARBITRATION: ' + disputesCount + ' DISPUTES' : 'ARBITRATION: CLEAR');
+            }
+          }
+        } catch (e) {}
+      }
+      refreshArbitrationStatus();
+      setInterval(refreshArbitrationStatus, 10000);
 
 
       if (btnMfaModal) {
