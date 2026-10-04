@@ -1769,6 +1769,10 @@
             <span class="status-indicator" id="byzantineDot" style="background: var(--success);"></span>
             <span id="byzantineText">BYZANTINE: QUORUM OK</span>
           </div>
+          <div class="fleet-badge" id="rollupBadge" title="Zero-Knowledge State Transition Rollup & Succinct Proofs (ADR 0086)">
+            <span class="status-indicator" id="rollupDot" style="background: var(--success);"></span>
+            <span id="rollupText">ROLLUP: ROOT SYNC</span>
+          </div>
         </div>
 
 
@@ -5160,6 +5164,28 @@
       refreshByzantineStatus();
       setInterval(refreshByzantineStatus, 10000);
 
+      // -------------------------------------------------------------------
+      // Zero-Knowledge State Transition Rollup (ADR 0086 / Seam 75)
+      // -------------------------------------------------------------------
+      async function refreshRollupStatus() {
+        var rollupDot = document.getElementById('rollupDot');
+        var rollupText = document.getElementById('rollupText');
+        try {
+          var res = await fetch('/api/v1/rollup/status');
+          if (res.ok) {
+            var data = await res.json();
+            var isTripped = data.circuit_tripped;
+            if (rollupDot) {
+              rollupDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (rollupText) {
+              rollupText.textContent = isTripped ? 'ROLLUP: TRIPPED' : 'ROLLUP: ROOT SYNC';
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRollupStatus();
+      setInterval(refreshRollupStatus, 10000);
 
 
       if (btnMfaModal) {

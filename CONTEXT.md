@@ -1045,6 +1045,24 @@ _Avoid_: Hook call, function callback, middleware run
 - **ByzantineQuorumExceededError**: The fail-closed exception raised when Byzantine faults exceed the network's tolerance capacity f = floor((N-1)/3) or when consensus deadlock occurs.
   _Avoid_: Quorum error, consensus abort, split-brain crash, voting timeout
 
+---
+
+### Zero-Knowledge State Transition Rollup & Succinct Proof Verification (Seam 75 / ADR 0086)
+- **ZkRollupEngine**: The deep module coordinating atomic agent state mutation queuing, sparse Merkle tree derivation, succinct Fiat-Shamir polynomial zero-knowledge proof generation, batch commitment, verification, and fail-closed safety circuit coupling.
+  _Avoid_: Rollup compressor, batch syncer, ZK layer, state aggregator
+- **StateTransition**: An atomic, cryptographically verified agent state mutation specifying sequence number, agent ID, slot key, pre-state hash, post-state hash, delta mutation hash, and optional masked private scratchpad.
+  _Avoid_: State mutation log, memory delta, action record, transition event
+- **RollupBatch**: An immutable bundle of contiguous, monotonically ordered state transitions (seq_start .. seq_end) sealed with pre-state and post-state Merkle roots.
+  _Avoid_: Block chunk, transition bundle, batch file, state pack
+- **RollupProofReceipt**: An immutable, tamper-evident cryptographic receipt (`sw:rollup:v1:...`) containing polynomial evaluation proofs and blinding commitments certifying valid state evolution without revealing private execution payloads.
+  _Avoid_: ZK proof ticket, rollup receipt log, proof certificate, transition cert
+- **StateMerkleTree**: A sparse Merkle tree representation of agent working memory slot keys and cryptographic value hashes, producing deterministic SHA-256 state roots.
+  _Avoid_: State hash tree, slot trie, memory Merkle root
+- **SequenceDiscontinuityError**: The fail-closed exception raised when state transitions are submitted out of order, with duplicate sequence numbers, or with non-contiguous sequence gaps.
+  _Avoid_: Sequence gap error, out of order crash, sequence jump fault
+- **FraudulentStateTransitionError**: The fail-closed exception raised when an atomic transition asserts an invalid pre-state value hash conflicting with the current sparse state tree slot.
+  _Avoid_: Bad state error, state collision exception, invalid mutation crash
+
 
 
 

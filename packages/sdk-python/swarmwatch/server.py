@@ -418,6 +418,23 @@ from swarmwatch.byzantine_oracle import (
     ByzantineConsensusOracle,
     global_byzantine_oracle,
 )
+from swarmwatch.zk_rollup import (
+    ZkRollupError,
+    RollupCircuitTrippedError,
+    InvalidStateTransitionError,
+    RollupVerificationFailedError,
+    SequenceDiscontinuityError,
+    FraudulentStateTransitionError,
+    BatchCapacityExceededError,
+    RollupStatus,
+    ProofSystem,
+    StateTransition,
+    RollupBatch,
+    RollupProofReceipt,
+    StateMerkleTree,
+    ZkRollupEngine,
+    global_zk_rollup_engine,
+)
 
 
 
@@ -1287,6 +1304,31 @@ class ByzantineCertifyRequest(BaseModel):
 
 class ByzantineVerifyCertRequest(BaseModel):
     certificate: Dict[str, Any]
+
+
+class RollupQueueTransitionRequest(BaseModel):
+    agent_id: str
+    slot_key: str
+    from_value_hash: str
+    to_value_hash: str
+    delta_payload: str
+    private_scratchpad: Optional[str] = None
+    sequence: Optional[int] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class RollupCommitBatchRequest(BaseModel):
+    batch_id: Optional[str] = None
+
+
+class RollupVerifyProofRequest(BaseModel):
+    receipt: Dict[str, Any]
+
+
+class RollupChallengeFraudRequest(BaseModel):
+    batch_id: str
+    challenge_type: str
+    evidence: Dict[str, Any]
 
 
 
@@ -10947,6 +10989,106 @@ def create_app(
     async def byzantine_status_endpoint():
         """Returns live operational status and PBFT metrics of the Byzantine Consensus Oracle."""
         return global_byzantine_oracle.status()
+
+    # --------------------------------------------------------------------------
+    # Zero-Knowledge State Transition Rollup Endpoints (Seam 75 / ADR 0086)
+    # --------------------------------------------------------------------------
+
+    @app.post("/api/v1/rollup/transition")
+    async def rollup_queue_transition_endpoint(req: RollupQueueTransitionRequest):
+        """Queues an atomic state transition in the pending ZK rollup pool."""
+        try:
+            tx = global_zk_rollup_engine.queue_transition(
+                agent_id=req.agent_id,
+                slot_key=req.slot_key,
+                from_value_hash=req.from_value_hash,
+                to_value_hash=req.to_value_hash,
+                delta_payload=req.delta_payload,
+                private_scratchpad=req.private_scratchpad,
+                sequence=req.sequence,
+                metadata=req.metadata,
+            )
+            return tx.to_dict(include_private_mask=False)
+        except RollupCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except (SequenceDiscontinuityError, FraudulentStateTransitionError) as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except ZkRollupError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/rollup/commit")
+    async def rollup_commit_batch_endpoint(req: RollupCommitBatchRequest):
+        """Commits pending state transitions into an immutable batch with succinct ZK proof."""
+        try:
+            receipt = global_zk_rollup_engine.commit_batch(batch_id=req.batch_id)
+            return receipt.to_dict()
+        except RollupCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except ZkRollupError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/rollup/verify")
+    async def rollup_verify_proof_endpoint(req: RollupVerifyProofRequest):
+        """Succinctly verifies a RollupProofReceipt in O(1) time without re-execution."""
+        data = req.receipt
+        try:
+            receipt = RollupProofReceipt(
+                rollup_id=data.get("rollup_id", ""),
+                batch_id=data.get("batch_id", ""),
+                sequence_start=data.get("sequence_start", 0),
+                sequence_end=data.get("sequence_end", 0),
+                pre_state_root=data.get("pre_state_root", ""),
+                post_state_root=data.get("post_state_root", ""),
+                transition_count=data.get("transition_count", 0),
+                batch_digest=data.get("batch_digest", ""),
+                proof_system=ProofSystem(data.get("proof_system", "POLYNOMIAL_ZK")),
+                zk_proof_data=data.get("zk_proof_data", {}),
+                receipt_hash=data.get("receipt_hash", ""),
+                is_valid=data.get("is_valid", True),
+                prover_id=data.get("prover_id", "swarmwatch-zk-prover"),
+                verified_at_ns=data.get("verified_at_ns", 0),
+            )
+            is_valid, err = global_zk_rollup_engine.verify_rollup_proof(receipt)
+            return {
+                "valid": is_valid,
+                "error": err,
+                "rollup_id": receipt.rollup_id,
+                "receipt_hash": receipt.receipt_hash,
+            }
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid receipt structure: {str(e)}")
+
+    @app.post("/api/v1/rollup/challenge")
+    async def rollup_challenge_fraud_endpoint(req: RollupChallengeFraudRequest):
+        """Submits a fraud dispute against a rollup batch."""
+        fraud_detected = global_zk_rollup_engine.challenge_fraud(
+            batch_id=req.batch_id,
+            challenge_type=req.challenge_type,
+            evidence=req.evidence,
+        )
+        return {
+            "fraud_detected": fraud_detected,
+            "batch_id": req.batch_id,
+            "circuit_tripped": global_zk_rollup_engine.get_status()["circuit_tripped"],
+        }
+
+    @app.get("/api/v1/rollup/batches")
+    async def rollup_list_batches_endpoint():
+        """Lists historical rollup batches."""
+        batches = global_zk_rollup_engine.get_batches()
+        return [b.to_dict() for b in batches]
+
+    @app.get("/api/v1/rollup/receipts")
+    async def rollup_list_receipts_endpoint():
+        """Lists all sealed and verified proof receipts."""
+        receipts = global_zk_rollup_engine.get_receipts()
+        return [r.to_dict() for r in receipts]
+
+    @app.get("/api/v1/rollup/status")
+    async def rollup_status_endpoint():
+        """Returns real-time status and metrics of the ZK Rollup Engine."""
+        return global_zk_rollup_engine.get_status()
+
 
 
 

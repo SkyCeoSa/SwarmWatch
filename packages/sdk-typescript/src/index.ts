@@ -1086,3 +1086,31 @@ export {
   canonicalJsonString,
 } from "./byzantine_oracle.ts";
 
+// Zero-Knowledge State Transition Rollups & Succinct Proof Verification (Seam 75 / ADR 0086)
+export type {
+  RollupStatus,
+  ProofSystem,
+  StateTransition,
+  RollupBatch,
+  RollupProofReceipt,
+} from "./zk_rollup.ts";
+export {
+  BN254_PRIME,
+  deepCanonicalJson,
+  hmacSha256Hex,
+  hexToBigInt,
+  computeMerkleRoot,
+  ZkRollupError,
+  RollupCircuitTrippedError,
+  InvalidStateTransitionError,
+  RollupVerificationFailedError,
+  SequenceDiscontinuityError,
+  FraudulentStateTransitionError,
+  BatchCapacityExceededError,
+  RollupStatus as RollupStatusConst,
+  ProofSystem as ProofSystemConst,
+  StateMerkleTree,
+  ZkRollupEngine,
+  globalZkRollupEngine,
+} from "./zk_rollup.ts";
+

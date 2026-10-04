@@ -656,6 +656,20 @@ def main(argv=None):
     byzantine_parser.add_argument("--certificate-id", default=None, help="Certificate ID for lookup")
     byzantine_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch zk-rollup` subcommand (Seam 75 / ADR 0086)
+    rollup_parser = subparsers.add_parser("zk-rollup", aliases=["rollup", "zk-batch"], help="Zero-Knowledge State Transition Rollups & Succinct Proof Verification (ADR 0086)")
+    rollup_parser.add_argument("action", choices=["transition", "commit", "verify", "batches", "receipts", "status"], default="status", nargs="?", help="Rollup action (transition, commit, verify, batches, receipts, status)")
+    rollup_parser.add_argument("--agent-id", default="agent-cli", help="Agent identifier for state transition")
+    rollup_parser.add_argument("--slot-key", default="slot_main", help="State slot key")
+    rollup_parser.add_argument("--from-hash", default="0"*64, help="Expected pre-state hash")
+    rollup_parser.add_argument("--to-hash", default=None, help="Target post-state hash")
+    rollup_parser.add_argument("--delta", default="noop()", help="Delta mutation payload")
+    rollup_parser.add_argument("--private-scratchpad", default=None, help="Confidential agent scratchpad to mask")
+    rollup_parser.add_argument("--sequence", type=int, default=None, help="Sequence number")
+    rollup_parser.add_argument("--batch-id", default=None, help="Batch identifier")
+    rollup_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
+    rollup_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
 
 
@@ -6177,6 +6191,130 @@ def main(argv=None):
                 print(f"  Certificates:       {st.get('total_certificates', 0)}")
                 print(f"  Circuit Tripped:    {st.get('circuit_tripped', False)}")
                 print(f"  Status Badge:       {st.get('status_badge', 'N/A')}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("zk-rollup", "rollup", "zk-batch"):
+        from swarmwatch.zk_rollup import (
+            ZkRollupEngine,
+            ZkRollupError,
+            RollupProofReceipt,
+            ProofSystem,
+            sha256_hex,
+            global_zk_rollup_engine,
+        )
+        engine = global_zk_rollup_engine
+
+        if args.action == "transition":
+            to_h = args.to_hash or sha256_hex(f"state_{time.time_ns()}")
+            try:
+                tx = engine.queue_transition(
+                    agent_id=args.agent_id,
+                    slot_key=args.slot_key,
+                    from_value_hash=args.from_hash,
+                    to_value_hash=to_h,
+                    delta_payload=args.delta,
+                    private_scratchpad=args.private_scratchpad,
+                    sequence=args.sequence,
+                )
+                if args.format == "json":
+                    print(json.dumps(tx.to_dict(), indent=2))
+                else:
+                    print(f"Queued transition: {tx.transition_id} (seq={tx.sequence}, slot={tx.slot_key}, digest={tx.digest[:16]}...)")
+                sys.exit(0)
+            except ZkRollupError as e:
+                print(f"Error queueing transition: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "commit":
+            try:
+                receipt = engine.commit_batch(batch_id=args.batch_id)
+                if args.format == "json":
+                    print(json.dumps(receipt.to_dict(), indent=2))
+                else:
+                    print(f"Committed Rollup Batch: {receipt.batch_id}")
+                    print(f"  Transitions bundled: {receipt.transition_count}")
+                    print(f"  Pre-State Root:      {receipt.pre_state_root}")
+                    print(f"  Post-State Root:     {receipt.post_state_root}")
+                    print(f"  Receipt Hash:        {receipt.receipt_hash}")
+                sys.exit(0)
+            except ZkRollupError as e:
+                print(f"Error committing batch: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "verify":
+            if not args.receipt_json:
+                print("Error: --receipt-json is required for verify action", file=sys.stderr)
+                sys.exit(1)
+            try:
+                raw_json = args.receipt_json
+                if os.path.exists(raw_json):
+                    with open(raw_json, "r", encoding="utf-8") as f:
+                        raw_json = f.read()
+                data = json.loads(raw_json)
+                receipt = RollupProofReceipt(
+                    rollup_id=data.get("rollup_id", ""),
+                    batch_id=data.get("batch_id", ""),
+                    sequence_start=data.get("sequence_start", 0),
+                    sequence_end=data.get("sequence_end", 0),
+                    pre_state_root=data.get("pre_state_root", ""),
+                    post_state_root=data.get("post_state_root", ""),
+                    transition_count=data.get("transition_count", 0),
+                    batch_digest=data.get("batch_digest", ""),
+                    proof_system=ProofSystem(data.get("proof_system", "POLYNOMIAL_ZK")),
+                    zk_proof_data=data.get("zk_proof_data", {}),
+                    receipt_hash=data.get("receipt_hash", ""),
+                    is_valid=data.get("is_valid", True),
+                )
+                is_valid, err = engine.verify_rollup_proof(receipt)
+                if args.format == "json":
+                    print(json.dumps({"valid": is_valid, "error": err, "receipt_hash": receipt.receipt_hash}, indent=2))
+                else:
+                    print(f"Proof Verification: {'VALID' if is_valid else 'INVALID'}")
+                    if err:
+                        print(f"  Reason: {err}")
+                    print(f"  Receipt Hash: {receipt.receipt_hash}")
+                sys.exit(0 if is_valid else 1)
+            except Exception as e:
+                print(f"Verification error: {e}", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "batches":
+            batches = engine.get_batches()
+            if args.format == "json":
+                print(json.dumps([b.to_dict() for b in batches], indent=2))
+            else:
+                print(f"Total Batches: {len(batches)}")
+                for b in batches:
+                    print(f"  Batch {b.batch_id}: seq={b.sequence_start}..{b.sequence_end}, txs={len(b.transitions)}, status={b.status.value}")
+            sys.exit(0)
+
+        elif args.action == "receipts":
+            receipts = engine.get_receipts()
+            if args.format == "json":
+                print(json.dumps([r.to_dict() for r in receipts], indent=2))
+            else:
+                print(f"Total Receipts: {len(receipts)}")
+                for r in receipts:
+                    print(f"  Rollup {r.rollup_id} ({r.batch_id}): {r.receipt_hash}")
+            sys.exit(0)
+
+        else:  # status
+            st = engine.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH ZK STATE TRANSITION ROLLUP STATUS (ADR 0086)       |")
+                print("+---------------------------------------------------------------+")
+                print(f"  State Root:          {st['state_root'][:32]}...")
+                print(f"  Next Sequence:       {st['next_sequence']}")
+                print(f"  Pending Transitions: {st['pending_transitions_count']}")
+                print(f"  Total Batches:       {st['batches_count']}")
+                print(f"  Proof Receipts:      {st['receipts_count']}")
+                print(f"  Circuit Tripped:     {st['circuit_tripped']}")
+                if st['circuit_tripped']:
+                    print(f"  Trip Reason:         {st['trip_reason']}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:
