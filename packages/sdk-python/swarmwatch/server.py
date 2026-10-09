@@ -1772,7 +1772,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>SwarmWatch | Multi-Agent Observability Console</title>
   <style>
     :root {
@@ -3115,6 +3115,319 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       text-transform: uppercase;
       font-weight: 600;
     }
+
+    /* ==========================================================================
+       Mobile & Tablet Responsive UI/UX Architecture (ADR 0071 Compliant)
+       ========================================================================== */
+    .mobile-nav-bar {
+      display: none;
+    }
+    .mobile-close-btn {
+      display: none;
+    }
+    .mobile-drawer-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 11, 17, 0.88);
+      z-index: 1100;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    .mobile-drawer-sheet {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-strong);
+      border-radius: 8px 8px 0 0;
+      width: 100%;
+      max-width: 600px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .mobile-quick-action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .mobile-quick-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 10px 12px;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .mobile-quick-action-btn:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--accent);
+    }
+
+    @media (max-width: 900px) {
+      body {
+        height: 100dvh;
+        height: 100vh;
+        padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+        overflow-x: hidden;
+      }
+
+      /* Mobile Header Adaptations */
+      header {
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .brand-title {
+        font-size: 14px;
+      }
+      .brand-icon {
+        width: 18px;
+        height: 18px;
+      }
+      .brand-version {
+        font-size: 11px;
+        padding: 1px 6px;
+      }
+      .header-center {
+        gap: 6px;
+        order: 3;
+        width: 100%;
+        overflow-x: auto;
+        padding-top: 6px;
+        border-top: 1px solid var(--border-subtle);
+        -webkit-overflow-scrolling: touch;
+      }
+      .header-actions {
+        gap: 6px;
+        order: 2;
+        margin-left: auto;
+      }
+      .header-actions .btn-action {
+        height: 32px;
+        padding: 0 10px;
+        font-size: 11px;
+      }
+
+      /* Responsive Metrics Grid */
+      .metrics-bar {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 8px 12px;
+      }
+      .metric-cell {
+        padding: 8px 10px;
+        gap: 4px;
+      }
+      .metric-title {
+        font-size: 11px;
+      }
+      .metric-value {
+        font-size: 16px;
+      }
+      .metric-subtext {
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Mobile Navigation Bar */
+      .mobile-nav-bar {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: calc(52px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: #0E1422;
+        border-top: 1px solid var(--border-subtle);
+        z-index: 950;
+        align-items: center;
+        justify-content: space-around;
+      }
+      .mobile-nav-btn {
+        flex: 1;
+        height: 100%;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        user-select: none;
+        touch-action: manipulation;
+        transition: color 0.15s ease, background 0.15s ease;
+      }
+      .mobile-nav-btn svg {
+        width: 17px;
+        height: 17px;
+      }
+      .mobile-nav-btn.active {
+        color: var(--accent);
+      }
+      .mobile-nav-btn:active {
+        background: var(--bg-surface-hover);
+      }
+
+      /* Workspace View Switching on Mobile */
+      body[data-mobile-tab="stream"] .workspace .sidebar { display: none !important; }
+      body[data-mobile-tab="stream"] .workspace .inspector { display: none !important; }
+      body[data-mobile-tab="stream"] .workspace .stream-panel { display: flex !important; width: 100% !important; }
+
+      body[data-mobile-tab="agents"] .workspace .stream-panel { display: none !important; }
+      body[data-mobile-tab="agents"] .workspace .inspector { display: none !important; }
+      body[data-mobile-tab="agents"] .workspace .sidebar {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+        border-right: none !important;
+      }
+
+      body[data-mobile-tab="inspector"] .workspace .sidebar { display: none !important; }
+      body[data-mobile-tab="inspector"] .workspace .stream-panel { display: none !important; }
+      body[data-mobile-tab="inspector"] .workspace .inspector {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+        border-left: none !important;
+      }
+
+      body[data-mobile-tab="topology"] .workspace .sidebar { display: none !important; }
+      body[data-mobile-tab="topology"] .workspace .inspector { display: none !important; }
+      body[data-mobile-tab="topology"] .workspace .stream-panel { display: flex !important; width: 100% !important; }
+      body[data-mobile-tab="topology"] .workspace .stream-panel #streamFeed { display: none !important; }
+      body[data-mobile-tab="topology"] .workspace .stream-panel #dagPanel { display: flex !important; flex: 1 !important; height: auto !important; }
+
+      /* Mobile Close Buttons */
+      .mobile-close-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--bg-canvas);
+        border: 1px solid var(--border-subtle);
+        border-radius: 4px;
+        color: var(--text-secondary);
+        font-size: 11px;
+        padding: 4px 8px;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+
+      /* Touch Ergonomics for Bars */
+      .chaos-bar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 6px 12px;
+      }
+      .chaos-group {
+        flex-wrap: nowrap;
+      }
+      .chaos-btn {
+        padding: 6px 10px;
+        white-space: nowrap;
+        font-size: 11px;
+      }
+
+      .time-machine-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 8px 12px;
+        gap: 8px;
+      }
+      .tm-left-group {
+        justify-content: space-between;
+        width: 100%;
+      }
+      .tm-right-group {
+        justify-content: space-between;
+        width: 100%;
+      }
+      .tm-center-track {
+        width: 100%;
+        min-height: 24px;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        width: 18px;
+        height: 18px;
+      }
+
+      .fleet-bar {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 6px 12px;
+        justify-content: flex-start;
+      }
+      .fleet-left-group {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .fleet-meters-container {
+        display: none;
+      }
+
+      /* Stream Feed & Cards */
+      .stream-feed {
+        padding: 10px 12px;
+      }
+      .turn-card {
+        padding: 12px;
+      }
+      .turn-header {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .turn-body {
+        font-size: 12px;
+        padding: 10px 12px;
+      }
+
+      /* Modals on Mobile */
+      #apiKeyModal > div,
+      #mfaModal > div,
+      #forkModal > div {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        max-height: 88vh !important;
+        overflow-y: auto !important;
+        padding: 14px !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-actions #btnMfaModal span,
+      .header-actions #btnFleetToggle span,
+      .header-actions #btnApiKeys span {
+        display: none;
+      }
+      .header-actions .btn-action {
+        padding: 0 8px;
+      }
+      .brand-version {
+        display: none;
+      }
+      .metric-value {
+        font-size: 15px;
+      }
+      .turn-agents {
+        font-size: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -3213,7 +3526,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <aside class="sidebar">
       <div class="panel-header">
         <span class="panel-title">Swarm Participants</span>
-        <span class="panel-count">4 Agents</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="panel-count">4 Agents</span>
+          <button class="mobile-close-btn" id="btnMobileCloseSidebar" title="Return to Causal Stream">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span>Stream</span>
+          </button>
+        </div>
       </div>
       <div class="participant-list">
         <div class="participant-card active" data-agent="ProductArchitect">
@@ -3530,7 +3849,84 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <span class="status-indicator" id="gatewayDot" style="background: var(--success);"></span>
             <span id="gatewayText">GATEWAY: AUTONOMOUS OK</span>
           </div>
+          <div class="fleet-badge" id="meshRouterBadge" title="Dynamic Agent Federation & Swarm Mesh Routing (ADR 0083)">
+            <span class="status-indicator" id="meshRouterDot" style="background: var(--success);"></span>
+            <span id="meshRouterText">MESH ROUTER: FEDERATED OK</span>
+          </div>
+          <div class="fleet-badge" id="groundingBadge" title="Multi-Modal Cognitive Grounding & Vector Evidence Fusion (ADR 0084)">
+            <span class="status-indicator" id="groundingDot" style="background: var(--success);"></span>
+            <span id="groundingText">GROUNDING: FUSION OK</span>
+          </div>
+          <div class="fleet-badge" id="byzantineOracleBadge" title="Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracles (ADR 0085)">
+            <span class="status-indicator" id="byzantineOracleDot" style="background: var(--success);"></span>
+            <span id="byzantineOracleText">BYZANTINE: PBFT QUORUM OK</span>
+          </div>
+          <div class="fleet-badge" id="rollupBadge" title="Zero-Knowledge State Transition Rollups & Succinct Proof Verification (ADR 0086)">
+            <span class="status-indicator" id="rollupDot" style="background: var(--success);"></span>
+            <span id="rollupText">ROLLUP: ROOT SYNC</span>
+          </div>
+          <div class="fleet-badge" id="arbitrationBadge" title="Multi-Cluster Epistemic Proof Verification & Dispute Resolution (ADR 0087)">
+            <span class="status-indicator" id="arbitrationDot" style="background: var(--success);"></span>
+            <span id="arbitrationText">ARBITRATION: CLEAR</span>
+          </div>
+          <div class="fleet-badge" id="syncBadge" title="Autonomous Cross-Cluster State Synchronization & Distributed Hyper-Graph Reconciliation (ADR 0088)">
+            <span class="status-indicator" id="syncDot" style="background: var(--success);"></span>
+            <span id="syncText">CROSS-CLUSTER: IN SYNC</span>
+          </div>
+          <div class="fleet-badge" id="healerBadge" title="Autonomous Hyper-Graph Partition Healing & Causal Resumption (ADR 0089)">
+            <span class="status-indicator" id="healerDot" style="background: var(--success);"></span>
+            <span id="healerText">PARTITION: HEALED OK</span>
+          </div>
+          <div class="fleet-badge" id="migrationBadge" title="Dynamic Topology Re-Partitioning & Adaptive Sub-Graph Migration (ADR 0090)">
+            <span class="status-indicator" id="migrationDot" style="background: var(--success);"></span>
+            <span id="migrationText">MIGRATION: STABLE OK</span>
+          </div>
+          <div class="fleet-badge" id="barrierBadge" title="Autonomous Cross-Cluster Causality Barrier & Multi-Swarm Epoch Cut-Over Synchronization (ADR 0091)">
+            <span class="status-indicator" id="barrierDot" style="background: var(--success);"></span>
+            <span id="barrierText">BARRIER: SYNCHRONIZED</span>
+          </div>
+          <div class="fleet-badge" id="relayBadge" title="Global Distributed Mesh Relay & Anycast Ingestion Gateway (ADR 0102)">
+            <span class="status-indicator" id="relayDot" style="background: var(--success);"></span>
+            <span id="relayText">RELAY: ANYCAST MESH OK</span>
+          </div>
+          <div class="fleet-badge" id="federationBadge" title="Multi-Region Quorum State Synchronization & Sovereign Federation (ADR 0103)">
+            <span class="status-indicator" id="federationDot" style="background: var(--success);"></span>
+            <span id="federationText">FEDERATION: SOVEREIGN OK</span>
+          </div>
+          <div class="fleet-badge" id="marketplaceBadge" title="Cryptographic Proof Marketplace & Verifier Node Staking Pool (ADR 0104)">
+            <span class="status-indicator" id="marketplaceDot" style="background: var(--success);"></span>
+            <span id="marketplaceText">MARKETPLACE: STAKED OK</span>
+          </div>
+          <div class="fleet-badge" id="snarkBadge" title="Zero-Knowledge Aggregate Attestation & Recursive SNARK Verification Gateway (ADR 0105)">
+            <span class="status-indicator" id="snarkDot" style="background: var(--success);"></span>
+            <span id="snarkText">SNARK: RECURSIVE FOLD OK</span>
+          </div>
+          <div class="fleet-badge" id="billingBadge" title="Autonomous Cloud SaaS Billing & Micro-Payment Channel Ledger (ADR 0106)">
+            <span class="status-indicator" id="billingDot" style="background: var(--success);"></span>
+            <span id="billingText">BILLING: CHANNEL OK</span>
+          </div>
+          <div class="fleet-badge" id="gossipBadge" title="Multi-Cloud Byzantine Partition Tolerant Gossip Membership (ADR 0107)">
+            <span class="status-indicator" id="gossipDot" style="background: var(--success);"></span>
+            <span id="gossipText">GOSSIP: QUORUM MESH OK</span>
+          </div>
+          <div class="fleet-badge" id="tribunalBadge" title="Real-Time Epistemic Dispute Resolution & Dynamic Slashing Escalation Tribunal (ADR 0108)">
+            <span class="status-indicator" id="tribunalDot" style="background: var(--success);"></span>
+            <span id="tribunalText">TRIBUNAL: QUORUM RESOLVED OK</span>
+          </div>
+          <div class="fleet-badge" id="enclaveBadge" title="Hardware Secure Enclave Remote Witness (ADR 0109)">
+            <span class="status-indicator" id="enclaveDot" style="background: var(--success);"></span>
+            <span id="enclaveText">ENCLAVE: HARDWARE WITNESS OK</span>
+          </div>
+          <div class="fleet-badge" id="fenceBadge" title="Sovereign Cross-Border Data Boundary Fence & Zero-Egress Vault (ADR 0110)">
+            <span class="status-indicator" id="fenceDot" style="background: var(--success);"></span>
+            <span id="fenceText">FENCE: DATA BOUNDARY OK</span>
+          </div>
+          <div class="fleet-badge" id="singularityBadge" title="Global Master Singularity & Autonomous Sovereign Registry (ADR 0111)">
+            <span class="status-indicator" id="singularityDot" style="background: var(--success);"></span>
+            <span id="singularityText">SINGULARITY: SOVEREIGN ROOT OK</span>
+          </div>
         </div>
+
 
 
 
@@ -3618,7 +4014,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <aside class="inspector">
       <div class="panel-header">
         <span class="panel-title">Turn Inspector</span>
-        <span class="panel-count">Time-Machine</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="panel-count">Time-Machine</span>
+          <button class="mobile-close-btn" id="btnMobileCloseInspector" title="Return to Causal Stream">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span>Stream</span>
+          </button>
+        </div>
       </div>
       <div class="inspector-content" id="inspectorContent">
         <div class="prop-row">
@@ -3725,6 +4127,66 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         </div>
       </div>
     </aside>
+  </div>
+
+  <!-- Mobile Bottom Navigation Bar (Visible only on screens <= 900px) -->
+  <nav class="mobile-nav-bar" id="mobileNavBar" aria-label="Mobile Navigation">
+    <button class="mobile-nav-btn active" id="btnMobileNavStream" data-target="stream">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>Stream</span>
+    </button>
+    <button class="mobile-nav-btn" id="btnMobileNavAgents" data-target="agents">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Agents</span>
+    </button>
+    <button class="mobile-nav-btn" id="btnMobileNavInspector" data-target="inspector">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Inspector</span>
+    </button>
+    <button class="mobile-nav-btn" id="btnMobileNavTopology" data-target="topology">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      <span>Topology</span>
+    </button>
+    <button class="mobile-nav-btn" id="btnMobileNavControls" data-target="controls">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Controls</span>
+    </button>
+  </nav>
+
+  <!-- Mobile Quick Controls Bottom Sheet Drawer -->
+  <div class="mobile-drawer-modal" id="mobileControlsDrawer">
+    <div class="mobile-drawer-sheet">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+        <span style="font-weight: 700; font-size: 13px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.3px;">Swarm Controls</span>
+        <button id="btnCloseMobileDrawer" style="background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px;">Close</button>
+      </div>
+      <div class="mobile-quick-action-grid">
+        <button class="mobile-quick-action-btn" id="btnMobileSimulate" style="background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.3); color: var(--accent);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Run Simulation</span>
+        </button>
+        <button class="mobile-quick-action-btn" id="btnMobileReset">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>Reset Console</span>
+        </button>
+        <button class="mobile-quick-action-btn" id="btnMobileApiKeys">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span>API Keys</span>
+        </button>
+        <button class="mobile-quick-action-btn" id="btnMobileMfa">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"></rect><circle cx="12" cy="16" r="1"></circle><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          <span>Security / MFA</span>
+        </button>
+        <button class="mobile-quick-action-btn" id="btnMobileFleet">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+          <span>Toggle Fleet</span>
+        </button>
+        <button class="mobile-quick-action-btn" id="btnMobilePolicy">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          <span>Tune Policy</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- Cryptographic API Key Management Modal -->
@@ -4749,6 +5211,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         card.addEventListener('click', function() {
           selectSpan(span);
+          if (window.innerWidth <= 900) {
+            setMobileTab('inspector');
+          }
         });
 
         feed.appendChild(card);
@@ -6881,6 +7346,386 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       refreshGatewayStatus();
       setInterval(refreshGatewayStatus, 10000);
 
+      async function refreshSyncStatus() {
+        try {
+          var res = await fetch('/api/v1/sync/status');
+          if (res.ok) {
+            var data = await res.json();
+            var syncBadge = document.getElementById('syncBadge');
+            var syncDot = document.getElementById('syncDot');
+            var syncText = document.getElementById('syncText');
+            var isTripped = data.circuit_tripped;
+            var nodesCount = data.nodes_count || 0;
+            if (syncBadge) {
+              syncBadge.className = isTripped ? 'fleet-badge tripped' : 'fleet-badge';
+            }
+            if (syncDot) {
+              syncDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (syncText) {
+              var badgeStr = isTripped ? 'CROSS-CLUSTER: TRIPPED' : ('CROSS-CLUSTER: ' + nodesCount + ' NODES');
+              if (badgeStr.length > 30) badgeStr = 'CROSS-CLUSTER: IN SYNC';
+              syncText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSyncStatus();
+      setInterval(refreshSyncStatus, 10000);
+
+      async function refreshHealerStatus() {
+        try {
+          var res = await fetch('/api/v1/healer/status');
+          if (res.ok) {
+            var data = await res.json();
+            var healerBadge = document.getElementById('healerBadge');
+            var healerDot = document.getElementById('healerDot');
+            var healerText = document.getElementById('healerText');
+            var isTripped = data.circuit_tripped;
+            var receiptsCount = data.receipts_count || 0;
+            if (healerBadge) {
+              healerBadge.className = isTripped ? 'fleet-badge tripped' : 'fleet-badge';
+            }
+            if (healerDot) {
+              healerDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (healerText) {
+              var badgeStr = isTripped ? 'PARTITION: TRIPPED' : (receiptsCount > 0 ? ('HEALED: ' + receiptsCount + ' REC') : 'PARTITION: HEALED OK');
+              if (badgeStr.length > 30) badgeStr = 'PARTITION: HEALED OK';
+              healerText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshHealerStatus();
+      setInterval(refreshHealerStatus, 10000);
+
+      async function refreshMigrationStatus() {
+        try {
+          var res = await fetch('/api/v1/migration/status');
+          if (res.ok) {
+            var data = await res.json();
+            var migBadge = document.getElementById('migrationBadge');
+            var migDot = document.getElementById('migrationDot');
+            var migText = document.getElementById('migrationText');
+            var isTripped = data.circuit_tripped;
+            var rcptCount = data.receipts_count || 0;
+            if (migBadge) {
+              migBadge.className = isTripped ? 'fleet-badge tripped' : 'fleet-badge';
+            }
+            if (migDot) {
+              migDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (migText) {
+              var badgeStr = isTripped ? 'MIGRATION: TRIPPED' : (rcptCount > 0 ? ('MIGRATED: ' + rcptCount + ' BUNDLES') : 'MIGRATION: STABLE OK');
+              if (badgeStr.length > 30) badgeStr = 'MIGRATION: STABLE OK';
+              migText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshMigrationStatus();
+      setInterval(refreshMigrationStatus, 10000);
+
+      async function refreshBarrierStatus() {
+        try {
+          var res = await fetch('/api/v1/barrier/status');
+          if (res.ok) {
+            var data = await res.json();
+            var barBadge = document.getElementById('barrierBadge');
+            var barDot = document.getElementById('barrierDot');
+            var barText = document.getElementById('barrierText');
+            var isTripped = data.circuit_tripped;
+            var certCount = data.total_certificates_count || 0;
+            if (barBadge) {
+              barBadge.className = isTripped ? 'fleet-badge tripped' : 'fleet-badge';
+            }
+            if (barDot) {
+              barDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (barText) {
+              var badgeStr = isTripped ? 'BARRIER: TRIPPED' : (certCount > 0 ? ('EPOCH ' + data.active_epoch + ': ADVANCED') : 'BARRIER: SYNCHRONIZED');
+              if (badgeStr.length > 30) badgeStr = 'BARRIER: SYNCHRONIZED';
+              barText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshBarrierStatus();
+      setInterval(refreshBarrierStatus, 10000);
+
+      async function refreshRelayStatus() {
+        try {
+          var res = await fetch('/api/v1/relay/topology');
+          if (res.ok) {
+            var data = await res.json();
+            var relBadge = document.getElementById('relayBadge');
+            var relDot = document.getElementById('relayDot');
+            var relText = document.getElementById('relayText');
+            if (relBadge) {
+              relBadge.className = 'fleet-badge';
+            }
+            if (relDot) {
+              relDot.style.background = 'var(--success)';
+            }
+            if (relText) {
+              var count = data.node_count || 0;
+              var badgeStr = count > 0 ? ('RELAY: ' + count + ' NODES OK') : 'RELAY: ANYCAST MESH OK';
+              if (badgeStr.length > 30) badgeStr = 'RELAY: ANYCAST MESH OK';
+              relText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRelayStatus();
+      setInterval(refreshRelayStatus, 10000);
+
+      async function refreshFederationStatus() {
+        try {
+          var res = await fetch('/api/v1/federation/status');
+          if (res.ok) {
+            var data = await res.json();
+            var fedBadge = document.getElementById('federationBadge');
+            var fedDot = document.getElementById('federationDot');
+            var fedText = document.getElementById('federationText');
+            var quarCount = data.quarantined_count || 0;
+            if (fedBadge) {
+              fedBadge.className = quarCount > 0 ? 'fleet-badge tripped' : 'fleet-badge';
+            }
+            if (fedDot) {
+              fedDot.style.background = quarCount > 0 ? 'var(--danger)' : 'var(--success)';
+            }
+            if (fedText) {
+              var badgeStr = quarCount > 0 ? ('FEDERATION: ' + quarCount + ' QUARANTINED') : 'FEDERATION: SOVEREIGN OK';
+              if (badgeStr.length > 30) badgeStr = 'FEDERATION: QUORUM OK';
+              fedText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshFederationStatus();
+      setInterval(refreshFederationStatus, 10000);
+
+      async function refreshMarketplaceStatus() {
+        try {
+          var res = await fetch('/api/v1/marketplace/status');
+          if (res.ok) {
+            var data = await res.json();
+            var mktBadge = document.getElementById('marketplaceBadge');
+            var mktDot = document.getElementById('marketplaceDot');
+            var mktText = document.getElementById('marketplaceText');
+            var isSolvent = (data.active_solvency >= data.min_solvency_threshold) || (data.total_verifiers === 0);
+            if (mktBadge) {
+              mktBadge.className = isSolvent ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (mktDot) {
+              mktDot.style.background = isSolvent ? 'var(--success)' : 'var(--danger)';
+            }
+            if (mktText) {
+              var count = data.active_verifiers_count || 0;
+              var badgeStr = isSolvent ? (count > 0 ? ('MARKET: ' + count + ' VERIFIERS') : 'MARKETPLACE: STAKED OK') : 'MARKETPLACE: INSOLVENT';
+              if (badgeStr.length > 30) badgeStr = 'MARKETPLACE: OK';
+              mktText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshMarketplaceStatus();
+      setInterval(refreshMarketplaceStatus, 10000);
+
+      async function refreshSnarkStatus() {
+        try {
+          var res = await fetch('/api/v1/snark/status');
+          if (res.ok) {
+            var data = await res.json();
+            var snarkBadge = document.getElementById('snarkBadge');
+            var snarkDot = document.getElementById('snarkDot');
+            var snarkText = document.getElementById('snarkText');
+            var isTripped = data.circuit_tripped;
+            if (snarkBadge) {
+              snarkBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (snarkDot) {
+              snarkDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (snarkText) {
+              var count = data.aggregate_receipts_count || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('SNARK: ' + count + ' FOLDS') : 'SNARK: RECURSIVE FOLD OK') : 'SNARK: CIRCUIT TRIPPED';
+              if (badgeStr.length > 30) badgeStr = 'SNARK: OK';
+              snarkText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSnarkStatus();
+      setInterval(refreshSnarkStatus, 10000);
+
+      async function refreshBillingStatus() {
+        try {
+          var res = await fetch('/api/v1/billing/channels/status');
+          if (res.ok) {
+            var data = await res.json();
+            var bilBadge = document.getElementById('billingBadge');
+            var bilDot = document.getElementById('billingDot');
+            var bilText = document.getElementById('billingText');
+            var isTripped = data.circuit_tripped;
+            if (bilBadge) {
+              bilBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (bilDot) {
+              bilDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (bilText) {
+              var count = data.active_channels_count || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('BILLING: ' + count + ' CHANNELS') : 'BILLING: CHANNEL OK') : 'BILLING: DEPLETED';
+              if (badgeStr.length > 30) badgeStr = 'BILLING: OK';
+              bilText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshBillingStatus();
+      setInterval(refreshBillingStatus, 10000);
+
+      async function refreshGossipStatus() {
+        try {
+          var res = await fetch('/api/v1/gossip/status');
+          if (res.ok) {
+            var data = await res.json();
+            var gosBadge = document.getElementById('gossipBadge');
+            var gosDot = document.getElementById('gossipDot');
+            var gosText = document.getElementById('gossipText');
+            var isTripped = data.circuit_tripped;
+            if (gosBadge) {
+              gosBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (gosDot) {
+              gosDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (gosText) {
+              var count = data.alive_members_count || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('GOSSIP: ' + count + ' NODES') : 'GOSSIP: QUORUM MESH OK') : 'GOSSIP: COLLAPSED';
+              if (badgeStr.length > 30) badgeStr = 'GOSSIP: OK';
+              gosText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshGossipStatus();
+      setInterval(refreshGossipStatus, 10000);
+
+      async function refreshTribunalStatus() {
+        try {
+          var res = await fetch('/api/v1/tribunal/status');
+          if (res.ok) {
+            var data = await res.json();
+            var trbBadge = document.getElementById('tribunalBadge');
+            var trbDot = document.getElementById('tribunalDot');
+            var trbText = document.getElementById('tribunalText');
+            var isTripped = data.circuit_tripped;
+            if (trbBadge) {
+              trbBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (trbDot) {
+              trbDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (trbText) {
+              var count = data.open_disputes_count || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('TRIBUNAL: ' + count + ' DISPUTES') : 'TRIBUNAL: QUORUM RESOLVED OK') : 'TRIBUNAL: SURGE TRIPPED';
+              if (badgeStr.length > 30) badgeStr = 'TRIBUNAL: OK';
+              trbText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshTribunalStatus();
+      setInterval(refreshTribunalStatus, 10000);
+
+      async function refreshEnclaveStatus() {
+        try {
+          var res = await fetch('/api/v1/enclave/status');
+          if (res.ok) {
+            var data = await res.json();
+            var encBadge = document.getElementById('enclaveBadge');
+            var encDot = document.getElementById('enclaveDot');
+            var encText = document.getElementById('enclaveText');
+            var isTripped = data.circuit_tripped;
+            if (encBadge) {
+              encBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (encDot) {
+              encDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (encText) {
+              var count = data.active_capability_tokens || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('ENCLAVE: ' + count + ' TOKENS') : 'ENCLAVE: HARDWARE WITNESS OK') : 'ENCLAVE: TEE COMPROMISED';
+              if (badgeStr.length > 30) badgeStr = 'ENCLAVE: OK';
+              encText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEnclaveStatus();
+      setInterval(refreshEnclaveStatus, 10000);
+
+      async function refreshFenceStatus() {
+        try {
+          var res = await fetch('/api/v1/fence/status');
+          if (res.ok) {
+            var data = await res.json();
+            var fncBadge = document.getElementById('fenceBadge');
+            var fncDot = document.getElementById('fenceDot');
+            var fncText = document.getElementById('fenceText');
+            var isTripped = data.circuit_tripped;
+            if (fncBadge) {
+              fncBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (fncDot) {
+              fncDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (fncText) {
+              var count = data.total_sealed_envelopes || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('FENCE: ' + count + ' ENVELOPES') : 'FENCE: DATA BOUNDARY OK') : 'FENCE: EGRESS BREACH';
+              if (badgeStr.length > 30) badgeStr = 'FENCE: OK';
+              fncText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshFenceStatus();
+      setInterval(refreshFenceStatus, 10000);
+
+      async function refreshSingularityStatus() {
+        try {
+          var res = await fetch('/api/v1/singularity/status');
+          if (res.ok) {
+            var data = await res.json();
+            var sngBadge = document.getElementById('singularityBadge');
+            var sngDot = document.getElementById('singularityDot');
+            var sngText = document.getElementById('singularityText');
+            var isTripped = data.circuit_tripped || data.is_quarantined;
+            if (sngBadge) {
+              sngBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (sngDot) {
+              sngDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (sngText) {
+              var ep = data.current_epoch || 0;
+              var badgeStr = !isTripped ? (ep > 0 ? ('SINGULARITY: EPOCH ' + ep + ' OK') : 'SINGULARITY: SOVEREIGN ROOT OK') : 'SINGULARITY: HALTED';
+              if (badgeStr.length > 30) badgeStr = 'SINGULARITY: ROOT OK';
+              sngText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSingularityStatus();
+      setInterval(refreshSingularityStatus, 10000);
+
+
+
+
+
 
       if (btnMfaModal) {
 
@@ -7311,6 +8156,102 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       } else {
         renderTopology();
       }
+
+      // Mobile Tab Navigation Logic
+      function setMobileTab(tabName) {
+        document.body.setAttribute('data-mobile-tab', tabName);
+        document.querySelectorAll('.mobile-nav-btn').forEach(function(btn) {
+          if (btn.getAttribute('data-target') === tabName) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      }
+
+      // Initialize default mobile tab
+      document.body.setAttribute('data-mobile-tab', 'stream');
+
+      var btnMobileNavStream = document.getElementById('btnMobileNavStream');
+      var btnMobileNavAgents = document.getElementById('btnMobileNavAgents');
+      var btnMobileNavInspector = document.getElementById('btnMobileNavInspector');
+      var btnMobileNavTopology = document.getElementById('btnMobileNavTopology');
+      var btnMobileNavControls = document.getElementById('btnMobileNavControls');
+      var btnMobileCloseSidebar = document.getElementById('btnMobileCloseSidebar');
+      var btnMobileCloseInspector = document.getElementById('btnMobileCloseInspector');
+      var mobileControlsDrawer = document.getElementById('mobileControlsDrawer');
+      var btnCloseMobileDrawer = document.getElementById('btnCloseMobileDrawer');
+
+      if (btnMobileNavStream) btnMobileNavStream.addEventListener('click', function() { setMobileTab('stream'); });
+      if (btnMobileNavAgents) btnMobileNavAgents.addEventListener('click', function() { setMobileTab('agents'); });
+      if (btnMobileNavInspector) btnMobileNavInspector.addEventListener('click', function() { setMobileTab('inspector'); });
+      if (btnMobileNavTopology) btnMobileNavTopology.addEventListener('click', function() { setMobileTab('topology'); });
+      if (btnMobileNavControls) btnMobileNavControls.addEventListener('click', function() {
+        if (mobileControlsDrawer) mobileControlsDrawer.style.display = 'flex';
+      });
+      if (btnCloseMobileDrawer) btnCloseMobileDrawer.addEventListener('click', function() {
+        if (mobileControlsDrawer) mobileControlsDrawer.style.display = 'none';
+      });
+      if (mobileControlsDrawer) {
+        mobileControlsDrawer.addEventListener('click', function(e) {
+          if (e.target === mobileControlsDrawer) mobileControlsDrawer.style.display = 'none';
+        });
+      }
+      if (btnMobileCloseSidebar) btnMobileCloseSidebar.addEventListener('click', function() { setMobileTab('stream'); });
+      if (btnMobileCloseInspector) btnMobileCloseInspector.addEventListener('click', function() { setMobileTab('stream'); });
+
+      // Mobile Quick Control Buttons
+      var btnMobileSimulate = document.getElementById('btnMobileSimulate');
+      var btnMobileReset = document.getElementById('btnMobileReset');
+      var btnMobileApiKeys = document.getElementById('btnMobileApiKeys');
+      var btnMobileMfa = document.getElementById('btnMobileMfa');
+      var btnMobileFleet = document.getElementById('btnMobileFleet');
+      var btnMobilePolicy = document.getElementById('btnMobilePolicy');
+
+      if (btnMobileSimulate) btnMobileSimulate.addEventListener('click', function() {
+        if (mobileControlsDrawer) mobileControlsDrawer.style.display = 'none';
+        setMobileTab('stream');
+        runSimulation();
+      });
+      if (btnMobileReset) btnMobileReset.addEventListener('click', function() {
+        if (mobileControlsDrawer) mobileControlsDrawer.style.display = 'none';
+        resetConsole();
+      });
+      if (btnMobileApiKeys) btnMobileApiKeys.addEventListener('click', function() {
+        if (mobileControlsDrawer) mobileControlsDrawer.style.display = 'none';
+        if (apiKeyModal) { apiKeyModal.style.display = 'flex'; loadApiKeys(); }
+      });
+      if (btnMobileMfa) btnMobileMfa.addEventListener('click', function() {
+        if (mobileControlsDrawer) mobileControlsDrawer.style.display = 'none';
+        if (mfaModal) { mfaModal.style.display = 'flex'; loadMfaStatus(); }
+      });
+      if (btnMobileFleet) btnMobileFleet.addEventListener('click', function() {
+        if (mobileControlsDrawer) mobileControlsDrawer.style.display = 'none';
+        var fBar = document.getElementById('fleetBar');
+        if (fBar) fBar.style.display = (fBar.style.display === 'none' ? 'flex' : 'none');
+      });
+      if (btnMobilePolicy) btnMobilePolicy.addEventListener('click', function() {
+        if (mobileControlsDrawer) mobileControlsDrawer.style.display = 'none';
+        setMobileTab('inspector');
+        var insp = document.getElementById('inspectorContent');
+        if (insp) insp.scrollTop = insp.scrollHeight;
+      });
+
+      // Participant Cards in Sidebar on mobile: tap to switch to stream and show selected agent
+      document.querySelectorAll('.participant-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+          document.querySelectorAll('.participant-card').forEach(function(c) { c.classList.remove('active'); });
+          card.classList.add('active');
+          var agentName = card.getAttribute('data-agent');
+          if (agentName) {
+            showToast('Selected Agent: ' + agentName, 'info', 1800);
+          }
+          if (window.innerWidth <= 900) {
+            setMobileTab('stream');
+          }
+        });
+      });
+
     })();
   </script>
 </body>

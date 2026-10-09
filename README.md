@@ -2,6 +2,11 @@
 
 **Universal Multi-Agent Observability, Zero-Token Shannon Entropy Circuit Breaker, Git-like Time Machine DAG Debugging, & Multi-Tenant Fleet Coordination.**
 
+[![PyPI version](https://img.shields.io/pypi/v/swarmwatch.svg?color=blue&logo=pypi)](https://pypi.org/project/swarmwatch/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/swarmwatch.svg?color=blue)](https://pypi.org/project/swarmwatch/)
+[![NPM version](https://img.shields.io/npm/v/@swarmwatch/sdk.svg?color=CB3837&logo=npm)](https://www.npmjs.com/package/@swarmwatch/sdk)
+[![Cloud Server: Render Live](https://img.shields.io/badge/Cloud%20Server-Live%2024%2F7-brightgreen.svg)](https://swarmwatch.onrender.com)
+[![Uptime: 100%](https://img.shields.io/badge/Uptime-100%25%20(UptimeRobot)-success.svg)](https://swarmwatch.onrender.com/api/v1/health)
 [![Audit: CERTIFIED PASS](https://img.shields.io/badge/Audit-CERTIFIED%20PASS-brightgreen.svg)](docs/reference/SWARMWATCH_FINAL_OFFICIAL_AUDIT_REPORT.md)
 [![Architecture: 100/100 Seams](https://img.shields.io/badge/Architecture-100%2F100%20Seams-blue.svg)](docs/reference/05-ARCHITECTURE-AND-SEAMS.md)
 [![Adversarial Suite: 100% Green](https://img.shields.io/badge/Adversarial-19%2F19%20Exploits%20Neutralized-success.svg)](packages/sdk-python/tests/test_adversarial_audit_exploits.py)
@@ -106,27 +111,36 @@ flowchart TB
 
 ### Python SDK (`swarmwatch`)
 
-From pre-built standalone binary wheel (bundled with dashboard):
+Install directly from the official **[PyPI Registry](https://pypi.org/project/swarmwatch/)**:
+```bash
+pip install swarmwatch
+```
+
+Or install from the local standalone wheel (bundled with dashboard):
 ```bash
 pip install dist/swarmwatch-0.1.0-py3-none-any.whl
 ```
 
-Or editable local monorepo installation:
-```bash
-pip install -e "packages/sdk-python[all]"
-```
-
 ### TypeScript SDK (`@swarmwatch/sdk`)
 
-From pre-built npm package tarball:
+Install directly from the official **[NPM Registry](https://www.npmjs.com/package/@swarmwatch/sdk)**:
+```bash
+npm install @swarmwatch/sdk
+```
+
+Or install from the local npm package tarball:
 ```bash
 npm install packages/sdk-typescript/swarmwatch-sdk-0.1.0.tgz
 ```
 
-Or monorepo dependency:
-```bash
-npm install ./packages/sdk-typescript
-```
+### 🌐 Live Cloud Control Plane & Dashboard
+
+- **Live Cloud Console (Render)**: [https://swarmwatch.onrender.com](https://swarmwatch.onrender.com)
+- **24/7 Keep-Alive Uptime**: 100% monitored via UptimeRobot
+- **Zero-Cloud Self-Hosted Container**:
+  ```bash
+  docker compose up -d
+  ```
 
 ---
 

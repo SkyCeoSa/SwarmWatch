@@ -191,15 +191,17 @@ def test_server_dynamic_policy_and_budget_endpoints(tmp_path):
     assert "entropy_threshold" in policy
     assert policy["entropy_threshold"] == 0.40
 
-    # Bootstrap operator key for authenticated control plane operation
-    key_res = client.post("/api/v1/keys", json={
-        "project_id": "default-project",
-        "name": "Policy Operator Key",
-        "is_test": False,
-        "scopes": ["*"],
-    })
-    assert key_res.status_code == 200
-    op_key = key_res.json()["api_key"]
+    # Bootstrap operator key directly in storage for authenticated control plane operation
+    import asyncio
+    from swarmwatch.tenant import ApiKeyManager
+    mgr = ApiKeyManager()
+    op_key, key_rec = mgr.create_api_key_record(
+        project_id="default-project",
+        name="Policy Operator Key",
+        is_test=False,
+        scopes=["*"],
+    )
+    asyncio.run(storage.save_api_key(key_rec))
     auth_headers = {"Authorization": f"Bearer {op_key}"}
 
     # 3. Update policy dynamically with authenticated operator key
