@@ -3285,31 +3285,93 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         font-size: 11px !important;
       }
 
-      /* 3. Metrics Bar (2-Column Grid with High-Contrast Hairline Borders) */
+      /* 3. Metrics Bar (2-Column Rigid Grid, Zero-Overflow, Stacked Values) */
       .metrics-bar {
-        grid-template-columns: repeat(2, 1fr) !important;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px !important;
-        padding: 8px 12px !important;
+        padding: 8px 10px !important;
         width: 100% !important;
         max-width: 100vw !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
       }
       .metric-cell {
-        padding: 8px 10px !important;
+        padding: 8px 8px !important;
         gap: 4px !important;
         background: #0F1728 !important;
         border: 1px solid var(--border-subtle) !important;
+        border-radius: 4px !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+      }
+      .metric-header {
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        gap: 4px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
       }
       .metric-title {
         font-size: 11px !important;
+        line-height: 1.25 !important;
+        color: var(--text-muted) !important;
+        font-weight: 600 !important;
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+      }
+      .metric-tag {
+        font-size: 9.5px !important;
+        padding: 1px 5px !important;
+        border-radius: 3px !important;
+        font-family: var(--font-mono) !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        line-height: 1.3 !important;
+        max-width: 48% !important;
+        text-overflow: ellipsis !important;
+        overflow: hidden !important;
+      }
+      .metric-value-row {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 1px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
       }
       .metric-value {
-        font-size: 16px !important;
+        font-size: 17px !important;
+        line-height: 1.15 !important;
+        font-weight: 700 !important;
+        font-family: var(--font-mono) !important;
+        font-feature-settings: "tnum" 1 !important;
+        color: var(--text-primary) !important;
+        min-width: 0 !important;
       }
       .metric-subtext {
-        font-size: 11px !important;
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+        color: var(--text-muted) !important;
+        width: 100% !important;
+        min-width: 0 !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+        display: block !important;
       }
 
       /* 4. Natural Unified Workspace Flow */
@@ -3475,13 +3537,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       /* Stream Panel Header */
       .panel-header {
         padding: 8px 12px !important;
-        gap: 8px !important;
+        gap: 6px !important;
         flex-wrap: wrap !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      .panel-header > div {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 8px !important;
       }
       .panel-title {
         font-size: 12px !important;
       }
       .panel-count {
+        font-size: 11px !important;
+      }
+      .view-btn {
+        padding: 4px 8px !important;
         font-size: 11px !important;
       }
 
