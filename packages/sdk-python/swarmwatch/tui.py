@@ -28,7 +28,7 @@ if hasattr(sys.stdout, "reconfigure"):
 def can_encode_unicode() -> bool:
     try:
         encoding = sys.stdout.encoding or "utf-8"
-        "┌─┐│└┘●▲✖▶".encode(encoding)
+        "SwarmWatch".encode(encoding)
         return True
     except Exception:
         return False
@@ -239,12 +239,12 @@ class TerminalMonitor:
         ascii_mode = not self.use_unicode or use_ascii
 
         # Box characters
-        top_b = ("+" + "-" * (cols - 2) + "+") if ascii_mode else ("┌" + "─" * (cols - 2) + "┐")
-        bot_b = ("+" + "-" * (cols - 2) + "+") if ascii_mode else ("└" + "─" * (cols - 2) + "┘")
-        v_b = "|" if ascii_mode else "│"
-        h_div = ("-" * cols) if ascii_mode else ("─" * cols)
-        h_sub = (" " + "-" * (cols - 2)) if ascii_mode else (" " + "─" * (cols - 2))
-        sel_prefix = ">" if ascii_mode else "▶"
+        top_b = "+" + "-" * (cols - 2) + "+"
+        bot_b = "+" + "-" * (cols - 2) + "+"
+        v_b = "|"
+        h_div = "-" * cols
+        h_sub = " " + "-" * (cols - 2)
+        sel_prefix = ">"
 
         lines = []
 
@@ -259,11 +259,11 @@ class TerminalMonitor:
         # 2. Status & Endpoint Info
         status_text = data.get("status", "OFFLINE")
         if status_text == "HEALTHY":
-            status_badge = c.green("[*] HEALTHY" if ascii_mode else "● HEALTHY")
+            status_badge = c.green("[*] HEALTHY")
         elif status_text == "STANDALONE":
-            status_badge = c.yellow("[^] STANDALONE (SQLITE)" if ascii_mode else "▲ STANDALONE (SQLITE)")
+            status_badge = c.yellow("[^] STANDALONE (SQLITE)")
         else:
-            status_badge = c.red("[X] OFFLINE" if ascii_mode else "✖ OFFLINE")
+            status_badge = c.red("[X] OFFLINE")
 
         mode_badge = c.yellow("PAUSED") if self.is_paused else c.green("LIVE")
         ts_now = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
@@ -289,7 +289,7 @@ class TerminalMonitor:
             f"{c.bold('Dollars Saved:')} {c.green(f'${dollars_saved:,.2f}')}"
         )
         lines.append(metrics_summary)
-        lines.append(c.gray("─" * cols))
+        lines.append(c.gray("-" * cols))
 
         # 4. Active Swarms Table
         lines.append(f" {c.bold(c.white('ACTIVE SWARM RUNS'))}")

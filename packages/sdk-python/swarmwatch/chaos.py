@@ -135,7 +135,7 @@ class ChaosSimulator:
                         duration=410.0,
                         tokens=1450,
                         entropy=1.92,
-                        content="Spec approved: Redis token bucket rate limiter middleware with per-client IP windowing.",
+                        content="Spec approved: Redis token bucket throughput throttler middleware with per-client IP windowing.",
                         state_key="spec_approved",
                         state_val=True,
                     ),

@@ -227,8 +227,20 @@ def test_rest_api_safety_endpoints():
     assert res_trip.json()["status"] == "tripped"
     assert res_trip.json()["new_epoch"] == 2
 
-    # 5. Rearm safety authority
-    res_rearm = client.post("/api/v1/safety/rearm", json={})
+    # 5. Rearm safety authority (requires authenticated operator)
+    key_resp = client.post("/api/v1/keys", json={
+        "project_id": "default-project",
+        "name": "Operator Rearm Key",
+        "is_test": False,
+    })
+    assert key_resp.status_code == 200
+    raw_key = key_resp.json()["api_key"]
+
+    res_rearm = client.post(
+        "/api/v1/safety/rearm",
+        headers={"Authorization": f"Bearer {raw_key}"},
+        json={},
+    )
     assert res_rearm.status_code == 200
     assert res_rearm.json()["status"] == "rearmed"
     assert res_rearm.json()["new_epoch"] == 3

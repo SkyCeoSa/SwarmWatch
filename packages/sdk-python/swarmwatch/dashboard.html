@@ -281,7 +281,7 @@
 
     /* Time-Machine & Scrubber Bar */
     .time-machine-bar {
-      background: #0B101D;
+      background: #080B11;
       border-bottom: 1px solid var(--border-subtle);
       padding: 6px 12px;
       display: flex;
@@ -1761,23 +1761,84 @@
             <span class="status-indicator" id="gatewayDot" style="background: var(--success);"></span>
             <span id="gatewayText">GATEWAY: AUTONOMOUS OK</span>
           </div>
+          <div class="fleet-badge" id="meshRouterBadge" title="Dynamic Agent Federation & Swarm Mesh Routing (ADR 0083)">
+            <span class="status-indicator" id="meshRouterDot" style="background: var(--success);"></span>
+            <span id="meshRouterText">MESH ROUTER: FEDERATED OK</span>
+          </div>
           <div class="fleet-badge" id="groundingBadge" title="Multi-Modal Cognitive Grounding & Vector Evidence Fusion (ADR 0084)">
             <span class="status-indicator" id="groundingDot" style="background: var(--success);"></span>
             <span id="groundingText">GROUNDING: FUSION OK</span>
           </div>
-          <div class="fleet-badge" id="byzantineBadge" title="Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracle (ADR 0085)">
-            <span class="status-indicator" id="byzantineDot" style="background: var(--success);"></span>
-            <span id="byzantineText">BYZANTINE: QUORUM OK</span>
+          <div class="fleet-badge" id="byzantineOracleBadge" title="Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracles (ADR 0085)">
+            <span class="status-indicator" id="byzantineOracleDot" style="background: var(--success);"></span>
+            <span id="byzantineOracleText">BYZANTINE: PBFT QUORUM OK</span>
           </div>
-          <div class="fleet-badge" id="rollupBadge" title="Zero-Knowledge State Transition Rollup & Succinct Proofs (ADR 0086)">
+          <div class="fleet-badge" id="rollupBadge" title="Zero-Knowledge State Transition Rollups & Succinct Proof Verification (ADR 0086)">
             <span class="status-indicator" id="rollupDot" style="background: var(--success);"></span>
             <span id="rollupText">ROLLUP: ROOT SYNC</span>
           </div>
-          <div class="fleet-badge" id="arbitrationBadge" title="Multi-Cluster Epistemic Proof Verification & Automated Cross-Swarm Dispute Resolution (ADR 0087)">
+          <div class="fleet-badge" id="arbitrationBadge" title="Multi-Cluster Epistemic Proof Verification & Dispute Resolution (ADR 0087)">
             <span class="status-indicator" id="arbitrationDot" style="background: var(--success);"></span>
             <span id="arbitrationText">ARBITRATION: CLEAR</span>
           </div>
+          <div class="fleet-badge" id="syncBadge" title="Autonomous Cross-Cluster State Synchronization & Distributed Hyper-Graph Reconciliation (ADR 0088)">
+            <span class="status-indicator" id="syncDot" style="background: var(--success);"></span>
+            <span id="syncText">CROSS-CLUSTER: IN SYNC</span>
+          </div>
+          <div class="fleet-badge" id="healerBadge" title="Autonomous Hyper-Graph Partition Healing & Causal Resumption (ADR 0089)">
+            <span class="status-indicator" id="healerDot" style="background: var(--success);"></span>
+            <span id="healerText">PARTITION: HEALED OK</span>
+          </div>
+          <div class="fleet-badge" id="migrationBadge" title="Dynamic Topology Re-Partitioning & Adaptive Sub-Graph Migration (ADR 0090)">
+            <span class="status-indicator" id="migrationDot" style="background: var(--success);"></span>
+            <span id="migrationText">MIGRATION: STABLE OK</span>
+          </div>
+          <div class="fleet-badge" id="barrierBadge" title="Autonomous Cross-Cluster Causality Barrier & Multi-Swarm Epoch Cut-Over Synchronization (ADR 0091)">
+            <span class="status-indicator" id="barrierDot" style="background: var(--success);"></span>
+            <span id="barrierText">BARRIER: SYNCHRONIZED</span>
+          </div>
+          <div class="fleet-badge" id="relayBadge" title="Global Distributed Mesh Relay & Anycast Ingestion Gateway (ADR 0102)">
+            <span class="status-indicator" id="relayDot" style="background: var(--success);"></span>
+            <span id="relayText">RELAY: ANYCAST MESH OK</span>
+          </div>
+          <div class="fleet-badge" id="federationBadge" title="Multi-Region Quorum State Synchronization & Sovereign Federation (ADR 0103)">
+            <span class="status-indicator" id="federationDot" style="background: var(--success);"></span>
+            <span id="federationText">FEDERATION: SOVEREIGN OK</span>
+          </div>
+          <div class="fleet-badge" id="marketplaceBadge" title="Cryptographic Proof Marketplace & Verifier Node Staking Pool (ADR 0104)">
+            <span class="status-indicator" id="marketplaceDot" style="background: var(--success);"></span>
+            <span id="marketplaceText">MARKETPLACE: STAKED OK</span>
+          </div>
+          <div class="fleet-badge" id="snarkBadge" title="Zero-Knowledge Aggregate Attestation & Recursive SNARK Verification Gateway (ADR 0105)">
+            <span class="status-indicator" id="snarkDot" style="background: var(--success);"></span>
+            <span id="snarkText">SNARK: RECURSIVE FOLD OK</span>
+          </div>
+          <div class="fleet-badge" id="billingBadge" title="Autonomous Cloud SaaS Billing & Micro-Payment Channel Ledger (ADR 0106)">
+            <span class="status-indicator" id="billingDot" style="background: var(--success);"></span>
+            <span id="billingText">BILLING: CHANNEL OK</span>
+          </div>
+          <div class="fleet-badge" id="gossipBadge" title="Multi-Cloud Byzantine Partition Tolerant Gossip Membership (ADR 0107)">
+            <span class="status-indicator" id="gossipDot" style="background: var(--success);"></span>
+            <span id="gossipText">GOSSIP: QUORUM MESH OK</span>
+          </div>
+          <div class="fleet-badge" id="tribunalBadge" title="Real-Time Epistemic Dispute Resolution & Dynamic Slashing Escalation Tribunal (ADR 0108)">
+            <span class="status-indicator" id="tribunalDot" style="background: var(--success);"></span>
+            <span id="tribunalText">TRIBUNAL: QUORUM RESOLVED OK</span>
+          </div>
+          <div class="fleet-badge" id="enclaveBadge" title="Hardware Secure Enclave Remote Witness (ADR 0109)">
+            <span class="status-indicator" id="enclaveDot" style="background: var(--success);"></span>
+            <span id="enclaveText">ENCLAVE: HARDWARE WITNESS OK</span>
+          </div>
+          <div class="fleet-badge" id="fenceBadge" title="Sovereign Cross-Border Data Boundary Fence & Zero-Egress Vault (ADR 0110)">
+            <span class="status-indicator" id="fenceDot" style="background: var(--success);"></span>
+            <span id="fenceText">FENCE: DATA BOUNDARY OK</span>
+          </div>
+          <div class="fleet-badge" id="singularityBadge" title="Global Master Singularity & Autonomous Sovereign Registry (ADR 0111)">
+            <span class="status-indicator" id="singularityDot" style="background: var(--success);"></span>
+            <span id="singularityText">SINGULARITY: SOVEREIGN ROOT OK</span>
+          </div>
         </div>
+
 
 
 
@@ -2122,7 +2183,7 @@
       <div style="display: flex; flex-direction: column; gap: 6px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">State Snapshot Preview</span>
-          <span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">sanitized • zero secrets</span>
+          <span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">sanitized - zero secrets</span>
         </div>
         <div id="forkStatePreview" class="json-box" style="max-height: 160px;">{}</div>
       </div>
@@ -2246,7 +2307,7 @@
             entropy_score: 0.22
           },
           spans: [
-            { id: "span_ec_01", source: "ProductArchitect", target: "BackendEngineer", duration: 410, tokens: 1450, entropy: 1.92, timestamp: "10:15:01.100", payload: "Spec approved: Redis token bucket rate limiter middleware with per-client IP windowing." },
+            { id: "span_ec_01", source: "ProductArchitect", target: "BackendEngineer", duration: 410, tokens: 1450, entropy: 1.92, timestamp: "10:15:01.100", payload: "Spec approved: Redis token bucket throughput throttler middleware with per-client IP windowing." },
             { id: "span_ec_02", source: "BackendEngineer", target: "CodeReviewer", duration: 580, tokens: 2600, entropy: 1.85, timestamp: "10:15:01.680", payload: "PR #188 submitted: Added TokenBucketLimiter class with redis.pipeline() and atomic counter increment." },
             { id: "span_ec_03", source: "CodeReviewer", target: "SecurityAuditor", duration: 430, tokens: 1720, entropy: 1.74, timestamp: "10:15:02.110", payload: "Review passed standards. Type signatures verified. AST audit requested for unhandled key TTL expiry." },
             { id: "span_ec_04", source: "SecurityAuditor", target: "BackendEngineer", duration: 380, tokens: 1340, entropy: 1.65, timestamp: "10:15:02.490", payload: "Flagged potential vulnerability in limiter.py: fallback default TTL is unconfigured if redis returns -1." },
@@ -5126,94 +5187,385 @@
       refreshGatewayStatus();
       setInterval(refreshGatewayStatus, 10000);
 
-      async function refreshGroundingStatus() {
-        var groundingDot = document.getElementById('groundingDot');
-        var groundingText = document.getElementById('groundingText');
+      async function refreshSyncStatus() {
         try {
-          var res = await fetch('/api/v1/grounding/status');
+          var res = await fetch('/api/v1/sync/status');
           if (res.ok) {
             var data = await res.json();
-            var isTripped = data.circuit_tripped || false;
-            var badgeStr = data.status_badge || 'GROUNDING: FUSION OK';
-            if (groundingDot) {
-              groundingDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
-            }
-            if (groundingText) {
-              groundingText.textContent = badgeStr.toUpperCase();
-            }
-          }
-        } catch (e) {}
-      }
-      refreshGroundingStatus();
-      setInterval(refreshGroundingStatus, 10000);
-
-      async function refreshByzantineStatus() {
-        var byzantineDot = document.getElementById('byzantineDot');
-        var byzantineText = document.getElementById('byzantineText');
-        try {
-          var res = await fetch('/api/v1/byzantine/status');
-          if (res.ok) {
-            var data = await res.json();
-            var isTripped = data.circuit_tripped || false;
-            var badgeStr = data.status_badge || 'BYZANTINE: QUORUM OK';
-            if (byzantineDot) {
-              byzantineDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
-            }
-            if (byzantineText) {
-              byzantineText.textContent = badgeStr.toUpperCase();
-            }
-          }
-        } catch (e) {}
-      }
-      refreshByzantineStatus();
-      setInterval(refreshByzantineStatus, 10000);
-
-      // -------------------------------------------------------------------
-      // Zero-Knowledge State Transition Rollup (ADR 0086 / Seam 75)
-      // -------------------------------------------------------------------
-      async function refreshRollupStatus() {
-        var rollupDot = document.getElementById('rollupDot');
-        var rollupText = document.getElementById('rollupText');
-        try {
-          var res = await fetch('/api/v1/rollup/status');
-          if (res.ok) {
-            var data = await res.json();
+            var syncBadge = document.getElementById('syncBadge');
+            var syncDot = document.getElementById('syncDot');
+            var syncText = document.getElementById('syncText');
             var isTripped = data.circuit_tripped;
-            if (rollupDot) {
-              rollupDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            var nodesCount = data.nodes_count || 0;
+            if (syncBadge) {
+              syncBadge.className = isTripped ? 'fleet-badge tripped' : 'fleet-badge';
             }
-            if (rollupText) {
-              rollupText.textContent = isTripped ? 'ROLLUP: TRIPPED' : 'ROLLUP: ROOT SYNC';
+            if (syncDot) {
+              syncDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (syncText) {
+              var badgeStr = isTripped ? 'CROSS-CLUSTER: TRIPPED' : ('CROSS-CLUSTER: ' + nodesCount + ' NODES');
+              if (badgeStr.length > 30) badgeStr = 'CROSS-CLUSTER: IN SYNC';
+              syncText.textContent = badgeStr.toUpperCase();
             }
           }
         } catch (e) {}
       }
-      refreshRollupStatus();
-      setInterval(refreshRollupStatus, 10000);
+      refreshSyncStatus();
+      setInterval(refreshSyncStatus, 10000);
 
-      // -------------------------------------------------------------------
-      // Multi-Cluster Epistemic Proof Verification & Dispute Resolution (ADR 0087 / Seam 76)
-      // -------------------------------------------------------------------
-      async function refreshArbitrationStatus() {
-        var arbitrationDot = document.getElementById('arbitrationDot');
-        var arbitrationText = document.getElementById('arbitrationText');
+      async function refreshHealerStatus() {
         try {
-          var res = await fetch('/api/v1/arbitration/status');
+          var res = await fetch('/api/v1/healer/status');
           if (res.ok) {
             var data = await res.json();
+            var healerBadge = document.getElementById('healerBadge');
+            var healerDot = document.getElementById('healerDot');
+            var healerText = document.getElementById('healerText');
             var isTripped = data.circuit_tripped;
-            var disputesCount = data.disputes_count || 0;
-            if (arbitrationDot) {
-              arbitrationDot.style.background = isTripped ? 'var(--danger)' : (disputesCount > 0 ? 'var(--warning)' : 'var(--success)');
+            var receiptsCount = data.receipts_count || 0;
+            if (healerBadge) {
+              healerBadge.className = isTripped ? 'fleet-badge tripped' : 'fleet-badge';
             }
-            if (arbitrationText) {
-              arbitrationText.textContent = isTripped ? 'ARBITRATION: TRIPPED' : (disputesCount > 0 ? 'ARBITRATION: ' + disputesCount + ' DISPUTES' : 'ARBITRATION: CLEAR');
+            if (healerDot) {
+              healerDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (healerText) {
+              var badgeStr = isTripped ? 'PARTITION: TRIPPED' : (receiptsCount > 0 ? ('HEALED: ' + receiptsCount + ' REC') : 'PARTITION: HEALED OK');
+              if (badgeStr.length > 30) badgeStr = 'PARTITION: HEALED OK';
+              healerText.textContent = badgeStr.toUpperCase();
             }
           }
         } catch (e) {}
       }
-      refreshArbitrationStatus();
-      setInterval(refreshArbitrationStatus, 10000);
+      refreshHealerStatus();
+      setInterval(refreshHealerStatus, 10000);
+
+      async function refreshMigrationStatus() {
+        try {
+          var res = await fetch('/api/v1/migration/status');
+          if (res.ok) {
+            var data = await res.json();
+            var migBadge = document.getElementById('migrationBadge');
+            var migDot = document.getElementById('migrationDot');
+            var migText = document.getElementById('migrationText');
+            var isTripped = data.circuit_tripped;
+            var rcptCount = data.receipts_count || 0;
+            if (migBadge) {
+              migBadge.className = isTripped ? 'fleet-badge tripped' : 'fleet-badge';
+            }
+            if (migDot) {
+              migDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (migText) {
+              var badgeStr = isTripped ? 'MIGRATION: TRIPPED' : (rcptCount > 0 ? ('MIGRATED: ' + rcptCount + ' BUNDLES') : 'MIGRATION: STABLE OK');
+              if (badgeStr.length > 30) badgeStr = 'MIGRATION: STABLE OK';
+              migText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshMigrationStatus();
+      setInterval(refreshMigrationStatus, 10000);
+
+      async function refreshBarrierStatus() {
+        try {
+          var res = await fetch('/api/v1/barrier/status');
+          if (res.ok) {
+            var data = await res.json();
+            var barBadge = document.getElementById('barrierBadge');
+            var barDot = document.getElementById('barrierDot');
+            var barText = document.getElementById('barrierText');
+            var isTripped = data.circuit_tripped;
+            var certCount = data.total_certificates_count || 0;
+            if (barBadge) {
+              barBadge.className = isTripped ? 'fleet-badge tripped' : 'fleet-badge';
+            }
+            if (barDot) {
+              barDot.style.background = isTripped ? 'var(--danger)' : 'var(--success)';
+            }
+            if (barText) {
+              var badgeStr = isTripped ? 'BARRIER: TRIPPED' : (certCount > 0 ? ('EPOCH ' + data.active_epoch + ': ADVANCED') : 'BARRIER: SYNCHRONIZED');
+              if (badgeStr.length > 30) badgeStr = 'BARRIER: SYNCHRONIZED';
+              barText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshBarrierStatus();
+      setInterval(refreshBarrierStatus, 10000);
+
+      async function refreshRelayStatus() {
+        try {
+          var res = await fetch('/api/v1/relay/topology');
+          if (res.ok) {
+            var data = await res.json();
+            var relBadge = document.getElementById('relayBadge');
+            var relDot = document.getElementById('relayDot');
+            var relText = document.getElementById('relayText');
+            if (relBadge) {
+              relBadge.className = 'fleet-badge';
+            }
+            if (relDot) {
+              relDot.style.background = 'var(--success)';
+            }
+            if (relText) {
+              var count = data.node_count || 0;
+              var badgeStr = count > 0 ? ('RELAY: ' + count + ' NODES OK') : 'RELAY: ANYCAST MESH OK';
+              if (badgeStr.length > 30) badgeStr = 'RELAY: ANYCAST MESH OK';
+              relText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshRelayStatus();
+      setInterval(refreshRelayStatus, 10000);
+
+      async function refreshFederationStatus() {
+        try {
+          var res = await fetch('/api/v1/federation/status');
+          if (res.ok) {
+            var data = await res.json();
+            var fedBadge = document.getElementById('federationBadge');
+            var fedDot = document.getElementById('federationDot');
+            var fedText = document.getElementById('federationText');
+            var quarCount = data.quarantined_count || 0;
+            if (fedBadge) {
+              fedBadge.className = quarCount > 0 ? 'fleet-badge tripped' : 'fleet-badge';
+            }
+            if (fedDot) {
+              fedDot.style.background = quarCount > 0 ? 'var(--danger)' : 'var(--success)';
+            }
+            if (fedText) {
+              var badgeStr = quarCount > 0 ? ('FEDERATION: ' + quarCount + ' QUARANTINED') : 'FEDERATION: SOVEREIGN OK';
+              if (badgeStr.length > 30) badgeStr = 'FEDERATION: QUORUM OK';
+              fedText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshFederationStatus();
+      setInterval(refreshFederationStatus, 10000);
+
+      async function refreshMarketplaceStatus() {
+        try {
+          var res = await fetch('/api/v1/marketplace/status');
+          if (res.ok) {
+            var data = await res.json();
+            var mktBadge = document.getElementById('marketplaceBadge');
+            var mktDot = document.getElementById('marketplaceDot');
+            var mktText = document.getElementById('marketplaceText');
+            var isSolvent = (data.active_solvency >= data.min_solvency_threshold) || (data.total_verifiers === 0);
+            if (mktBadge) {
+              mktBadge.className = isSolvent ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (mktDot) {
+              mktDot.style.background = isSolvent ? 'var(--success)' : 'var(--danger)';
+            }
+            if (mktText) {
+              var count = data.active_verifiers_count || 0;
+              var badgeStr = isSolvent ? (count > 0 ? ('MARKET: ' + count + ' VERIFIERS') : 'MARKETPLACE: STAKED OK') : 'MARKETPLACE: INSOLVENT';
+              if (badgeStr.length > 30) badgeStr = 'MARKETPLACE: OK';
+              mktText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshMarketplaceStatus();
+      setInterval(refreshMarketplaceStatus, 10000);
+
+      async function refreshSnarkStatus() {
+        try {
+          var res = await fetch('/api/v1/snark/status');
+          if (res.ok) {
+            var data = await res.json();
+            var snarkBadge = document.getElementById('snarkBadge');
+            var snarkDot = document.getElementById('snarkDot');
+            var snarkText = document.getElementById('snarkText');
+            var isTripped = data.circuit_tripped;
+            if (snarkBadge) {
+              snarkBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (snarkDot) {
+              snarkDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (snarkText) {
+              var count = data.aggregate_receipts_count || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('SNARK: ' + count + ' FOLDS') : 'SNARK: RECURSIVE FOLD OK') : 'SNARK: CIRCUIT TRIPPED';
+              if (badgeStr.length > 30) badgeStr = 'SNARK: OK';
+              snarkText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSnarkStatus();
+      setInterval(refreshSnarkStatus, 10000);
+
+      async function refreshBillingStatus() {
+        try {
+          var res = await fetch('/api/v1/billing/channels/status');
+          if (res.ok) {
+            var data = await res.json();
+            var bilBadge = document.getElementById('billingBadge');
+            var bilDot = document.getElementById('billingDot');
+            var bilText = document.getElementById('billingText');
+            var isTripped = data.circuit_tripped;
+            if (bilBadge) {
+              bilBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (bilDot) {
+              bilDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (bilText) {
+              var count = data.active_channels_count || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('BILLING: ' + count + ' CHANNELS') : 'BILLING: CHANNEL OK') : 'BILLING: DEPLETED';
+              if (badgeStr.length > 30) badgeStr = 'BILLING: OK';
+              bilText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshBillingStatus();
+      setInterval(refreshBillingStatus, 10000);
+
+      async function refreshGossipStatus() {
+        try {
+          var res = await fetch('/api/v1/gossip/status');
+          if (res.ok) {
+            var data = await res.json();
+            var gosBadge = document.getElementById('gossipBadge');
+            var gosDot = document.getElementById('gossipDot');
+            var gosText = document.getElementById('gossipText');
+            var isTripped = data.circuit_tripped;
+            if (gosBadge) {
+              gosBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (gosDot) {
+              gosDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (gosText) {
+              var count = data.alive_members_count || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('GOSSIP: ' + count + ' NODES') : 'GOSSIP: QUORUM MESH OK') : 'GOSSIP: COLLAPSED';
+              if (badgeStr.length > 30) badgeStr = 'GOSSIP: OK';
+              gosText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshGossipStatus();
+      setInterval(refreshGossipStatus, 10000);
+
+      async function refreshTribunalStatus() {
+        try {
+          var res = await fetch('/api/v1/tribunal/status');
+          if (res.ok) {
+            var data = await res.json();
+            var trbBadge = document.getElementById('tribunalBadge');
+            var trbDot = document.getElementById('tribunalDot');
+            var trbText = document.getElementById('tribunalText');
+            var isTripped = data.circuit_tripped;
+            if (trbBadge) {
+              trbBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (trbDot) {
+              trbDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (trbText) {
+              var count = data.open_disputes_count || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('TRIBUNAL: ' + count + ' DISPUTES') : 'TRIBUNAL: QUORUM RESOLVED OK') : 'TRIBUNAL: SURGE TRIPPED';
+              if (badgeStr.length > 30) badgeStr = 'TRIBUNAL: OK';
+              trbText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshTribunalStatus();
+      setInterval(refreshTribunalStatus, 10000);
+
+      async function refreshEnclaveStatus() {
+        try {
+          var res = await fetch('/api/v1/enclave/status');
+          if (res.ok) {
+            var data = await res.json();
+            var encBadge = document.getElementById('enclaveBadge');
+            var encDot = document.getElementById('enclaveDot');
+            var encText = document.getElementById('enclaveText');
+            var isTripped = data.circuit_tripped;
+            if (encBadge) {
+              encBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (encDot) {
+              encDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (encText) {
+              var count = data.active_capability_tokens || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('ENCLAVE: ' + count + ' TOKENS') : 'ENCLAVE: HARDWARE WITNESS OK') : 'ENCLAVE: TEE COMPROMISED';
+              if (badgeStr.length > 30) badgeStr = 'ENCLAVE: OK';
+              encText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshEnclaveStatus();
+      setInterval(refreshEnclaveStatus, 10000);
+
+      async function refreshFenceStatus() {
+        try {
+          var res = await fetch('/api/v1/fence/status');
+          if (res.ok) {
+            var data = await res.json();
+            var fncBadge = document.getElementById('fenceBadge');
+            var fncDot = document.getElementById('fenceDot');
+            var fncText = document.getElementById('fenceText');
+            var isTripped = data.circuit_tripped;
+            if (fncBadge) {
+              fncBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (fncDot) {
+              fncDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (fncText) {
+              var count = data.total_sealed_envelopes || 0;
+              var badgeStr = !isTripped ? (count > 0 ? ('FENCE: ' + count + ' ENVELOPES') : 'FENCE: DATA BOUNDARY OK') : 'FENCE: EGRESS BREACH';
+              if (badgeStr.length > 30) badgeStr = 'FENCE: OK';
+              fncText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshFenceStatus();
+      setInterval(refreshFenceStatus, 10000);
+
+      async function refreshSingularityStatus() {
+        try {
+          var res = await fetch('/api/v1/singularity/status');
+          if (res.ok) {
+            var data = await res.json();
+            var sngBadge = document.getElementById('singularityBadge');
+            var sngDot = document.getElementById('singularityDot');
+            var sngText = document.getElementById('singularityText');
+            var isTripped = data.circuit_tripped || data.is_quarantined;
+            if (sngBadge) {
+              sngBadge.className = !isTripped ? 'fleet-badge' : 'fleet-badge tripped';
+            }
+            if (sngDot) {
+              sngDot.style.background = !isTripped ? 'var(--success)' : 'var(--danger)';
+            }
+            if (sngText) {
+              var ep = data.current_epoch || 0;
+              var badgeStr = !isTripped ? (ep > 0 ? ('SINGULARITY: EPOCH ' + ep + ' OK') : 'SINGULARITY: SOVEREIGN ROOT OK') : 'SINGULARITY: HALTED';
+              if (badgeStr.length > 30) badgeStr = 'SINGULARITY: ROOT OK';
+              sngText.textContent = badgeStr.toUpperCase();
+            }
+          }
+        } catch (e) {}
+      }
+      refreshSingularityStatus();
+      setInterval(refreshSingularityStatus, 10000);
+
+
+
+
 
 
       if (btnMfaModal) {

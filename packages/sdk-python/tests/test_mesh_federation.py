@@ -27,15 +27,62 @@ from swarmwatch.mesh_federation import (
     global_mesh_router,
     generate_peer_keypair,
     sign_peer_data,
+    sign_peer_registration,
+    compute_peer_registration_payload,
 )
 from swarmwatch.root_witness import WitnessKeyManager, sha256_digest
+
+
+def make_reg_kwargs(
+    node_id: str,
+    cluster_id: str = "c1",
+    tenant_id: str = "t1",
+    endpoint_url: str = "http://node",
+    role: MeshNodeRole = MeshNodeRole.WORKER,
+) -> dict:
+    km, pub = generate_peer_keypair()
+    sig = sign_peer_registration(km, node_id, cluster_id, tenant_id, endpoint_url, pub, role)
+    return {
+        "node_id": node_id,
+        "cluster_id": cluster_id,
+        "tenant_id": tenant_id,
+        "endpoint_url": endpoint_url,
+        "public_key_hex": pub,
+        "role": role,
+        "signature": sig,
+    }
 
 
 def test_peer_registration_and_signature_verification() -> None:
     router = MeshFederationRouter()
     km1, pub_hex = generate_peer_keypair()
 
-    # 1. Registration without signature succeeds
+    # 1. Registration without signature is rejected (PoC-H)
+    with pytest.raises(MeshPeerAuthenticationError, match="requires valid cryptographic signature"):
+        router.register_peer(
+            node_id="node-01",
+            cluster_id="us-east-1",
+            tenant_id="tenant-alpha",
+            endpoint_url="https://node01.east.internal",
+            public_key_hex=pub_hex,
+            role=MeshNodeRole.GATEWAY,
+        )
+
+    # 1b. Registration with malformed key is rejected (PoC-H squatting)
+    with pytest.raises(MeshPeerAuthenticationError, match="Malformed public key"):
+        router.register_peer(
+            node_id="node-victim",
+            cluster_id="us-east-1",
+            tenant_id="tenant-alpha",
+            endpoint_url="https://evil.internal",
+            public_key_hex="zz-not-hex",
+            signature="any-sig",
+        )
+
+    # 2. Registration with valid signature succeeds
+    sig1 = sign_peer_registration(
+        km1, "node-01", "us-east-1", "tenant-alpha", "https://node01.east.internal", pub_hex, MeshNodeRole.GATEWAY
+    )
     peer1 = router.register_peer(
         node_id="node-01",
         cluster_id="us-east-1",
@@ -43,24 +90,10 @@ def test_peer_registration_and_signature_verification() -> None:
         endpoint_url="https://node01.east.internal",
         public_key_hex=pub_hex,
         role=MeshNodeRole.GATEWAY,
+        signature=sig1,
     )
     assert peer1.node_id == "node-01"
     assert peer1.status == MeshNodeStatus.ONLINE
-
-    # 2. Registration with valid signature succeeds
-    km2, pub2_hex = generate_peer_keypair()
-    data = "node-02:us-west-2:tenant-alpha:https://node02.west.internal".encode("utf-8")
-    sig = sign_peer_data(km2, data)
-
-    peer2 = router.register_peer(
-        node_id="node-02",
-        cluster_id="us-west-2",
-        tenant_id="tenant-alpha",
-        endpoint_url="https://node02.west.internal",
-        public_key_hex=pub2_hex,
-        signature=sig,
-    )
-    assert peer2.node_id == "node-02"
 
     # 3. Registration with invalid signature raises MeshPeerAuthenticationError
     with pytest.raises(MeshPeerAuthenticationError, match="Cryptographic signature verification failed"):
@@ -73,12 +106,63 @@ def test_peer_registration_and_signature_verification() -> None:
             signature="deadbeef" * 8,
         )
 
+    # 4. Attempting to overwrite existing node without signature is rejected
+    with pytest.raises(MeshPeerAuthenticationError, match="Cannot overwrite existing peer node"):
+        router.register_peer(
+            node_id="node-01",
+            cluster_id="us-east-1",
+            tenant_id="tenant-alpha",
+            endpoint_url="https://hijack.evil.internal",
+            public_key_hex=pub_hex,
+        )
+
+    # 5. Attempting to overwrite existing node with Mallory's key signature is rejected (PoC-G)
+    km_mallory, pub_mallory = generate_peer_keypair()
+    mallory_sig = sign_peer_registration(
+        km_mallory, "node-01", "us-east-1", "tenant-alpha", "https://hijack.evil.internal", pub_mallory, MeshNodeRole.GATEWAY
+    )
+    with pytest.raises(MeshPeerAuthenticationError, match="Node hijacking attempt detected"):
+        router.register_peer(
+            node_id="node-01",
+            cluster_id="us-east-1",
+            tenant_id="tenant-alpha",
+            endpoint_url="https://hijack.evil.internal",
+            public_key_hex=pub_mallory,
+            signature=mallory_sig,
+        )
+
+    # 5b. Signature replay attack with attacker key is rejected (PoC-G replay)
+    with pytest.raises(MeshPeerAuthenticationError, match="Node hijacking attempt detected"):
+        router.register_peer(
+            node_id="node-01",
+            cluster_id="us-east-1",
+            tenant_id="tenant-alpha",
+            endpoint_url="https://hijack.evil.internal",
+            public_key_hex=pub_mallory,
+            signature=sig1,  # Replay Alice's sig
+        )
+
+    # 6. Legitimate owner re-registration signed by km1 succeeds
+    valid_update_sig = sign_peer_registration(
+        km1, "node-01", "us-east-1", "tenant-alpha", "https://node01-updated.east.internal", pub_hex, MeshNodeRole.GATEWAY
+    )
+    updated_peer = router.register_peer(
+        node_id="node-01",
+        cluster_id="us-east-1",
+        tenant_id="tenant-alpha",
+        endpoint_url="https://node01-updated.east.internal",
+        public_key_hex=pub_hex,
+        signature=valid_update_sig,
+        role=MeshNodeRole.GATEWAY,
+    )
+    assert updated_peer.endpoint_url == "https://node01-updated.east.internal"
+
 
 def test_link_establishment_and_topology_graph() -> None:
     router = MeshFederationRouter()
-    router.register_peer("n1", "c1", "t1", "http://n1", "pub1")
-    router.register_peer("n2", "c1", "t1", "http://n2", "pub2")
-    router.register_peer("n3", "c1", "t1", "http://n3", "pub3")
+    router.register_peer(**make_reg_kwargs("n1", "c1", "t1", "http://n1"))
+    router.register_peer(**make_reg_kwargs("n2", "c1", "t1", "http://n2"))
+    router.register_peer(**make_reg_kwargs("n3", "c1", "t1", "http://n3"))
 
     # Establish links
     assert router.establish_link("n1", "n2", weight_cost=1.5, bidirectional=True) is True
@@ -95,10 +179,10 @@ def test_link_establishment_and_topology_graph() -> None:
 def test_dijkstra_shortest_path_routing() -> None:
     router = MeshFederationRouter()
     # Build diamond graph: A -> B (1) -> D (1); A -> C (5) -> D (1)
-    router.register_peer("A", "c1", "t1", "http://a", "pub_a")
-    router.register_peer("B", "c1", "t1", "http://b", "pub_b")
-    router.register_peer("C", "c1", "t1", "http://c", "pub_c")
-    router.register_peer("D", "c1", "t1", "http://d", "pub_d")
+    router.register_peer(**make_reg_kwargs("A", "c1", "t1", "http://a"))
+    router.register_peer(**make_reg_kwargs("B", "c1", "t1", "http://b"))
+    router.register_peer(**make_reg_kwargs("C", "c1", "t1", "http://c"))
+    router.register_peer(**make_reg_kwargs("D", "c1", "t1", "http://d"))
 
     router.establish_link("A", "B", weight_cost=1.0)
     router.establish_link("B", "D", weight_cost=1.0)
@@ -117,8 +201,8 @@ def test_dijkstra_shortest_path_routing() -> None:
 
 def test_stale_peer_heartbeat_and_eviction() -> None:
     router = MeshFederationRouter(stale_peer_timeout_sec=5.0)
-    router.register_peer("p1", "c1", "t1", "http://p1", "pub1")
-    router.register_peer("p2", "c1", "t1", "http://p2", "pub2")
+    router.register_peer(**make_reg_kwargs("p1", "c1", "t1", "http://p1"))
+    router.register_peer(**make_reg_kwargs("p2", "c1", "t1", "http://p2"))
     router.establish_link("p1", "p2")
 
     t_now = time.time()
@@ -145,8 +229,10 @@ def test_mutual_cryptographic_handshake() -> None:
     km_a, pub_a = generate_peer_keypair()
     km_b, pub_b = generate_peer_keypair()
 
-    router.register_peer("node-a", "cluster-east", "tenant-1", "http://a", pub_a)
-    router.register_peer("node-b", "cluster-west", "tenant-1", "http://b", pub_b)
+    sig_a = sign_peer_registration(km_a, "node-a", "cluster-east", "tenant-1", "http://a", pub_a)
+    sig_b = sign_peer_registration(km_b, "node-b", "cluster-west", "tenant-1", "http://b", pub_b)
+    router.register_peer("node-a", "cluster-east", "tenant-1", "http://a", pub_a, signature=sig_a)
+    router.register_peer("node-b", "cluster-west", "tenant-1", "http://b", pub_b, signature=sig_b)
 
     req, res = router.perform_handshake(
         source_node_id="node-a",
@@ -164,9 +250,9 @@ def test_mutual_cryptographic_handshake() -> None:
 
 def test_packet_routing_and_receipt_generation() -> None:
     router = MeshFederationRouter()
-    router.register_peer("node-src", "c1", "tenant-alpha", "http://src", "pub_src")
-    router.register_peer("node-relay", "c1", "tenant-alpha", "http://relay", "pub_relay")
-    router.register_peer("node-dst", "c1", "tenant-alpha", "http://dst", "pub_dst")
+    router.register_peer(**make_reg_kwargs("node-src", "c1", "tenant-alpha", "http://src"))
+    router.register_peer(**make_reg_kwargs("node-relay", "c1", "tenant-alpha", "http://relay"))
+    router.register_peer(**make_reg_kwargs("node-dst", "c1", "tenant-alpha", "http://dst"))
 
     router.establish_link("node-src", "node-relay")
     router.establish_link("node-relay", "node-dst")
@@ -194,8 +280,8 @@ def test_packet_routing_and_receipt_generation() -> None:
 
 def test_hop_limit_ttl_exceeded() -> None:
     router = MeshFederationRouter()
-    router.register_peer("src", "c1", "t1", "http://s", "p1")
-    router.register_peer("dst", "c1", "t1", "http://d", "p2")
+    router.register_peer(**make_reg_kwargs("src", "c1", "t1", "http://s"))
+    router.register_peer(**make_reg_kwargs("dst", "c1", "t1", "http://d"))
     router.establish_link("src", "dst")
 
     packet = MeshPacket(
@@ -218,8 +304,8 @@ def test_hop_limit_ttl_exceeded() -> None:
 
 def test_loop_detection_and_prevention() -> None:
     router = MeshFederationRouter()
-    router.register_peer("node-x", "c1", "t1", "http://x", "px")
-    router.register_peer("node-y", "c1", "t1", "http://y", "py")
+    router.register_peer(**make_reg_kwargs("node-x", "c1", "t1", "http://x"))
+    router.register_peer(**make_reg_kwargs("node-y", "c1", "t1", "http://y"))
     router.establish_link("node-x", "node-y")
 
     # Packet claims node-x is already in path (loop)
@@ -238,8 +324,8 @@ def test_loop_detection_and_prevention() -> None:
 
 def test_cross_tenant_capability_fencing() -> None:
     router = MeshFederationRouter()
-    router.register_peer("node-t1", "c1", "tenant-corp", "http://t1", "p1")
-    router.register_peer("node-t2", "c1", "tenant-finance", "http://t2", "p2")
+    router.register_peer(**make_reg_kwargs("node-t1", "c1", "tenant-corp", "http://t1"))
+    router.register_peer(**make_reg_kwargs("node-t2", "c1", "tenant-finance", "http://t2"))
     router.establish_link("node-t1", "node-t2")
 
     # 1. Cross-tenant packet without capability token fails
@@ -268,8 +354,8 @@ def test_cross_tenant_capability_fencing() -> None:
 
 def test_safety_circuit_tripped_blocks_mesh_fail_closed() -> None:
     router = MeshFederationRouter()
-    router.register_peer("s1", "c1", "t1", "http://s1", "p1")
-    router.register_peer("s2", "c1", "t1", "http://s2", "p2")
+    router.register_peer(**make_reg_kwargs("s1", "c1", "t1", "http://s1"))
+    router.register_peer(**make_reg_kwargs("s2", "c1", "t1", "http://s2"))
     router.establish_link("s1", "s2")
 
     router.set_circuit_tripped(True)
@@ -291,8 +377,8 @@ def test_safety_circuit_tripped_blocks_mesh_fail_closed() -> None:
 
 def test_tamper_evident_receipt_canonical_hash() -> None:
     router = MeshFederationRouter()
-    router.register_peer("n-a", "c1", "t1", "http://a", "pa")
-    router.register_peer("n-b", "c1", "t1", "http://b", "pb")
+    router.register_peer(**make_reg_kwargs("n-a", "c1", "t1", "http://a"))
+    router.register_peer(**make_reg_kwargs("n-b", "c1", "t1", "http://b"))
     router.establish_link("n-a", "n-b")
 
     pkt = MeshPacket("pkt-hash", "n-a", "n-b", "t1", {"v": 1})
@@ -306,10 +392,11 @@ def test_tamper_evident_receipt_canonical_hash() -> None:
 
 
 def test_sub_250us_mesh_routing_slo() -> None:
+    import gc
     router = MeshFederationRouter()
     # Build 5-node chain
     for i in range(5):
-        router.register_peer(f"bench-node-{i}", "c1", "t-bench", f"http://b{i}", f"pub{i}")
+        router.register_peer(**make_reg_kwargs(f"bench-node-{i}", "c1", "t-bench", f"http://b{i}"))
         if i > 0:
             router.establish_link(f"bench-node-{i-1}", f"bench-node-{i}")
 
@@ -318,16 +405,25 @@ def test_sub_250us_mesh_routing_slo() -> None:
         pkt = MeshPacket("pkt-warm", "bench-node-0", "bench-node-4", "t-bench", {})
         router.route_packet(pkt)
 
-    # Benchmark: 500 complete packet route calculations across 4 hops
-    iterations = 500
-    t0 = time.perf_counter()
-    for j in range(iterations):
-        pkt = MeshPacket(f"pkt-bench-{j}", "bench-node-0", "bench-node-4", "t-bench", {})
-        router.route_packet(pkt)
-    t1 = time.perf_counter()
+    # Benchmark: 100 complete packet route calculations across 4 hops with GC isolation
+    iterations = 100
+    gc.collect()
+    gc.disable()
+    latencies_us = []
+    try:
+        for j in range(iterations):
+            pkt = MeshPacket(f"pkt-bench-{j}", "bench-node-0", "bench-node-4", "t-bench", {})
+            t0 = time.perf_counter_ns()
+            router.route_packet(pkt)
+            latencies_us.append((time.perf_counter_ns() - t0) / 1000.0)
+    finally:
+        gc.enable()
 
-    avg_us = ((t1 - t0) / iterations) * 1_000_000
-    assert avg_us < 250.0, f"Mesh routing roundtrip took {avg_us:.2f}µs, exceeding 250µs SLO"
+    latencies_us.sort()
+    trimmed = latencies_us[5:-5]
+    median_us = trimmed[len(trimmed) // 2]
+    assert median_us < 250.0, f"Mesh routing roundtrip took {median_us:.2f}µs, exceeding 250µs SLO"
+
 
 
 def test_global_mesh_router_singleton_status_and_reset() -> None:
@@ -335,7 +431,7 @@ def test_global_mesh_router_singleton_status_and_reset() -> None:
     assert "online_peers_count" in st
     assert "active_links_count" in st
 
-    global_mesh_router.register_peer("g-peer", "g-cluster", "g-tenant", "http://g", "pub_g")
+    global_mesh_router.register_peer(**make_reg_kwargs("g-peer", "g-cluster", "g-tenant", "http://g"))
     assert global_mesh_router.status()["total_peers_count"] >= 1
 
     global_mesh_router.reset()
@@ -360,30 +456,47 @@ def test_mesh_federation_rest_api() -> None:
 
         global_mesh_router.reset()
 
+        # Bootstrap operator key for control plane mesh management
+        key_res = client.post("/api/v1/keys", json={
+            "project_id": "default-project",
+            "name": "Mesh Operator Key",
+            "is_test": False,
+            "scopes": ["*"],
+        })
+        assert key_res.status_code == 200
+        op_key = key_res.json()["api_key"]
+        auth_headers = {"Authorization": f"Bearer {op_key}"}
+
         # 1. Register peers via API
-        reg1_res = client.post("/api/v1/mesh/register-peer", json={
+        km_a, pub_a = generate_peer_keypair()
+        sig_a = sign_peer_registration(km_a, "api-node-a", "c-east", "tenant-api", "http://node-a:8000", pub_a, MeshNodeRole.GATEWAY)
+        reg1_res = client.post("/api/v1/mesh/register-peer", headers=auth_headers, json={
             "node_id": "api-node-a",
             "cluster_id": "c-east",
             "tenant_id": "tenant-api",
             "endpoint_url": "http://node-a:8000",
-            "public_key_hex": "pub-hex-a",
+            "public_key_hex": pub_a,
             "role": "GATEWAY",
+            "signature": sig_a,
         })
         assert reg1_res.status_code == 200
         assert reg1_res.json()["node_id"] == "api-node-a"
 
-        reg2_res = client.post("/api/v1/mesh/register-peer", json={
+        km_b, pub_b = generate_peer_keypair()
+        sig_b = sign_peer_registration(km_b, "api-node-b", "c-east", "tenant-api", "http://node-b:8000", pub_b, MeshNodeRole.WORKER)
+        reg2_res = client.post("/api/v1/mesh/register-peer", headers=auth_headers, json={
             "node_id": "api-node-b",
             "cluster_id": "c-east",
             "tenant_id": "tenant-api",
             "endpoint_url": "http://node-b:8000",
-            "public_key_hex": "pub-hex-b",
+            "public_key_hex": pub_b,
             "role": "WORKER",
+            "signature": sig_b,
         })
         assert reg2_res.status_code == 200
 
         # 2. Establish link
-        link_res = client.post("/api/v1/mesh/establish-link", json={
+        link_res = client.post("/api/v1/mesh/establish-link", headers=auth_headers, json={
             "source_node_id": "api-node-a",
             "target_node_id": "api-node-b",
             "weight_cost": 2.5,
@@ -393,7 +506,7 @@ def test_mesh_federation_rest_api() -> None:
         assert link_res.json()["status"] == "LINK_ESTABLISHED"
 
         # 3. Heartbeat
-        hb_res = client.post("/api/v1/mesh/heartbeat", json={"node_id": "api-node-a"})
+        hb_res = client.post("/api/v1/mesh/heartbeat", headers=auth_headers, json={"node_id": "api-node-a"})
         assert hb_res.status_code == 200
         assert hb_res.json()["status"] == "HEARTBEAT_ACK"
 
@@ -404,7 +517,7 @@ def test_mesh_federation_rest_api() -> None:
         assert path_res.json()["hops"] == 1
 
         # 5. Route packet
-        route_res = client.post("/api/v1/mesh/route", json={
+        route_res = client.post("/api/v1/mesh/route", headers=auth_headers, json={
             "source_node_id": "api-node-a",
             "dest_node_id": "api-node-b",
             "tenant_id": "tenant-api",

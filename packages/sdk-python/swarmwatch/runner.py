@@ -212,6 +212,7 @@ class ForkRunner:
 
             # Auto-save updated state snapshot at conclusion of resumption
             self.client.sync_state(ctx.state, branch_id=branch_id)
+            self.client.flush()
 
         except Exception as e:
             status = "error"

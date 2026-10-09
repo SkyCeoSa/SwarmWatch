@@ -114,7 +114,7 @@ export class GrpcStreamClient {
           "Content-Type": "application/grpc",
           "x-swarmwatch-project-id": this.projectId,
         },
-        body: framed,
+        body: framed as any,
       });
 
       const grpcStatusHeader = resp.headers.get("grpc-status");

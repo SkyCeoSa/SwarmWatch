@@ -262,7 +262,7 @@ class IncidentReportGenerator:
         return self._format_markdown(post_mortem)
 
     def _format_markdown(self, pm: IncidentPostMortem) -> str:
-        status_badge = "🔴 HALTED_BY_CIRCUIT_BREAKER" if pm.circuit_tripped else "🟢 COMPLETED_SUCCESSFULLY"
+        status_badge = "[HALTED_BY_CIRCUIT_BREAKER]" if pm.circuit_tripped else "[COMPLETED_SUCCESSFULLY]"
 
         lines = [
             f"# SwarmWatch Incident Post-Mortem: {pm.swarm_id}",
@@ -346,7 +346,7 @@ class IncidentReportGenerator:
         return "\n".join(lines)
 
     def _format_terminal(self, pm: IncidentPostMortem) -> str:
-        status_line = "🔴 HALTED BY CIRCUIT BREAKER" if pm.circuit_tripped else "🟢 COMPLETED SUCCESSFULLY"
+        status_line = "[HALTED BY CIRCUIT BREAKER]" if pm.circuit_tripped else "[COMPLETED SUCCESSFULLY]"
 
         bar = "=" * 76
         sub_bar = "-" * 76

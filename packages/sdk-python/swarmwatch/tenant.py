@@ -50,10 +50,10 @@ class TenantContext(BaseModel):
     org_id: str = "default-org"
     project_id: str = "default-project"
     user_id: Optional[str] = None
-    role: Role = Role.ADMIN
+    role: Role = Role.VIEWER
     mfa_verified: bool = False
     key_id: Optional[str] = None
-    scopes: List[str] = Field(default_factory=lambda: ["*"])
+    scopes: List[str] = Field(default_factory=list)
 
 
 class ApiKeyManager:

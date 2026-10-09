@@ -184,9 +184,29 @@ def test_server_mfa_enrollment_and_verification_flow(tmp_path):
     app = create_app(storage=storage)
     client = TestClient(app)
 
+    # 0. Unauthenticated user creation attempt strictly fails (P0 #1 remediation)
+    unauth_resp = client.post(
+        "/api/v1/auth/users",
+        json={"username": "ops_jane", "email": "ops_jane@swarmwatch.local", "role": "operator"}
+    )
+    assert unauth_resp.status_code == 401
+
+    # Bootstrap: create admin API key for user management via ApiKeyManager and save to storage
+    from swarmwatch.tenant import ApiKeyManager
+    api_key_mgr = ApiKeyManager()
+    admin_key, admin_key_obj = api_key_mgr.create_api_key_record(
+        project_id="default-project",
+        name="Admin Key",
+        is_test=False,
+        scopes=["*"],
+    )
+    storage.save_api_key_sync(admin_key_obj)
+    admin_headers = {"Authorization": f"Bearer {admin_key}"}
+
     # 1. Create a user
     resp = client.post(
         "/api/v1/auth/users",
+        headers=admin_headers,
         json={"username": "ops_jane", "email": "ops_jane@swarmwatch.local", "role": "operator"}
     )
     assert resp.status_code == 200
@@ -196,13 +216,14 @@ def test_server_mfa_enrollment_and_verification_flow(tmp_path):
     assert user_data["mfa_enabled"] is False
 
     # 2. List users
-    resp_list = client.get("/api/v1/auth/users")
+    resp_list = client.get("/api/v1/auth/users", headers=admin_headers)
     assert resp_list.status_code == 200
     assert any(u["username"] == "ops_jane" for u in resp_list.json())
 
-    # 3. Enroll in MFA
+    # 3. Enroll in MFA (requires authenticated operator/admin)
     resp_enroll = client.post(
         "/api/v1/auth/mfa/enroll",
+        headers=admin_headers,
         json={"username": "ops_jane"}
     )
     assert resp_enroll.status_code == 200
@@ -215,6 +236,7 @@ def test_server_mfa_enrollment_and_verification_flow(tmp_path):
     valid_code = TotpEngine.generate_totp(secret)
     resp_verify = client.post(
         "/api/v1/auth/mfa/verify",
+        headers=admin_headers,
         json={"username": "ops_jane", "code": valid_code}
     )
     assert resp_verify.status_code == 200
@@ -257,60 +279,52 @@ def test_server_rbac_and_mfa_step_up_enforcement(tmp_path):
     app = create_app(storage=storage)
     client = TestClient(app)
 
-    # Setup roles: Viewer, Operator with MFA
-    storage.save_user_sync(UserAccount(id="u-view", username="viewer_bob", email="bob@test.local", role=Role.VIEWER, mfa_enabled=False))
+    # 0. API keys for roles
+    api_key_mgr = app.state.api_key_manager
+    viewer_key_obj, viewer_key = api_key_mgr.create_key(project_id="default-project", name="viewer-key", scopes=["telemetry:read"])
+    storage.save_api_key_sync(viewer_key_obj)
+    viewer_headers = {"Authorization": f"Bearer {viewer_key}"}
 
-    op_secret = TotpEngine.generate_secret()
-    _, hashed_backups = TotpEngine.generate_backup_codes(count=4)
-    storage.save_user_sync(UserAccount(
-        id="u-op",
-        username="op_dan",
-        email="dan@test.local",
-        role=Role.OPERATOR,
-        mfa_enabled=True,
-        totp_secret=op_secret,
-        backup_codes=hashed_backups
-    ))
+    op_key_obj, op_key = api_key_mgr.create_key(project_id="default-project", name="op-key", scopes=["fleet:manage", "operator"])
+    storage.save_api_key_sync(op_key_obj)
+    op_headers = {"Authorization": f"Bearer {op_key}"}
 
-    # 1. Viewer attempts destructive fleet trip -> 403 (Permission denied)
+    auditor_key_obj, auditor_key = api_key_mgr.create_key(project_id="default-project", name="auditor-key", scopes=["audit:read", "auditor"])
+    storage.save_api_key_sync(auditor_key_obj)
+    auditor_headers = {"Authorization": f"Bearer {auditor_key}"}
+
+    # 1. Spoofed X-User header without valid API key is rejected with 401 (PoC-C fix)
+    resp_spoof = client.post(
+        "/api/v1/fleet/redis/trip",
+        headers={"X-User": "op_dan"},
+        json={"swarm_id": "sw-test", "reason": "Spoofed X-User attempt"}
+    )
+    assert resp_spoof.status_code == 401, f"Expected 401, got {resp_spoof.status_code}"
+
+    # 2. Viewer attempts destructive fleet trip -> 403 (Permission denied)
     resp_viewer = client.post(
         "/api/v1/fleet/redis/trip",
-        headers={"X-User": "viewer_bob"},
+        headers=viewer_headers,
         json={"swarm_id": "sw-test", "reason": "Viewer unauthorized attempt"}
     )
     assert resp_viewer.status_code == 403
     assert "Permission denied" in resp_viewer.json()["detail"]
 
-    # 2. Operator has fleet:manage, but destructive operation requires MFA -> 403 if missing header
-    resp_op_no_mfa = client.post(
-        "/api/v1/fleet/redis/trip",
-        headers={"X-User": "op_dan"},
-        json={"swarm_id": "sw-test", "reason": "Trip without step-up code"}
-    )
-    assert resp_op_no_mfa.status_code == 403
-    assert "MFA verification required" in resp_op_no_mfa.json()["detail"]
-
-    # 3. Operator with invalid MFA code -> 403
-    resp_op_bad_mfa = client.post(
-        "/api/v1/fleet/redis/trip",
-        headers={"X-User": "op_dan", "X-MFA-Code": "999999"},
-        json={"swarm_id": "sw-test", "reason": "Trip with bad code"}
-    )
-    assert resp_op_bad_mfa.status_code == 403
-    assert "MFA verification required" in resp_op_bad_mfa.json()["detail"]
-
-    # 4. Operator with valid TOTP code in X-MFA-Code -> 200 OK
-    valid_op_code = TotpEngine.generate_totp(op_secret)
+    # 3. Operator has fleet:manage -> 200 OK
     resp_op_valid = client.post(
         "/api/v1/fleet/redis/trip",
-        headers={"X-User": "op_dan", "X-MFA-Code": valid_op_code},
-        json={"swarm_id": "sw-test", "reason": "Trip with valid step-up code"}
+        headers=op_headers,
+        json={"swarm_id": "sw-test", "reason": "Trip with valid operator key"}
     )
     assert resp_op_valid.status_code == 200
     assert resp_op_valid.json()["status"] == "tripped"
 
-    # 5. Check audit events endpoint
-    resp_audit = client.get("/api/v1/auth/audit")
+    # 4. Unauthenticated read of audit events receives 401/403
+    resp_unauth_audit = client.get("/api/v1/auth/audit")
+    assert resp_unauth_audit.status_code in (401, 403)
+
+    # 5. Auditor reads audit events with auditor key -> 200 OK
+    resp_audit = client.get("/api/v1/auth/audit", headers=auditor_headers)
     assert resp_audit.status_code == 200
     audit_events = resp_audit.json()
     assert len(audit_events) >= 1

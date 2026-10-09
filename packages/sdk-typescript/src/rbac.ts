@@ -187,7 +187,7 @@ export class TotpEngine {
 
       const canonical = raw.replace(/-/g, "").trim().toUpperCase();
       const hash = crypto.createHash("sha256").update(canonical, "utf8").digest("hex");
-      hashedCodes.append ? hashedCodes.push(hash) : hashedCodes.push(hash);
+      hashedCodes.push(hash);
     }
 
     return [rawCodes, hashedCodes];

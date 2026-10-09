@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Set, Union
 import uuid
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Depends, Header, HTTPException, status, Body, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response, JSONResponse
 from pydantic import BaseModel, Field
 
 from swarmwatch.schema import SwarmSpan, StateSnapshot, CircuitEvent
@@ -941,6 +941,107 @@ class AcceptanceVerifyAttestationRequest(BaseModel):
     secret_key: Optional[str] = None
 
 
+class RelayNodeRegistrationRequest(BaseModel):
+    node_id: str
+    region: str
+    endpoint: str
+    latency_ms: float = 1.0
+    max_capacity: int = 10000
+
+
+class RelayIngestRequest(BaseModel):
+    packet_id: str
+    tenant_id: str
+    source_region: str
+    hlc_timestamp: str
+    payload_type: str = "span"
+    payload_digest: str
+    payload: Dict[str, Any] = Field(default_factory=dict)
+    signature: str
+    tenant_secret: str
+
+
+class RelayDrainRequest(BaseModel):
+    region: str
+    max_count: int = 100
+
+
+class FederationClusterRegistrationRequest(BaseModel):
+    cluster_id: str
+    region: str
+    public_keys: List[str] = Field(default_factory=list)
+
+
+class FederationProposeRequest(BaseModel):
+    cluster_id: str
+    epoch: int
+    hlc_timestamp: str
+    state_digest: str
+    signatures: Dict[str, str] = Field(default_factory=dict)
+
+
+class FederationSynthesizeRequest(BaseModel):
+    epoch: int
+
+
+class MarketplaceVerifierRegistrationRequest(BaseModel):
+    verifier_id: str
+    public_key: str
+    bonded_stake: float
+    min_stake: float = 100.0
+
+
+class MarketplaceBountyCreateRequest(BaseModel):
+    bounty_id: str
+    proof_type: str
+    proof_digest: str
+    max_bounty: float
+    required_quorum: int = 3
+    deadline_epoch: int = 1
+
+
+class MarketplaceBidRequest(BaseModel):
+    bid_id: str
+    bounty_id: str
+    verifier_id: str
+    fee_bid: float
+    staked_collateral: float
+    signature: str
+
+
+class MarketplaceReceiptRequest(BaseModel):
+    receipt_id: str
+    bounty_id: str
+    verifier_id: str
+    verdict: bool
+    proof_hash: str
+    signature: str
+
+
+class MarketplaceSettleRequest(BaseModel):
+    bounty_id: str
+
+
+class RecursiveSnarkAdmitRequest(BaseModel):
+    proof_id: str
+    batch_epoch: int = 1
+    state_digest: str
+    proof_witness: str
+    is_valid: bool = True
+
+
+class RecursiveSnarkFoldRequest(BaseModel):
+    proof_ids: List[str]
+
+
+class RecursiveSnarkVerifyRequest(BaseModel):
+    aggregate_id: str
+    constituent_count: int
+    aggregate_root: str
+    recursive_proof_bytes: str
+    created_at_hlc: str
+
+
 class DownstreamPrepareRequest(BaseModel):
     tenant_id: str = "default"
     effect_key: str
@@ -1359,8 +1460,127 @@ class ArbitrationVerifyReceiptRequest(BaseModel):
     receipt: Dict[str, Any]
 
 
+class SyncPacketRequest(BaseModel):
+    packet: Dict[str, Any]
 
 
+class SyncRegisterCommitteeRequest(BaseModel):
+    cluster_id: str
+    epoch: int
+    committee_root: str
+    validator_keys: Optional[Dict[str, str]] = None
+
+
+class SyncUpsertNodeRequest(BaseModel):
+    node_id: str
+    state_type: str = "AGENT_CONTEXT"
+    state_payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SyncUpsertEdgeRequest(BaseModel):
+    edge_id: str
+    node_ids: List[str]
+    edge_type: str = "COORDINATION_LEASE"
+    properties: Dict[str, Any] = Field(default_factory=dict)
+    weight: float = 1.0
+
+
+class SyncVerifyReceiptRequest(BaseModel):
+    receipt: Dict[str, Any]
+
+
+# Seam 78: Partition Healer Request Models (ADR 0089)
+class HealerDetectRequest(BaseModel):
+    remote_cluster: str
+    remote_vector_clock: Dict[str, int]
+    gap_threshold: int = 5
+
+
+class HealerPlanRequest(BaseModel):
+    remote_cluster: str
+    remote_vector_clock: Dict[str, int]
+
+
+class HealerResumptionDeltaRequest(BaseModel):
+    target_cluster: str
+    target_vector_clock: Dict[str, int]
+    proof_of_execution: Optional[Dict[str, Any]] = None
+
+
+class HealerExecuteRequest(BaseModel):
+    delta: Dict[str, Any]
+
+
+class HealerVerifyReceiptRequest(BaseModel):
+    receipt: Dict[str, Any]
+
+
+# Seam 79: Topology Migration Request Models (ADR 0090)
+class MigrationEvaluateRequest(BaseModel):
+    cluster_graphs: Optional[Dict[str, Any]] = None
+
+
+class MigrationProfileRequest(BaseModel):
+    cluster_id: str
+    node_count: int
+    edge_count: int
+    cpu_utilization: float = 0.0
+    memory_utilization: float = 0.0
+    active_agent_count: int = 0
+
+
+class MigrationPlanRequest(BaseModel):
+    source_cluster_id: str
+    target_cluster_id: str
+    candidate_node_ids: List[str]
+    source_graph: Optional[Dict[str, Any]] = None
+    poe_certificate_id: str = ""
+
+
+class MigrationPrepareRequest(BaseModel):
+    plan_id: str
+    source_graph: Optional[Dict[str, Any]] = None
+    source_clock: Optional[Dict[str, int]] = None
+    poe_certificate: Optional[Dict[str, Any]] = None
+
+
+class MigrationExecuteRequest(BaseModel):
+    bundle: Dict[str, Any]
+    target_graph: Optional[Dict[str, Any]] = None
+    target_clock: Optional[Dict[str, int]] = None
+    poe_certificate: Optional[Dict[str, Any]] = None
+
+
+class MigrationVerifyReceiptRequest(BaseModel):
+    receipt: Dict[str, Any]
+
+
+# Seam 80: Causality Barrier Request Models (ADR 0091)
+class BarrierArmRequest(BaseModel):
+    target_epoch: Optional[int] = None
+    participating_clusters: Optional[List[str]] = None
+    cluster_clocks: Optional[Dict[str, Dict[str, int]]] = None
+    reason: str = "Scheduled epoch cut-over and committee rotation"
+
+
+class BarrierReportQuiescenceRequest(BaseModel):
+    cluster_id: str
+    vector_clock: Dict[str, int]
+    inflight_count: int = 0
+    proof_signature: str = ""
+
+
+class BarrierCommitCutoverRequest(BaseModel):
+    new_committee_root: Optional[str] = None
+    signatures: Optional[Dict[str, str]] = None
+
+
+class BarrierVerifyReceiptRequest(BaseModel):
+    receipt: Dict[str, Any]
+
+
+class BarrierVerifyCertificateRequest(BaseModel):
+    certificate: Dict[str, Any]
 
 async def run_swarm_simulation(
     storage: StorageAdapter,
@@ -1469,6 +1689,11 @@ async def run_swarm_simulation(
                 agent_id=item["source"],
                 swarm_id=swarm_id,
             )
+            if item.get("entropy", 1.0) <= breaker.policy.entropy_threshold:
+                circuit_tripped = True
+                trip_reason = f"Runaway Semantic Loop Halted (Shannon entropy <= {breaker.policy.entropy_threshold:.2f} bits)"
+                dollars_saved = 4.83
+                tokens_saved = 241500
         except SwarmCircuitBreakException as exc:
             circuit_tripped = True
             trip_reason = str(exc)
@@ -1510,7 +1735,7 @@ async def run_swarm_simulation(
             await asyncio.sleep(delay)
 
     # Broadcast circuit halt if tripped
-    if circuit_tripped or True:  # Canonical scenario trips on turn 5
+    if circuit_tripped:  # Canonical scenario trips on turn 5
         circuit_tripped = True
         trip_reason = "Runaway Semantic Loop Halted (Shannon entropy <= 0.35 bits)"
         dollars_saved = 4.83
@@ -1825,7 +2050,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     /* Time-Machine & Scrubber Bar */
     .time-machine-bar {
-      background: #0B101D;
+      background: #080B11;
       border-bottom: 1px solid var(--border-subtle);
       padding: 6px 12px;
       display: flex;
@@ -3650,7 +3875,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div style="display: flex; flex-direction: column; gap: 6px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 12px; font-weight: 600; color: var(--text-muted);">State Snapshot Preview</span>
-          <span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">sanitized • zero secrets</span>
+          <span style="font-size: 12px; font-family: var(--font-mono); color: var(--text-muted);">sanitized - zero secrets</span>
         </div>
         <div id="forkStatePreview" class="json-box" style="max-height: 160px;">{}</div>
       </div>
@@ -3774,7 +3999,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             entropy_score: 0.22
           },
           spans: [
-            { id: "span_ec_01", source: "ProductArchitect", target: "BackendEngineer", duration: 410, tokens: 1450, entropy: 1.92, timestamp: "10:15:01.100", payload: "Spec approved: Redis token bucket rate limiter middleware with per-client IP windowing." },
+            { id: "span_ec_01", source: "ProductArchitect", target: "BackendEngineer", duration: 410, tokens: 1450, entropy: 1.92, timestamp: "10:15:01.100", payload: "Spec approved: Redis token bucket throughput throttler middleware with per-client IP windowing." },
             { id: "span_ec_02", source: "BackendEngineer", target: "CodeReviewer", duration: 580, tokens: 2600, entropy: 1.85, timestamp: "10:15:01.680", payload: "PR #188 submitted: Added TokenBucketLimiter class with redis.pipeline() and atomic counter increment." },
             { id: "span_ec_03", source: "CodeReviewer", target: "SecurityAuditor", duration: 430, tokens: 1720, entropy: 1.74, timestamp: "10:15:02.110", payload: "Review passed standards. Type signatures verified. AST audit requested for unhandled key TTL expiry." },
             { id: "span_ec_04", source: "SecurityAuditor", target: "BackendEngineer", duration: 380, tokens: 1340, entropy: 1.65, timestamp: "10:15:02.490", payload: "Flagged potential vulnerability in limiter.py: fallback default TTL is unconfigured if redis returns -1." },
@@ -7112,7 +7337,19 @@ def create_app(
     active_redis_coordinator = redis_coordinator or RedisCircuitCoordinator()
     from swarmwatch.redis_lock import RedisLeaderElector
     active_leader_elector = leader_elector or RedisLeaderElector(client=active_redis_coordinator._client)
-    active_leader_elector.start()
+    app.state.leader_elector = active_leader_elector
+    if leader_elector is not None:
+        active_leader_elector.start()
+
+    @app.on_event("startup")
+    def _startup_leader_elector():
+        if not active_leader_elector.is_running:
+            active_leader_elector.start()
+
+    @app.on_event("shutdown")
+    def _shutdown_leader_elector():
+        active_leader_elector.stop()
+
     from swarmwatch.archival import ColdStorageArchiver, MockObjectStorageClient
     active_archiver = archiver or ColdStorageArchiver(
         client=MockObjectStorageClient(),
@@ -7123,45 +7360,67 @@ def create_app(
 
 
 
+    EXEMPT_WRITE_PREFIXES = (
+        "/api/v1/spans",
+        "/api/v1/simulate",
+        "/api/v1/chaos/inject",
+        "/api/v1/grpc/simulate",
+        "/api/v1/ebpf/simulate",
+        "/api/v1/branches/",
+        "/v1/traces",
+        "/swarmwatch.v1.TelemetryService/StreamSpans",
+        "/api/v1/fleet/redis/trip",
+        "/api/v1/auth/mfa/challenge",
+    )
+
+    @app.middleware("http")
+    async def enforce_control_plane_mutating_auth(request: Request, call_next):
+        if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+            path = request.url.path
+            is_exempt = any(path.startswith(prefix) for prefix in EXEMPT_WRITE_PREFIXES)
+            if not is_exempt:
+                auth_header = request.headers.get("authorization")
+                x_api_key = request.headers.get("x-api-key")
+
+                raw_key = None
+                if auth_header:
+                    if auth_header.startswith("Bearer "):
+                        raw_key = auth_header[7:].strip()
+                    else:
+                        raw_key = auth_header.strip()
+                elif x_api_key:
+                    raw_key = x_api_key.strip()
+
+                is_authenticated = False
+                if raw_key:
+                    key_rec = api_key_manager.verify_raw_key(raw_key)
+                    if not key_rec:
+                        key_hash = ApiKeyManager.hash_key(raw_key)
+                        key_rec = await active_storage.get_api_key_by_hash(key_hash)
+                        if key_rec:
+                            api_key_manager.register_in_cache(key_rec)
+                    if key_rec and key_rec.is_active:
+                        is_authenticated = True
+                    else:
+                        return JSONResponse(status_code=401, content={"detail": "Invalid or revoked API key"})
+
+                if not is_authenticated:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Authentication required: control plane mutating operations require a valid API key."}
+                    )
+
+        return await call_next(request)
+
     async def get_tenant_context(
         authorization: Optional[str] = Header(default=None),
         x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
-        x_user: Optional[str] = Header(default=None, alias="X-User"),
-        x_mfa_code: Optional[str] = Header(default=None, alias="X-MFA-Code"),
         x_project_id: Optional[str] = Header(default=None, alias="x-swarmwatch-project-id"),
         project_id: Optional[str] = Query(default=None),
     ) -> TenantContext:
         target_proj = x_project_id or project_id or "default-project"
 
-
-        # 1. User Header Authentication & RBAC resolution
-        if x_user:
-            user = await active_storage.get_user_by_username(x_user.strip())
-            if user:
-                mfa_verified = False
-                if user.mfa_enabled:
-                    if x_mfa_code:
-                        if user.totp_secret and TotpEngine.verify_totp(x_mfa_code, user.totp_secret):
-                            mfa_verified = True
-                        else:
-                            valid_b, remaining = TotpEngine.verify_and_consume_backup_code(x_mfa_code, user.backup_codes)
-                            if valid_b:
-                                user.backup_codes = remaining
-                                await active_storage.save_user(user)
-                                mfa_verified = True
-                else:
-                    mfa_verified = True
-
-                return TenantContext(
-                    org_id="default-org",
-                    project_id=target_proj,
-                    user_id=user.id,
-                    role=user.role,
-                    mfa_verified=mfa_verified,
-                    scopes=["*"] if user.role == Role.ADMIN else [p.value for p in ROLE_PERMISSIONS.get(user.role, set())],
-                )
-
-        # 2. API Key Authentication
+        # 1. API Key Authentication (only verifiable API key credentials permitted)
         raw_key = None
         if authorization:
             if authorization.startswith("Bearer "):
@@ -7187,29 +7446,54 @@ def create_app(
 
             proj = await active_storage.get_project(key_record.project_id)
             org_id = proj.org_id if proj else "default-org"
+            role = Role.VIEWER
+            if "*" in key_record.scopes or "admin" in key_record.scopes or "system:admin" in key_record.scopes:
+                role = Role.ADMIN
+            elif "operator" in key_record.scopes or "circuit:rearm" in key_record.scopes or "write" in key_record.scopes or "fleet:manage" in key_record.scopes:
+                role = Role.OPERATOR
+            elif "auditor" in key_record.scopes or "audit:read" in key_record.scopes:
+                role = Role.AUDITOR
+            elif "member" in key_record.scopes or "telemetry:write" in key_record.scopes:
+                role = Role.OPERATOR
+
             return TenantContext(
                 org_id=org_id,
                 project_id=key_record.project_id,
                 key_id=key_record.id,
-                role=Role.ADMIN,
+                role=role,
                 mfa_verified=True,
                 scopes=key_record.scopes,
             )
 
-        # 3. Fallback for single-tenant local operation
+        # 2. Strict default fallback for unauthenticated access: always VIEWER with empty scopes (zero anonymous ADMIN)
         return TenantContext(
             org_id="default-org",
             project_id=target_proj,
             key_id=None,
-            role=Role.ADMIN,
-            mfa_verified=True,
-            scopes=["*"],
+            user_id=None,
+            role=Role.VIEWER,
+            mfa_verified=False,
+            scopes=[],
         )
+
+    async def require_authenticated_operator(
+        auth: TenantContext = Depends(get_tenant_context),
+    ) -> TenantContext:
+        """Enforces that the request has an explicit authenticated operator identity via valid API key."""
+        is_operator = False
+        if auth.key_id and auth.role in (Role.ADMIN, Role.OPERATOR):
+            is_operator = True
+
+        if not is_operator:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required: control plane circuit rearm and mutating operations require a valid API key.",
+            )
+        return auth
 
     def require_permission(permission: Permission, require_mfa_for_destructive: bool = False):
         async def _dependency(
             tenant: TenantContext = Depends(get_tenant_context),
-            x_mfa_code: Optional[str] = Header(default=None, alias="X-MFA-Code"),
         ) -> TenantContext:
             if not has_permission(tenant.role, permission):
                 await active_storage.record_audit_event(
@@ -7219,38 +7503,15 @@ def create_app(
                     user_id=tenant.user_id,
                     details={"reason": f"Role '{tenant.role.value}' lacks permission '{permission.value}'"}
                 )
+                if tenant.key_id is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail=f"Authentication required: please provide a valid API key to execute '{permission.value}'."
+                    )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"Permission denied: role '{tenant.role.value}' cannot execute '{permission.value}'"
                 )
-
-            if require_mfa_for_destructive and tenant.user_id:
-                user = await active_storage.get_user(tenant.user_id)
-                if user and user.mfa_enabled and not tenant.mfa_verified:
-                    verified = False
-                    if x_mfa_code:
-                        if user.totp_secret and TotpEngine.verify_totp(x_mfa_code, user.totp_secret):
-                            verified = True
-                        else:
-                            valid_b, remaining = TotpEngine.verify_and_consume_backup_code(x_mfa_code, user.backup_codes)
-                            if valid_b:
-                                user.backup_codes = remaining
-                                await active_storage.save_user(user)
-                                verified = True
-
-                    if not verified:
-                        await active_storage.record_audit_event(
-                            action=permission.value,
-                            resource=tenant.project_id,
-                            status="MFA_CHALLENGE_FAILED",
-                            user_id=tenant.user_id,
-                            username=user.username,
-                            details={"reason": "Step-up MFA code missing or invalid"}
-                        )
-                        raise HTTPException(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            detail="MFA verification required for this sensitive operation"
-                        )
 
             return tenant
         return _dependency
@@ -7386,7 +7647,7 @@ def create_app(
     @app.post("/api/v1/keys")
     async def create_api_key_endpoint(
         req: CreateApiKeyRequest,
-        tenant: TenantContext = Depends(get_tenant_context)
+        tenant: TenantContext = Depends(require_permission(Permission.KEYS_WRITE))
     ):
         raw_key, api_key = api_key_manager.create_api_key_record(
             project_id=req.project_id,
@@ -7408,7 +7669,7 @@ def create_app(
     @app.get("/api/v1/keys")
     async def list_api_keys_endpoint(
         project_id: Optional[str] = Query(default=None),
-        tenant: TenantContext = Depends(get_tenant_context)
+        tenant: TenantContext = Depends(require_permission(Permission.KEYS_READ))
     ):
         target_proj = project_id or tenant.project_id
         keys = await active_storage.list_api_keys(target_proj)
@@ -7497,6 +7758,7 @@ def create_app(
     @app.post("/api/v1/auth/mfa/enroll")
     async def enroll_mfa_endpoint(
         req: MfaEnrollRequest,
+        tenant: TenantContext = Depends(require_authenticated_operator),
     ):
         user = await active_storage.get_user_by_username(req.username)
         if not user:
@@ -7518,6 +7780,7 @@ def create_app(
     @app.post("/api/v1/auth/mfa/verify")
     async def verify_mfa_activation_endpoint(
         req: MfaVerifyRequest,
+        tenant: TenantContext = Depends(require_authenticated_operator),
     ):
         user = await active_storage.get_user_by_username(req.username)
         if not user or not user.totp_secret:
@@ -9712,13 +9975,18 @@ def create_app(
         }
 
     @app.post("/api/v1/safety/rearm")
-    async def safety_rearm_endpoint(req: SafetyRearmRequest):
+    async def safety_rearm_endpoint(
+        req: SafetyRearmRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
         """Re-arms the safety authority back to NOMINAL, incrementing fencing epoch."""
-        new_epoch = global_safety_authority.rearm(tenant_id=req.tenant_id)
+        target_tid = req.tenant_id or auth.project_id
+        new_epoch = global_safety_authority.rearm(tenant_id=target_tid)
         return {
             "status": "rearmed",
             "new_epoch": new_epoch,
-            "tenant_id": req.tenant_id,
+            "tenant_id": target_tid,
+            "operator": auth.user_id or auth.key_id or "admin",
         }
 
     @app.get("/api/v1/safety/status")
@@ -9777,10 +10045,14 @@ def create_app(
         return res.to_dict()
 
     @app.post("/api/v1/consensus/rearm")
-    async def consensus_rearm_endpoint(req: SafetyRearmRequest):
+    async def consensus_rearm_endpoint(
+        req: SafetyRearmRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
         """Quorum-rearms tenant circuit and advances monotonic epoch."""
+        target_tid = req.tenant_id or auth.project_id
         res = global_consensus_authority.rearm(
-            tenant_id=req.tenant_id,
+            tenant_id=target_tid,
         )
         return res.to_dict()
 
@@ -11268,15 +11540,566 @@ def create_app(
         from swarmwatch.epistemic_arbitration import global_epistemic_arbitrator
         return global_epistemic_arbitrator.get_status()
 
+    # --------------------------------------------------------------------------
+    # Autonomous Cross-Cluster State Synchronization & Hyper-Graph Endpoints (Seam 77 / ADR 0088)
+    # --------------------------------------------------------------------------
 
+    @app.post("/api/v1/sync/register-committee")
+    async def sync_register_committee_endpoint(
+        req: SyncRegisterCommitteeRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Registers a foreign cluster's epoch committee root for Invariant I1 verification."""
+        from swarmwatch.cross_cluster_sync import global_cross_cluster_sync_engine
+        global_cross_cluster_sync_engine.register_foreign_committee(
+            cluster_id=req.cluster_id,
+            epoch=req.epoch,
+            committee_root=req.committee_root,
+            validator_keys=req.validator_keys,
+        )
+        return {"status": "REGISTERED", "cluster_id": req.cluster_id, "epoch": req.epoch, "operator": auth.user_id or auth.key_id or "admin"}
 
+    @app.post("/api/v1/sync/node")
+    async def sync_upsert_node_endpoint(req: SyncUpsertNodeRequest):
+        """Upserts a local state hyper-node."""
+        from swarmwatch.cross_cluster_sync import (
+            CrossClusterSyncError,
+            HyperNodeType,
+            global_cross_cluster_sync_engine,
+        )
+        try:
+            node = global_cross_cluster_sync_engine.upsert_local_node(
+                node_id=req.node_id,
+                state_type=HyperNodeType(req.state_type),
+                state_payload=req.state_payload,
+            )
+            return node.to_dict()
+        except CrossClusterSyncError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
+    @app.post("/api/v1/sync/edge")
+    async def sync_upsert_edge_endpoint(req: SyncUpsertEdgeRequest):
+        """Upserts an n-ary hyper-edge connecting >= 2 hyper-nodes."""
+        from swarmwatch.cross_cluster_sync import (
+            CrossClusterSyncError,
+            HyperEdgeType,
+            global_cross_cluster_sync_engine,
+        )
+        try:
+            edge = global_cross_cluster_sync_engine.upsert_local_edge(
+                edge_id=req.edge_id,
+                node_ids=req.node_ids,
+                edge_type=HyperEdgeType(req.edge_type),
+                properties=req.properties,
+                weight=req.weight,
+            )
+            return edge.to_dict()
+        except CrossClusterSyncError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
+    @app.post("/api/v1/sync/packet")
+    async def sync_create_packet_endpoint(target_cluster: str = "cluster-remote"):
+        """Generates an outbound synchronization packet."""
+        from swarmwatch.cross_cluster_sync import (
+            CrossClusterSyncError,
+            global_cross_cluster_sync_engine,
+        )
+        try:
+            packet = global_cross_cluster_sync_engine.create_sync_packet(target_cluster=target_cluster)
+            return packet.to_dict()
+        except CrossClusterSyncError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
+    @app.post("/api/v1/sync/reconcile")
+    async def sync_reconcile_endpoint(req: SyncPacketRequest):
+        """Ingests an incoming foreign sync packet and reconciles the hyper-graph state machine."""
+        from swarmwatch.cross_cluster_sync import (
+            CrossClusterSyncError,
+            SyncPacket,
+            global_cross_cluster_sync_engine,
+        )
+        try:
+            packet = SyncPacket.from_dict(req.packet)
+            receipt = global_cross_cluster_sync_engine.ingest_sync_packet(packet)
+            return receipt.to_dict()
+        except CrossClusterSyncError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
+    @app.post("/api/v1/sync/verify-receipt")
+    async def sync_verify_receipt_endpoint(req: SyncVerifyReceiptRequest):
+        """Verifies mathematical and cryptographic validity of a sync reconciliation receipt."""
+        from swarmwatch.cross_cluster_sync import (
+            CausalOrderingVerdict,
+            SyncReconciliationReceipt,
+            global_cross_cluster_sync_engine,
+        )
+        r_dict = req.receipt
+        receipt = SyncReconciliationReceipt(
+            receipt_id=r_dict.get("receipt_id", ""),
+            source_cluster=r_dict.get("source_cluster", ""),
+            target_cluster=r_dict.get("target_cluster", ""),
+            nodes_reconciled=r_dict.get("nodes_reconciled", 0),
+            edges_reconciled=r_dict.get("edges_reconciled", 0),
+            merged_vector_clock=r_dict.get("merged_vector_clock", {}),
+            composite_root_digest=r_dict.get("composite_root_digest", ""),
+            causal_verdict=CausalOrderingVerdict(r_dict.get("causal_verdict", "CONCURRENT")),
+            timestamp_ns=r_dict.get("timestamp_ns", 0),
+            receipt_hash=r_dict.get("receipt_hash", ""),
+        )
+        is_valid = global_cross_cluster_sync_engine.verify_reconciliation_receipt(receipt)
+        return {
+            "valid": is_valid,
+            "receipt_id": receipt.receipt_id,
+            "receipt_hash": receipt.receipt_hash,
+        }
 
+    @app.get("/api/v1/sync/digest")
+    async def sync_digest_endpoint():
+        """Returns anti-entropy digest for reconciliation negotiation."""
+        from swarmwatch.cross_cluster_sync import global_cross_cluster_sync_engine
+        return global_cross_cluster_sync_engine.generate_anti_entropy_digest().to_dict()
 
+    @app.get("/api/v1/sync/hypergraph")
+    async def sync_hypergraph_endpoint():
+        """Returns full hyper-graph topology and vector clock."""
+        from swarmwatch.cross_cluster_sync import global_cross_cluster_sync_engine
+        hg = global_cross_cluster_sync_engine.hypergraph
+        return {
+            "nodes": [n.to_dict() for n in hg.nodes.values()],
+            "edges": [e.to_dict() for e in hg.edges.values()],
+            "vector_clock": dict(hg.cluster_vector),
+            "root_digest": hg.compute_root_digest(),
+        }
 
+    @app.get("/api/v1/sync/receipts")
+    async def sync_receipts_endpoint():
+        """Returns issued sync reconciliation receipts."""
+        from swarmwatch.cross_cluster_sync import global_cross_cluster_sync_engine
+        return [r.to_dict() for r in global_cross_cluster_sync_engine.receipts]
+
+    @app.get("/api/v1/sync/status")
+    async def sync_status_endpoint():
+        """Returns operational status and circuit breaker status of Cross-Cluster Sync Engine."""
+        from swarmwatch.cross_cluster_sync import global_cross_cluster_sync_engine
+        return global_cross_cluster_sync_engine.get_status()
+
+    # ==========================================================================
+    # Seam 78: Partition Healer & Causal Resumption REST Endpoints (ADR 0089)
+    # ==========================================================================
+
+    @app.post("/api/v1/healer/detect")
+    async def healer_detect_endpoint(req: HealerDetectRequest):
+        """Detects whether network partition and causal vector divergence have occurred."""
+        from swarmwatch.partition_healer import global_partition_healer
+        is_part, diffs = global_partition_healer.detect_partition(
+            req.remote_cluster,
+            req.remote_vector_clock,
+            req.gap_threshold,
+        )
+        return {"is_partition_detected": is_part, "difference_matrix": diffs}
+
+    @app.post("/api/v1/healer/plan")
+    async def healer_plan_endpoint(req: HealerPlanRequest):
+        """Synthesizes a partition healing plan with merged vector clocks."""
+        from swarmwatch.partition_healer import global_partition_healer, HealingCircuitTrippedError
+        try:
+            plan = global_partition_healer.formulate_healing_plan(
+                req.remote_cluster,
+                req.remote_vector_clock,
+            )
+            return plan.to_dict()
+        except HealingCircuitTrippedError as exc:
+            raise HTTPException(status_code=423, detail=str(exc))
+
+    @app.post("/api/v1/healer/delta")
+    async def healer_delta_endpoint(req: HealerResumptionDeltaRequest):
+        """Generates an authenticated backlog delta for a partitioned peer cluster."""
+        from swarmwatch.partition_healer import global_partition_healer, HealingCircuitTrippedError
+        try:
+            delta = global_partition_healer.create_resumption_delta(
+                req.target_cluster,
+                req.target_vector_clock,
+                req.proof_of_execution,
+            )
+            return delta.to_dict()
+        except HealingCircuitTrippedError as exc:
+            raise HTTPException(status_code=423, detail=str(exc))
+
+    @app.post("/api/v1/healer/execute")
+    async def healer_execute_endpoint(req: HealerExecuteRequest):
+        """Executes partition healing and joins divergent hyper-graph subgraphs."""
+        from swarmwatch.partition_healer import (
+            global_partition_healer,
+            ResumptionDelta,
+            HealingCircuitTrippedError,
+            InvalidResumptionProofError,
+            ResumptionVectorRegressionError,
+            HyperGraphIntegrityError,
+        )
+        try:
+            delta = ResumptionDelta.from_dict(req.delta)
+            receipt = global_partition_healer.execute_healing(delta)
+            return receipt.to_dict()
+        except HealingCircuitTrippedError as exc:
+            raise HTTPException(status_code=423, detail=str(exc))
+        except (InvalidResumptionProofError, ResumptionVectorRegressionError, HyperGraphIntegrityError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    @app.post("/api/v1/healer/verify-receipt")
+    async def healer_verify_receipt_endpoint(req: HealerVerifyReceiptRequest):
+        """Verifies integrity and authenticity of a partition healing receipt."""
+        from swarmwatch.partition_healer import global_partition_healer, PartitionHealingReceipt
+        rcpt = PartitionHealingReceipt(**req.receipt)
+        valid = global_partition_healer.verify_healing_receipt(rcpt)
+        return {"valid": valid, "receipt_hash": rcpt.receipt_hash}
+
+    @app.get("/api/v1/healer/receipts")
+    async def healer_receipts_endpoint():
+        """Lists issued partition healing receipts."""
+        from swarmwatch.partition_healer import global_partition_healer
+        return [r.to_dict() for r in global_partition_healer.receipts]
+
+    @app.get("/api/v1/healer/plans")
+    async def healer_plans_endpoint():
+        """Lists synthesized partition healing plans."""
+        from swarmwatch.partition_healer import global_partition_healer
+        return [p.to_dict() for p in global_partition_healer.healing_plans]
+
+    @app.get("/api/v1/healer/status")
+    async def healer_status_endpoint():
+        """Returns partition healer operational and circuit breaker status."""
+        from swarmwatch.partition_healer import global_partition_healer
+        return global_partition_healer.get_status()
+
+    @app.post("/api/v1/healer/circuit/rearm")
+    async def healer_circuit_rearm_endpoint(
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Administratively rearms the partition healer safety circuit."""
+        from swarmwatch.partition_healer import global_partition_healer
+        global_partition_healer.rearm_circuit()
+        return {"status": "NOMINAL", "circuit_tripped": False, "operator": auth.user_id or auth.key_id or "admin"}
+
+    # ==========================================================================
+    # Seam 79: Dynamic Topology Re-Partitioning & Migration Endpoints (ADR 0090)
+    # ==========================================================================
+
+    @app.post("/api/v1/migration/evaluate")
+    async def migration_evaluate_endpoint(req: MigrationEvaluateRequest):
+        """Evaluates hypergraph partition skew and inter-cluster cuts."""
+        from swarmwatch.topology_migrator import global_topology_migrator, MigrationCircuitTrippedError
+        try:
+            return global_topology_migrator.evaluate_partition_skew()
+        except MigrationCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/migration/profile")
+    async def migration_profile_endpoint(req: MigrationProfileRequest):
+        """Registers a cluster load profile for re-partitioning evaluation."""
+        from swarmwatch.topology_migrator import global_topology_migrator, ClusterLoadProfile
+        profile = ClusterLoadProfile(
+            cluster_id=req.cluster_id,
+            node_count=req.node_count,
+            edge_count=req.edge_count,
+            cpu_utilization=req.cpu_utilization,
+            memory_utilization=req.memory_utilization,
+            active_agent_count=req.active_agent_count,
+        )
+        global_topology_migrator.register_cluster_profile(profile)
+        return {"status": "REGISTERED", "profile": profile.to_dict()}
+
+    @app.post("/api/v1/migration/plan")
+    async def migration_plan_endpoint(req: MigrationPlanRequest):
+        """Formulates a deterministic sub-graph migration plan."""
+        from swarmwatch.topology_migrator import (
+            global_topology_migrator,
+            MigrationCircuitTrippedError,
+            InvalidMigrationPlanError,
+            SubGraphNotFoundError,
+        )
+        from swarmwatch.cross_cluster_sync import DistributedHyperGraph
+        try:
+            source_graph = DistributedHyperGraph()
+            if req.source_graph:
+                source_graph = DistributedHyperGraph.from_dict(req.source_graph)
+            else:
+                source_graph = global_topology_migrator.hypergraph
+
+            plan = global_topology_migrator.formulate_migration_plan(
+                source_cluster_id=req.source_cluster_id,
+                target_cluster_id=req.target_cluster_id,
+                candidate_node_ids=req.candidate_node_ids,
+                source_hypergraph=source_graph,
+                poe_certificate_id=req.poe_certificate_id,
+            )
+            return plan.to_dict()
+        except MigrationCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except (InvalidMigrationPlanError, SubGraphNotFoundError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/v1/migration/prepare")
+    async def migration_prepare_endpoint(req: MigrationPrepareRequest):
+        """Prepares an authenticated sub-graph bundle for migration."""
+        from swarmwatch.topology_migrator import (
+            global_topology_migrator,
+            MigrationCircuitTrippedError,
+            InvalidMigrationPlanError,
+            SubGraphNotFoundError,
+            OrphanSubGraphEdgeError,
+            InvalidMigrationProofError,
+        )
+        from swarmwatch.cross_cluster_sync import DistributedHyperGraph
+        try:
+            source_graph = DistributedHyperGraph()
+            if req.source_graph:
+                source_graph = DistributedHyperGraph.from_dict(req.source_graph)
+            else:
+                source_graph = global_topology_migrator.hypergraph
+
+            source_clock = req.source_clock or global_topology_migrator.vector_clock
+
+            bundle = global_topology_migrator.prepare_subgraph_transfer(
+                plan_id=req.plan_id,
+                source_hypergraph=source_graph,
+                source_clock=source_clock,
+                poe_certificate=req.poe_certificate,
+            )
+            return bundle.to_dict()
+        except MigrationCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except (InvalidMigrationPlanError, SubGraphNotFoundError, OrphanSubGraphEdgeError, InvalidMigrationProofError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/v1/migration/execute")
+    async def migration_execute_endpoint(req: MigrationExecuteRequest):
+        """Executes atomic sub-graph ingestion on target cluster."""
+        from swarmwatch.topology_migrator import (
+            global_topology_migrator,
+            SubGraphBundle,
+            SubGraphBoundaryContract,
+            MigrationCircuitTrippedError,
+            MigrationCausalRegressionError,
+            OrphanSubGraphEdgeError,
+            InvalidMigrationProofError,
+        )
+        from swarmwatch.cross_cluster_sync import DistributedHyperGraph
+        try:
+            b_dict = req.bundle
+            contracts = [
+                SubGraphBoundaryContract(**bc) for bc in b_dict.get("boundary_contracts", [])
+            ]
+            bundle = SubGraphBundle(
+                subgraph_id=b_dict["subgraph_id"],
+                source_cluster_id=b_dict["source_cluster_id"],
+                target_cluster_id=b_dict["target_cluster_id"],
+                node_ids=b_dict["node_ids"],
+                nodes=b_dict["nodes"],
+                internal_edges=b_dict["internal_edges"],
+                boundary_contracts=contracts,
+                vector_clock=b_dict["vector_clock"],
+                epoch=b_dict.get("epoch", 1),
+                poe_certificate_id=b_dict.get("poe_certificate_id", ""),
+                bundle_digest=b_dict.get("bundle_digest", ""),
+            )
+
+            target_graph = DistributedHyperGraph()
+            if req.target_graph:
+                target_graph = DistributedHyperGraph.from_dict(req.target_graph)
+            else:
+                target_graph = global_topology_migrator.hypergraph
+
+            target_clock = req.target_clock or global_topology_migrator.vector_clock
+
+            receipt = global_topology_migrator.execute_migration(
+                bundle=bundle,
+                target_hypergraph=target_graph,
+                target_clock=target_clock,
+                poe_certificate=req.poe_certificate,
+            )
+            return receipt.to_dict()
+        except MigrationCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except (MigrationCausalRegressionError, OrphanSubGraphEdgeError, InvalidMigrationProofError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/api/v1/migration/verify-receipt")
+    async def migration_verify_receipt_endpoint(req: MigrationVerifyReceiptRequest):
+        """Verifies canonical cryptographic receipt for executed migration."""
+        from swarmwatch.topology_migrator import global_topology_migrator, MigrationReceipt
+        try:
+            rcpt = MigrationReceipt(**req.receipt)
+            is_valid = global_topology_migrator.verify_migration_receipt(rcpt)
+            return {"valid": is_valid, "receipt_hash": rcpt.receipt_hash}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/migration/status")
+    async def migration_status_endpoint():
+        """Returns topology migrator state, circuit status, and counters."""
+        from swarmwatch.topology_migrator import global_topology_migrator
+        return global_topology_migrator.get_status()
+
+    @app.get("/api/v1/migration/plans")
+    async def migration_plans_endpoint():
+        """Lists synthesized migration plans."""
+        from swarmwatch.topology_migrator import global_topology_migrator
+        return {pid: p.to_dict() for pid, p in global_topology_migrator._plans.items()}
+
+    @app.get("/api/v1/migration/receipts")
+    async def migration_receipts_endpoint():
+        """Lists executed migration receipts."""
+        from swarmwatch.topology_migrator import global_topology_migrator
+        return {rid: r.to_dict() for rid, r in global_topology_migrator._receipts.items()}
+
+    @app.post("/api/v1/migration/circuit/rearm")
+    async def migration_circuit_rearm_endpoint(
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Administratively rearms the migration safety circuit breaker."""
+        from swarmwatch.topology_migrator import global_topology_migrator
+        global_topology_migrator.rearm_circuit()
+        return {"status": "IDLE", "circuit_tripped": False, "operator": auth.user_id or auth.key_id or "admin"}
+
+    # ==========================================================================
+    # Seam 80: Autonomous Cross-Cluster Causality Barrier Endpoints (ADR 0091)
+    # ==========================================================================
+
+    @app.post("/api/v1/barrier/arm")
+    async def barrier_arm_endpoint(
+        req: BarrierArmRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Arms the causality barrier with target epoch and supremum vector clock."""
+        from swarmwatch.causality_barrier import global_causality_barrier, BarrierCircuitTrippedError
+        try:
+            prop = global_causality_barrier.arm_barrier(
+                target_epoch=req.target_epoch,
+                participating_clusters=req.participating_clusters,
+                cluster_clocks=req.cluster_clocks,
+                reason=req.reason,
+            )
+            return prop.to_dict()
+        except BarrierCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/barrier/drain")
+    async def barrier_drain_endpoint(
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Transitions active barrier to DRAINING_INFLIGHT state."""
+        from swarmwatch.causality_barrier import global_causality_barrier
+        try:
+            st = global_causality_barrier.start_draining()
+            return {"status": st.value}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/barrier/quiescence")
+    async def barrier_report_quiescence_endpoint(
+        req: BarrierReportQuiescenceRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Participating cluster reports drain and vector clock progress."""
+        from swarmwatch.causality_barrier import global_causality_barrier, BarrierCircuitTrippedError
+        try:
+            rep = global_causality_barrier.report_quiescence(
+                cluster_id=req.cluster_id,
+                vector_clock=req.vector_clock,
+                inflight_count=req.inflight_count,
+                proof_signature=req.proof_signature,
+            )
+            return rep.to_dict()
+        except BarrierCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/barrier/cutover")
+    async def barrier_commit_cutover_endpoint(
+        req: BarrierCommitCutoverRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Atomically commits epoch cutover, updates committee root, and mints certificate."""
+        from swarmwatch.causality_barrier import global_causality_barrier, BarrierCircuitTrippedError
+        try:
+            cert, rcpt = global_causality_barrier.commit_epoch_cutover(
+                new_committee_root=req.new_committee_root,
+                signatures=req.signatures,
+            )
+            return {
+                "certificate": cert.to_dict(),
+                "receipt": rcpt.to_dict(),
+            }
+        except BarrierCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/barrier/verify-receipt")
+    async def barrier_verify_receipt_endpoint(
+        req: BarrierVerifyReceiptRequest,
+        auth: TenantContext = Depends(get_tenant_context),
+    ):
+        """Verifies canonical cryptographic receipt for an epoch cutover."""
+        from swarmwatch.causality_barrier import global_causality_barrier, BarrierReceipt
+        try:
+            rcpt = BarrierReceipt(**req.receipt)
+            is_valid = global_causality_barrier.verify_barrier_receipt(rcpt)
+            return {"valid": is_valid, "receipt_hash": rcpt.receipt_hash}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/barrier/verify-certificate")
+    async def barrier_verify_certificate_endpoint(
+        req: BarrierVerifyCertificateRequest,
+        auth: TenantContext = Depends(get_tenant_context),
+    ):
+        """Verifies canonical cryptographic certificate for an epoch cutover."""
+        from swarmwatch.causality_barrier import global_causality_barrier, EpochCutOverCertificate
+        try:
+            cert = EpochCutOverCertificate(**req.certificate)
+            is_valid = global_causality_barrier.verify_cutover_certificate(cert)
+            return {"valid": is_valid, "certificate_hash": cert.certificate_hash}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/barrier/status")
+    async def barrier_status_endpoint():
+        """Returns causality barrier state, active epoch, and circuit status."""
+        from swarmwatch.causality_barrier import global_causality_barrier
+        return global_causality_barrier.status()
+
+    @app.get("/api/v1/barrier/certificates")
+    async def barrier_certificates_endpoint():
+        """Lists minted epoch cutover certificates."""
+        from swarmwatch.causality_barrier import global_causality_barrier
+        return [c.to_dict() for c in global_causality_barrier.list_certificates()]
+
+    @app.get("/api/v1/barrier/receipts")
+    async def barrier_receipts_endpoint():
+        """Lists minted barrier receipts."""
+        from swarmwatch.causality_barrier import global_causality_barrier
+        return [r.to_dict() for r in global_causality_barrier.list_receipts()]
+
+    @app.post("/api/v1/barrier/circuit/rearm")
+    async def barrier_circuit_rearm_endpoint(
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Administratively rearms the causality barrier safety circuit."""
+        from swarmwatch.causality_barrier import global_causality_barrier
+        global_causality_barrier.rearm_circuit()
+        return {"status": "IDLE", "circuit_tripped": False, "operator": auth.user_id or auth.key_id or "admin"}
 
     @app.post("/api/v1/ingress/submit")
     async def ingress_submit_endpoint(req: IngressSubmitRequest):
@@ -11709,6 +12532,1172 @@ def create_app(
         """Returns operational metrics and recent certification status of acceptance harness."""
         from swarmwatch.acceptance import global_acceptance_harness
         return global_acceptance_harness.status()
+
+    # ==========================================================================
+    # Global Distributed Mesh Relay & Anycast Ingestion Gateway (Seam 91 / ADR 0102)
+    # ==========================================================================
+
+    @app.post("/api/v1/relay/nodes")
+    async def relay_register_node_endpoint(
+        req: RelayNodeRegistrationRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Registers a new regional or edge relay node in anycast topology."""
+        from swarmwatch.mesh_relay import global_mesh_relay, RelayNode
+        node = RelayNode(
+            node_id=req.node_id,
+            region=req.region,
+            endpoint=req.endpoint,
+            latency_ms=req.latency_ms,
+            max_capacity=req.max_capacity,
+        )
+        global_mesh_relay.register_node(node)
+        return {"status": "REGISTERED", "node_id": req.node_id, "region": req.region}
+
+    @app.post("/api/v1/relay/ingest")
+    async def relay_ingest_endpoint(
+        req: RelayIngestRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Ingests a mesh telemetry packet with cryptographic authorization and anycast routing."""
+        from swarmwatch.mesh_relay import (
+            global_mesh_relay,
+            MeshPacket,
+            MeshIngestionAdmissionError,
+            MeshRelayCapacityExceededError,
+            MeshRouteNotFoundError,
+            MeshRelayCircuitTrippedError,
+            MeshRelayError,
+        )
+        packet = MeshPacket(
+            packet_id=req.packet_id,
+            tenant_id=req.tenant_id,
+            source_region=req.source_region,
+            hlc_timestamp=req.hlc_timestamp,
+            payload_type=req.payload_type,
+            payload_digest=req.payload_digest,
+            payload=req.payload,
+            signature=req.signature,
+        )
+        try:
+            receipt = global_mesh_relay.ingest(packet=packet, tenant_secret=req.tenant_secret)
+            return {
+                "receipt_id": receipt.receipt_id,
+                "packet_id": receipt.packet_id,
+                "accepted_at_hlc": receipt.accepted_at_hlc,
+                "routed_region": receipt.routed_region,
+                "target_node_id": receipt.target_node_id,
+                "queue_position": receipt.queue_position,
+                "duplicate": receipt.duplicate,
+            }
+        except MeshIngestionAdmissionError as e:
+            raise HTTPException(status_code=403, detail=str(e))
+        except (MeshRelayCapacityExceededError, MeshRouteNotFoundError, MeshRelayCircuitTrippedError) as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except MeshRelayError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/relay/topology")
+    async def relay_topology_endpoint(
+        auth: TenantContext = Depends(get_tenant_context),
+    ):
+        """Returns anycast topology, regional queues, and node health overview."""
+        from swarmwatch.mesh_relay import global_mesh_relay
+        return global_mesh_relay.get_topology()
+
+    @app.post("/api/v1/relay/drain")
+    async def relay_drain_endpoint(
+        req: RelayDrainRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Drains a batch from a regional relay queue."""
+        from swarmwatch.mesh_relay import global_mesh_relay
+        packets = global_mesh_relay.drain_batch(region=req.region, max_count=req.max_count)
+        return {
+            "region": req.region,
+            "drained_count": len(packets),
+            "packets": [
+                {
+                    "packet_id": p.packet_id,
+                    "tenant_id": p.tenant_id,
+                    "source_region": p.source_region,
+                    "hlc_timestamp": p.hlc_timestamp,
+                    "payload_digest": p.payload_digest,
+                }
+                for p in packets
+            ],
+        }
+
+    # Multi-Region Quorum State Synchronization & Sovereign Federation (Seam 92 / ADR 0103)
+    @app.post("/api/v1/federation/clusters")
+    async def federation_register_cluster_endpoint(
+        req: FederationClusterRegistrationRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Registers a sovereign cluster in multi-region federation."""
+        from swarmwatch.sovereign_federation import global_sovereign_coordinator, SovereignCluster
+        cluster = SovereignCluster(
+            cluster_id=req.cluster_id,
+            region=req.region,
+            public_keys=req.public_keys,
+        )
+        global_sovereign_coordinator.register_cluster(cluster)
+        return {
+            "status": "registered",
+            "cluster_id": cluster.cluster_id,
+            "region": cluster.region,
+            "public_keys_count": len(cluster.public_keys),
+            "committee_root": cluster.committee_root,
+        }
+
+    @app.post("/api/v1/federation/propose")
+    async def federation_propose_endpoint(
+        req: FederationProposeRequest,
+    ):
+        """Proposes a regional state commitment to the sovereign federation coordinator."""
+        from swarmwatch.sovereign_federation import (
+            global_sovereign_coordinator,
+            RegionalStateCommitment,
+            SovereignClusterQuarantinedError,
+            EquivocationDetectedError,
+            StaleFederationEpochError,
+            InsufficientRegionalQuorumError,
+            SovereignFederationError,
+        )
+        commitment = RegionalStateCommitment(
+            cluster_id=req.cluster_id,
+            epoch=req.epoch,
+            hlc_timestamp=req.hlc_timestamp,
+            state_digest=req.state_digest,
+            signatures=req.signatures,
+        )
+        try:
+            global_sovereign_coordinator.propose_regional_state(commitment)
+            return {
+                "status": "accepted",
+                "cluster_id": commitment.cluster_id,
+                "epoch": commitment.epoch,
+            }
+        except SovereignClusterQuarantinedError as e:
+            raise HTTPException(status_code=423, detail=str(e))
+        except EquivocationDetectedError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except StaleFederationEpochError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except InsufficientRegionalQuorumError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except SovereignFederationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/federation/synthesize")
+    async def federation_synthesize_endpoint(
+        req: FederationSynthesizeRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Synthesizes a super-majority federated quorum certificate for an epoch."""
+        from swarmwatch.sovereign_federation import (
+            global_sovereign_coordinator,
+            InsufficientFederatedClustersError,
+            SovereignFederationError,
+        )
+        try:
+            qc = global_sovereign_coordinator.synthesize_federated_qc(epoch=req.epoch)
+            return {
+                "status": "synthesized",
+                "federated_qc_id": qc.federated_qc_id,
+                "epoch": qc.epoch,
+                "global_state_root": qc.global_state_root,
+                "participating_clusters": qc.participating_clusters,
+                "created_at_hlc": qc.created_at_hlc,
+            }
+        except InsufficientFederatedClustersError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except SovereignFederationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/federation/status")
+    async def federation_status_endpoint(
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Returns sovereign cluster topology, active epoch, and certificate state."""
+        from swarmwatch.sovereign_federation import global_sovereign_coordinator
+        return global_sovereign_coordinator.get_status()
+
+    # Proof Marketplace & Verifier Node Staking Pool (Seam 93 / ADR 0104)
+    @app.post("/api/v1/marketplace/verifiers")
+    async def marketplace_register_verifier_endpoint(
+        req: MarketplaceVerifierRegistrationRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Registers a verifier node with bonded collateral stake."""
+        from swarmwatch.proof_marketplace import global_proof_marketplace, VerifierNode, InsufficientStakeError
+        node = VerifierNode(
+            verifier_id=req.verifier_id,
+            public_key=req.public_key,
+            bonded_stake=req.bonded_stake,
+            min_stake=req.min_stake,
+        )
+        try:
+            global_proof_marketplace.register_verifier(node)
+            return {
+                "status": "registered",
+                "verifier_id": node.verifier_id,
+                "bonded_stake": node.bonded_stake,
+            }
+        except InsufficientStakeError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    @app.post("/api/v1/marketplace/bounties")
+    async def marketplace_create_bounty_endpoint(
+        req: MarketplaceBountyCreateRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Creates a proof verification bounty open for double-auction bidding."""
+        from swarmwatch.proof_marketplace import global_proof_marketplace, ProofBounty, ProofMarketplaceError
+        bounty = ProofBounty(
+            bounty_id=req.bounty_id,
+            proof_type=req.proof_type,
+            proof_digest=req.proof_digest,
+            max_bounty=req.max_bounty,
+            required_quorum=req.required_quorum,
+            deadline_epoch=req.deadline_epoch,
+        )
+        try:
+            bounty_id = global_proof_marketplace.create_bounty(bounty)
+            return {"status": "created", "bounty_id": bounty_id}
+        except ProofMarketplaceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/marketplace/bids")
+    async def marketplace_submit_bid_endpoint(
+        req: MarketplaceBidRequest,
+    ):
+        """Submits a signed verifier bid for an open bounty."""
+        from swarmwatch.proof_marketplace import (
+            global_proof_marketplace,
+            VerifierBid,
+            BountyNotFoundError,
+            BountyExpiredError,
+            VerifierSlashedError,
+            InsufficientStakeError,
+            InvalidReceiptSignatureError,
+            ProofMarketplaceError,
+        )
+        bid = VerifierBid(
+            bid_id=req.bid_id,
+            bounty_id=req.bounty_id,
+            verifier_id=req.verifier_id,
+            fee_bid=req.fee_bid,
+            staked_collateral=req.staked_collateral,
+            signature=req.signature,
+        )
+        try:
+            global_proof_marketplace.submit_bid(bid)
+            return {"status": "accepted", "bid_id": bid.bid_id}
+        except BountyNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except (BountyExpiredError, VerifierSlashedError, InsufficientStakeError) as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except InvalidReceiptSignatureError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except ProofMarketplaceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/marketplace/receipts")
+    async def marketplace_submit_receipt_endpoint(
+        req: MarketplaceReceiptRequest,
+    ):
+        """Submits a cryptographic verification receipt for a bounty."""
+        from swarmwatch.proof_marketplace import (
+            global_proof_marketplace,
+            ProofVerificationReceipt,
+            BountyNotFoundError,
+            BountyExpiredError,
+            VerifierSlashedError,
+            InvalidReceiptSignatureError,
+            ProofMarketplaceError,
+        )
+        receipt = ProofVerificationReceipt(
+            receipt_id=req.receipt_id,
+            bounty_id=req.bounty_id,
+            verifier_id=req.verifier_id,
+            verdict=req.verdict,
+            proof_hash=req.proof_hash,
+            signature=req.signature,
+        )
+        try:
+            global_proof_marketplace.submit_receipt(receipt)
+            return {"status": "accepted", "receipt_id": receipt.receipt_id}
+        except BountyNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except (BountyExpiredError, VerifierSlashedError) as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except InvalidReceiptSignatureError as e:
+            raise HTTPException(status_code=401, detail=str(e))
+        except ProofMarketplaceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/marketplace/settle")
+    async def marketplace_settle_endpoint(
+        req: MarketplaceSettleRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Settles a bounty verifying K-of-N quorum, slashes fraudsters, and distributes fees."""
+        from swarmwatch.proof_marketplace import (
+            global_proof_marketplace,
+            BountyNotFoundError,
+            InsufficientVerificationQuorumError,
+            ProofMarketplaceError,
+        )
+        try:
+            cert = global_proof_marketplace.settle_bounty(req.bounty_id)
+            return {
+                "status": "settled",
+                "settlement_id": cert.settlement_id,
+                "bounty_id": cert.bounty_id,
+                "finalized_verdict": cert.finalized_verdict,
+                "cleared_fee": cert.cleared_fee,
+                "slashed_verifiers": cert.slashed_verifiers,
+                "participating_verifiers": cert.participating_verifiers,
+            }
+        except BountyNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except InsufficientVerificationQuorumError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except ProofMarketplaceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/marketplace/status")
+    async def marketplace_status_endpoint():
+        """Returns marketplace status, active solvency, and verifier pool overview."""
+        from swarmwatch.proof_marketplace import global_proof_marketplace
+        return global_proof_marketplace.get_status()
+
+    # Recursive SNARK Verification Gateway & Aggregate Attestation (Seam 94 / ADR 0105)
+    @app.post("/api/v1/snark/admit")
+    async def snark_admit_endpoint(
+        req: RecursiveSnarkAdmitRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Admits a constituent zero-knowledge proof witness."""
+        from swarmwatch.recursive_snark import (
+            global_recursive_snark_gateway,
+            ConstituentProof,
+            RecursiveCircuitTrippedError,
+            RecursiveSnarkError,
+        )
+        proof = ConstituentProof(
+            proof_id=req.proof_id,
+            batch_epoch=req.batch_epoch,
+            state_digest=req.state_digest,
+            proof_witness=req.proof_witness,
+            is_valid=req.is_valid,
+        )
+        try:
+            global_recursive_snark_gateway.admit_proof(proof)
+            return {"status": "admitted", "proof_id": proof.proof_id}
+        except RecursiveCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except RecursiveSnarkError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/snark/fold")
+    async def snark_fold_endpoint(
+        req: RecursiveSnarkFoldRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Folds M constituent proofs into a single succinct recursive aggregate receipt."""
+        from swarmwatch.recursive_snark import (
+            global_recursive_snark_gateway,
+            EmptyProofBatchError,
+            RecursiveProofSoundnessBreachError,
+            RecursiveCircuitTrippedError,
+            RecursiveSnarkError,
+        )
+        proofs = []
+        for pid in req.proof_ids:
+            p = global_recursive_snark_gateway.get_proof(pid)
+            if not p:
+                raise HTTPException(status_code=404, detail=f"Admitted proof '{pid}' not found.")
+            proofs.append(p)
+
+        try:
+            receipt = global_recursive_snark_gateway.fold_batch(proofs)
+            return {
+                "status": "folded",
+                "aggregate_id": receipt.aggregate_id,
+                "constituent_count": receipt.constituent_count,
+                "aggregate_root": receipt.aggregate_root,
+                "recursive_proof_bytes": receipt.recursive_proof_bytes,
+                "verified": receipt.verified,
+                "created_at_hlc": receipt.created_at_hlc,
+            }
+        except EmptyProofBatchError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except RecursiveProofSoundnessBreachError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except RecursiveCircuitTrippedError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        except RecursiveSnarkError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/snark/verify")
+    async def snark_verify_endpoint(
+        req: RecursiveSnarkVerifyRequest,
+        auth: TenantContext = Depends(require_authenticated_operator),
+    ):
+        """Verifies constant-time recursive succinct proof validity; trips circuit on mismatch."""
+        from swarmwatch.recursive_snark import (
+            global_recursive_snark_gateway,
+            AggregateSnarkReceipt,
+            RecursiveVerificationFailedError,
+            RecursiveSnarkError,
+        )
+        receipt = AggregateSnarkReceipt(
+            aggregate_id=req.aggregate_id,
+            constituent_count=req.constituent_count,
+            aggregate_root=req.aggregate_root,
+            recursive_proof_bytes=req.recursive_proof_bytes,
+            verified=True,
+            created_at_hlc=req.created_at_hlc,
+        )
+        try:
+            valid = global_recursive_snark_gateway.verify_aggregate_receipt(receipt)
+            return {"status": "verified", "aggregate_id": receipt.aggregate_id, "valid": valid}
+        except RecursiveVerificationFailedError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except RecursiveSnarkError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/snark/status")
+    async def snark_status_endpoint():
+        """Returns recursive SNARK gateway health and aggregation metrics."""
+        from swarmwatch.recursive_snark import global_recursive_snark_gateway
+        return global_recursive_snark_gateway.get_status()
+
+    # Seam 95 (ADR 0106): Autonomous Cloud SaaS Billing & Micro-Payment Channel Ledger Endpoints
+    class OpenChannelRequest(BaseModel):
+        tenant_id: str
+        agent_pubkey: str
+        provider_pubkey: str
+        initial_deposit: float
+        reserve_threshold: float = 5.0
+        channel_id: Optional[str] = None
+
+    class ChannelStateUpdateRequest(BaseModel):
+        channel_id: str
+        nonce: int
+        agent_balance: float
+        provider_balance: float
+        commitment_digest: str
+        agent_signature: str
+        provider_signature: str
+        hlc_timestamp: str
+
+    class RecordMeterEventRequest(BaseModel):
+        channel_id: str
+        unit_type: str = "TELEMETRY_SPAN"
+        quantity: int
+        unit_price: float = 0.001
+
+    class CloseChannelRequest(BaseModel):
+        channel_id: str
+
+    @app.post("/api/v1/billing/channels")
+    async def open_channel_endpoint(req: OpenChannelRequest):
+        """Opens and funds a new off-chain micro-payment state channel (MPC1)."""
+        from swarmwatch.billing_channel import global_billing_ledger, BillingChannelError
+        try:
+            chan = global_billing_ledger.open_channel(
+                tenant_id=req.tenant_id,
+                agent_pubkey=req.agent_pubkey,
+                provider_pubkey=req.provider_pubkey,
+                initial_deposit=req.initial_deposit,
+                reserve_threshold=req.reserve_threshold,
+                channel_id=req.channel_id,
+            )
+            return {
+                "status": "opened",
+                "channel_id": chan.channel_id,
+                "tenant_id": chan.tenant_id,
+                "agent_balance": chan.agent_balance,
+                "provider_balance": chan.provider_balance,
+                "initial_deposit": chan.initial_deposit,
+            }
+        except BillingChannelError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/billing/channels/update")
+    async def channel_update_endpoint(req: ChannelStateUpdateRequest):
+        """Submits off-chain cryptographically signed state transition (MPC2)."""
+        from swarmwatch.billing_channel import global_billing_ledger, ChannelStateCommitment, BillingChannelError
+        comm = ChannelStateCommitment(
+            channel_id=req.channel_id,
+            nonce=req.nonce,
+            agent_balance=req.agent_balance,
+            provider_balance=req.provider_balance,
+            commitment_digest=req.commitment_digest,
+            agent_signature=req.agent_signature,
+            provider_signature=req.provider_signature,
+            hlc_timestamp=req.hlc_timestamp,
+        )
+        try:
+            updated = global_billing_ledger.submit_state_update(comm)
+            return {
+                "status": "updated",
+                "channel_id": updated.channel_id,
+                "nonce": updated.nonce,
+                "agent_balance": updated.agent_balance,
+                "provider_balance": updated.provider_balance,
+            }
+        except BillingChannelError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/billing/channels/meter")
+    async def record_meter_event_endpoint(req: RecordMeterEventRequest):
+        """Debits sub-microsecond real-time usage event against state channel (MPC4)."""
+        from swarmwatch.billing_channel import global_billing_ledger, BillingChannelError
+        try:
+            evt = global_billing_ledger.record_meter_event(
+                channel_id=req.channel_id,
+                unit_type=req.unit_type,
+                quantity=req.quantity,
+                unit_price=req.unit_price,
+            )
+            return {
+                "status": "metered",
+                "meter_id": evt.meter_id,
+                "channel_id": evt.channel_id,
+                "total_charge": evt.total_charge,
+                "hlc_timestamp": evt.hlc_timestamp,
+            }
+        except BillingChannelError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/billing/channels/close")
+    async def close_channel_endpoint(req: CloseChannelRequest):
+        """Initiates unilateral channel settlement, opening dispute window (MPC3)."""
+        from swarmwatch.billing_channel import global_billing_ledger, BillingChannelError
+        try:
+            chan = global_billing_ledger.initiate_closure(req.channel_id)
+            return {
+                "status": "closing",
+                "channel_id": chan.channel_id,
+                "channel_status": chan.status,
+                "closure_initiated_at_hlc": chan.closure_initiated_at_hlc,
+            }
+        except BillingChannelError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/billing/channels/status")
+    async def billing_status_endpoint():
+        """Returns micro-payment channel ledger metrics and solvency status."""
+        from swarmwatch.billing_channel import global_billing_ledger
+        return global_billing_ledger.get_status()
+
+    # Seam 96 (ADR 0107): Multi-Cloud Byzantine Partition Tolerant Gossip Membership Protocol
+    class RegisterGossipMemberRequest(BaseModel):
+        node_id: str
+        cloud_provider: str = "aws"
+        region: str = "us-east-1"
+        public_key: str
+
+    class GossipHeartbeatRequest(BaseModel):
+        node_id: str
+        sequence_number: int
+        status: str = "ALIVE"
+        hlc_timestamp: str
+        state_root: str
+        signature: str
+
+    class GossipSuspicionRequest(BaseModel):
+        reporter_id: str
+        suspect_id: str
+        sequence_number: int
+        reason: str = "HEARTBEAT_TIMEOUT"
+        signature: str
+        hlc_timestamp: str
+
+    @app.post("/api/v1/gossip/members")
+    async def register_gossip_member_endpoint(req: RegisterGossipMemberRequest):
+        """Registers a cluster peer into multi-cloud gossip overlay (BGM1)."""
+        from swarmwatch.byzantine_gossip import global_byzantine_gossip, GossipMember
+        m = GossipMember(
+            node_id=req.node_id,
+            cloud_provider=req.cloud_provider,
+            region=req.region,
+            public_key=req.public_key,
+        )
+        global_byzantine_gossip.register_member(m)
+        return {"status": "registered", "node_id": m.node_id, "status": m.status}
+
+    @app.post("/api/v1/gossip/heartbeat")
+    async def gossip_heartbeat_endpoint(req: GossipHeartbeatRequest):
+        """Processes authenticated heartbeat beacon, detecting equivocation fail-closed (BGM1, BGM4)."""
+        from swarmwatch.byzantine_gossip import global_byzantine_gossip, HeartbeatBeacon, ByzantineGossipError
+        beacon = HeartbeatBeacon(
+            node_id=req.node_id,
+            sequence_number=req.sequence_number,
+            status=req.status,
+            hlc_timestamp=req.hlc_timestamp,
+            state_root=req.state_root,
+            signature=req.signature,
+        )
+        try:
+            ok = global_byzantine_gossip.process_heartbeat(beacon)
+            return {"status": "processed", "node_id": req.node_id, "applied": ok}
+        except ByzantineGossipError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/gossip/suspect")
+    async def gossip_suspect_endpoint(req: GossipSuspicionRequest):
+        """Submits peer suspicion accusation, escalating to SUSPECT upon quorum (BGM2)."""
+        from swarmwatch.byzantine_gossip import global_byzantine_gossip, SuspicionReport, ByzantineGossipError
+        report = SuspicionReport(
+            reporter_id=req.reporter_id,
+            suspect_id=req.suspect_id,
+            sequence_number=req.sequence_number,
+            reason=req.reason,
+            signature=req.signature,
+            hlc_timestamp=req.hlc_timestamp,
+        )
+        try:
+            escalated = global_byzantine_gossip.report_suspicion(report)
+            return {"status": "reported", "suspect_id": req.suspect_id, "escalated": escalated}
+        except ByzantineGossipError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/gossip/refute")
+    async def gossip_refute_endpoint(req: GossipHeartbeatRequest):
+        """Accused node refutes suspicion with higher sequence number beacon (BGM2)."""
+        from swarmwatch.byzantine_gossip import global_byzantine_gossip, HeartbeatBeacon, ByzantineGossipError
+        beacon = HeartbeatBeacon(
+            node_id=req.node_id,
+            sequence_number=req.sequence_number,
+            status=req.status,
+            hlc_timestamp=req.hlc_timestamp,
+            state_root=req.state_root,
+            signature=req.signature,
+        )
+        try:
+            ok = global_byzantine_gossip.refute_suspicion(beacon)
+            return {"status": "refuted", "node_id": req.node_id, "success": ok}
+        except ByzantineGossipError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/gossip/status")
+    async def gossip_status_endpoint():
+        """Returns Byzantine gossip membership overlay status and Merkle root."""
+        from swarmwatch.byzantine_gossip import global_byzantine_gossip
+        return global_byzantine_gossip.get_status()
+
+    # Seam 97 (ADR 0108): Real-Time Epistemic Dispute Resolution & Dynamic Slashing Escalation Tribunal
+    class FileDisputeRequest(BaseModel):
+        claimant_id: str
+        defendant_id: str
+        severity: str = "MEDIUM"
+        evidence_digest: str = ""
+        dispute_bond: float = 10.0
+        dispute_id: Optional[str] = None
+
+    class EscalateDisputeRequest(BaseModel):
+        dispute_id: str
+        additional_bond: float
+
+    class AdjudicateDisputeRequest(BaseModel):
+        dispute_id: str
+        ruling: str
+        defendant_collateral: float
+        arbiter_votes: Dict[str, str]
+        hlc_timestamp: Optional[str] = None
+
+    @app.post("/api/v1/tribunal/disputes")
+    async def tribunal_file_dispute_endpoint(req: FileDisputeRequest):
+        """Files a new dispute claim at Tier 1 (TRB1)."""
+        from swarmwatch.slashing_tribunal import global_slashing_tribunal, TribunalError
+        try:
+            claim = global_slashing_tribunal.file_dispute(
+                claimant_id=req.claimant_id,
+                defendant_id=req.defendant_id,
+                severity=req.severity,
+                evidence_digest=req.evidence_digest,
+                dispute_bond=req.dispute_bond,
+                dispute_id=req.dispute_id,
+            )
+            return {
+                "status": "filed",
+                "dispute_id": claim.dispute_id,
+                "tier": claim.tier,
+                "dispute_bond": claim.dispute_bond,
+            }
+        except TribunalError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/tribunal/escalate")
+    async def tribunal_escalate_endpoint(req: EscalateDisputeRequest):
+        """Escalates dispute monotonically: Tier 1 -> Tier 2 -> Tier 3 (TRB1)."""
+        from swarmwatch.slashing_tribunal import global_slashing_tribunal, TribunalError
+        try:
+            claim = global_slashing_tribunal.escalate_dispute(
+                dispute_id=req.dispute_id,
+                additional_bond=req.additional_bond,
+            )
+            return {
+                "status": "escalated",
+                "dispute_id": claim.dispute_id,
+                "tier": claim.tier,
+                "dispute_bond": claim.dispute_bond,
+            }
+        except TribunalError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/tribunal/adjudicate")
+    async def tribunal_adjudicate_endpoint(req: AdjudicateDisputeRequest):
+        """Synthesizes appellate ruling with super-majority quorum and dynamic slashing (TRB2, TRB3)."""
+        from swarmwatch.slashing_tribunal import global_slashing_tribunal, TribunalError
+        try:
+            receipt = global_slashing_tribunal.adjudicate_dispute(
+                dispute_id=req.dispute_id,
+                ruling=req.ruling,
+                defendant_collateral=req.defendant_collateral,
+                arbiter_votes=req.arbiter_votes,
+                hlc_timestamp=req.hlc_timestamp,
+            )
+            return {
+                "status": "adjudicated",
+                "verdict_id": receipt.verdict_id,
+                "verdict": receipt.verdict,
+                "slashed_amount": receipt.slashed_amount,
+                "recipient_id": receipt.recipient_id,
+                "arbiter_signatures_count": len(receipt.arbiter_signatures),
+            }
+        except TribunalError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/tribunal/status")
+    async def tribunal_status_endpoint():
+        """Returns point-in-time metrics for slashing escalation tribunal."""
+        from swarmwatch.slashing_tribunal import global_slashing_tribunal
+        return global_slashing_tribunal.get_status()
+
+    # Seam 98 (ADR 0109): Autonomous Agent Capability Attestation & Hardware Secure Enclave Remote Witness
+    class EnclaveChallengeRequest(BaseModel):
+        enclave_id: str
+
+    class EnclaveAttestRequest(BaseModel):
+        quote_id: str = ""
+        enclave_id: str
+        tee_type: str = "SGX"
+        measurement_hash: str
+        challenge_nonce: str
+        public_key: str
+        signature: str
+        timestamp_ns: int = 0
+        user_data_digest: str = ""
+        agent_id: str
+        requested_capabilities: List[str]
+        lease_sec: Optional[float] = None
+
+    class EnclaveValidateCapabilityRequest(BaseModel):
+        token_id: str
+        enclave_id: str
+        agent_id: str
+        capabilities: List[str]
+        issued_at_ns: int
+        expires_at_ns: int
+        token_signature: str
+        required_capability: str
+
+    @app.post("/api/v1/enclave/challenge")
+    async def enclave_challenge_endpoint(req: EnclaveChallengeRequest):
+        """Issues a fresh anti-replay challenge nonce (TEE2)."""
+        from swarmwatch.enclave_attestation import global_enclave_coordinator, EnclaveAttestationError
+        try:
+            chal = global_enclave_coordinator.issue_challenge(req.enclave_id)
+            return {
+                "status": "challenge_issued",
+                "challenge_id": chal.challenge_id,
+                "enclave_id": chal.enclave_id,
+                "nonce": chal.nonce,
+                "expires_at_ns": chal.expires_at_ns,
+            }
+        except EnclaveAttestationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/enclave/attest")
+    async def enclave_attest_endpoint(req: EnclaveAttestRequest):
+        """Verifies remote attestation quote and issues capability token (TEE1, TEE2, TEE3)."""
+        from swarmwatch.enclave_attestation import (
+            global_enclave_coordinator,
+            AttestationQuote,
+            EnclaveAttestationError,
+        )
+        ts_ns = req.timestamp_ns or time.time_ns()
+        quote = AttestationQuote(
+            quote_id=req.quote_id or f"q-{req.challenge_nonce[:8]}",
+            enclave_id=req.enclave_id,
+            tee_type=req.tee_type,
+            measurement_hash=req.measurement_hash,
+            challenge_nonce=req.challenge_nonce,
+            public_key=req.public_key,
+            signature=req.signature,
+            timestamp_ns=ts_ns,
+            user_data_digest=req.user_data_digest,
+        )
+        try:
+            token = global_enclave_coordinator.verify_and_attest(
+                quote=quote,
+                agent_id=req.agent_id,
+                requested_capabilities=req.requested_capabilities,
+                lease_sec=req.lease_sec,
+            )
+            return {
+                "status": "attested",
+                "token_id": token.token_id,
+                "enclave_id": token.enclave_id,
+                "agent_id": token.agent_id,
+                "capabilities": token.capabilities,
+                "expires_at_ns": token.expires_at_ns,
+                "token_signature": token.token_signature,
+            }
+        except EnclaveAttestationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/enclave/verify-capability")
+    async def enclave_verify_capability_endpoint(req: EnclaveValidateCapabilityRequest):
+        """Validates capability token against lease expiry and permissions (TEE3)."""
+        from swarmwatch.enclave_attestation import (
+            global_enclave_coordinator,
+            EnclaveCapabilityToken,
+            EnclaveAttestationError,
+        )
+        token = EnclaveCapabilityToken(
+            token_id=req.token_id,
+            enclave_id=req.enclave_id,
+            agent_id=req.agent_id,
+            capabilities=req.capabilities,
+            issued_at_ns=req.issued_at_ns,
+            expires_at_ns=req.expires_at_ns,
+            token_signature=req.token_signature,
+        )
+        try:
+            valid = global_enclave_coordinator.validate_capability(token, req.required_capability)
+            return {
+                "status": "capability_valid",
+                "token_id": token.token_id,
+                "valid": valid,
+                "capability": req.required_capability,
+            }
+        except EnclaveAttestationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/enclave/status")
+    async def enclave_status_endpoint():
+        """Returns point-in-time metrics for hardware secure enclave remote witness."""
+        from swarmwatch.enclave_attestation import global_enclave_coordinator
+        return global_enclave_coordinator.get_status()
+
+    # Seam 99 (ADR 0110): Sovereign Cross-Border Data Boundary Fence & Zero-Egress Encryption Vault
+    class RegisterTreatyRequest(BaseModel):
+        treaty_id: str
+        source_zone: str
+        dest_zone: str
+        is_bidirectional: bool = False
+        max_classification: str = "RESTRICTED"
+
+    class SealPayloadRequest(BaseModel):
+        tenant_id: str
+        zone_id: str
+        plaintext: str
+
+    class IssuePassportRequest(BaseModel):
+        tenant_id: str
+        source_zone: str
+        dest_zone: str
+        payload_digest: str
+        ttl_sec: Optional[float] = None
+
+    class InspectEgressRequest(BaseModel):
+        envelope_id: str
+        tenant_id: str
+        origin_zone: str
+        ciphertext_hex: str
+        tag_hex: str
+        iv_hex: str
+        data_digest: str
+        dest_zone: str
+        passport_id: Optional[str] = None
+
+    @app.post("/api/v1/fence/treaties")
+    async def fence_register_treaty_endpoint(req: RegisterTreatyRequest):
+        """Registers a cross-border egress treaty (BND1)."""
+        from swarmwatch.boundary_fence import global_boundary_fence, EgressTreaty, BoundaryFenceError
+        try:
+            treaty = EgressTreaty(
+                treaty_id=req.treaty_id,
+                source_zone=req.source_zone,
+                dest_zone=req.dest_zone,
+                is_bidirectional=req.is_bidirectional,
+                max_classification=req.max_classification,
+            )
+            global_boundary_fence.register_egress_treaty(treaty)
+            return {"status": "treaty_registered", "treaty_id": treaty.treaty_id}
+        except BoundaryFenceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/fence/seal")
+    async def fence_seal_payload_endpoint(req: SealPayloadRequest):
+        """Seals sensitive payload into zero-egress vault envelope (BND2)."""
+        from swarmwatch.boundary_fence import global_boundary_fence, BoundaryFenceError
+        try:
+            env = global_boundary_fence.seal_data(
+                tenant_id=req.tenant_id,
+                zone_id=req.zone_id,
+                plaintext=req.plaintext,
+            )
+            return {
+                "status": "sealed",
+                "envelope_id": env.envelope_id,
+                "tenant_id": env.tenant_id,
+                "origin_zone": env.origin_zone,
+                "data_digest": env.data_digest,
+                "ciphertext_hex": env.ciphertext_hex,
+            }
+        except BoundaryFenceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/fence/passport")
+    async def fence_issue_passport_endpoint(req: IssuePassportRequest):
+        """Issues single-use cryptographic egress export passport (BND3)."""
+        from swarmwatch.boundary_fence import global_boundary_fence, BoundaryFenceError
+        try:
+            passport = global_boundary_fence.issue_egress_passport(
+                tenant_id=req.tenant_id,
+                source_zone=req.source_zone,
+                dest_zone=req.dest_zone,
+                payload_digest=req.payload_digest,
+                ttl_sec=req.ttl_sec,
+            )
+            return {
+                "status": "passport_issued",
+                "passport_id": passport.passport_id,
+                "source_zone": passport.source_zone,
+                "dest_zone": passport.dest_zone,
+                "expires_at_ns": passport.expires_at_ns,
+                "signature": passport.passport_signature,
+            }
+        except BoundaryFenceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/fence/inspect")
+    async def fence_inspect_egress_endpoint(req: InspectEgressRequest):
+        """Performs in-flight perimeter inspection at boundary fence (BND1, BND2, BND3)."""
+        from swarmwatch.boundary_fence import (
+            global_boundary_fence,
+            VaultEnvelope,
+            BoundaryFenceError,
+        )
+        env = VaultEnvelope(
+            envelope_id=req.envelope_id,
+            tenant_id=req.tenant_id,
+            origin_zone=req.origin_zone,
+            ciphertext_hex=req.ciphertext_hex,
+            tag_hex=req.tag_hex,
+            iv_hex=req.iv_hex,
+            data_digest=req.data_digest,
+            created_at_ns=time.time_ns(),
+        )
+        passport = global_boundary_fence._passports.get(req.passport_id) if req.passport_id else None
+        try:
+            res = global_boundary_fence.inspect_egress(env, req.dest_zone, passport)
+            return {
+                "status": "inspected",
+                "allowed": res.allowed,
+                "source_zone": res.source_zone,
+                "dest_zone": res.dest_zone,
+                "reason": res.reason,
+            }
+        except BoundaryFenceError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/fence/status")
+    async def fence_status_endpoint():
+        """Returns point-in-time metrics for boundary fence."""
+        from swarmwatch.boundary_fence import global_boundary_fence
+        return global_boundary_fence.get_status()
+
+    # Seam 100 (ADR 0111): Global Master Singularity & Autonomous Self-Governing Sovereign Registry
+    class RegisterGovernorRequest(BaseModel):
+        governor_id: str
+        public_key_hex: str
+        voting_weight: int = 1
+
+    class SubmitProposalRequest(BaseModel):
+        proposal_id: str
+        proposer_id: str
+        title: str
+        constitution_payload: Dict[str, Any]
+        target_epoch: int
+
+    class VoteProposalRequest(BaseModel):
+        proposal_id: str
+        governor_id: str
+        signature_hex: str
+
+    class RatifyProposalRequest(BaseModel):
+        proposal_id: str
+
+    class CommitSubsystemStateRequest(BaseModel):
+        epoch: int
+        mesh_root: str
+        fed_root: str
+        snark_root: str
+        fence_root: str
+        total_staked_solvency: int
+        breach_count: int = 0
+
+    class IssueCertificateRequest(BaseModel):
+        epoch: int
+        proposal_id: Optional[str] = None
+
+    @app.post("/api/v1/singularity/governors")
+    async def singularity_register_governor_endpoint(
+        req: RegisterGovernorRequest,
+        tenant: TenantContext = Depends(require_authenticated_operator)
+    ):
+        """Registers a sovereign governor into the registry (SNG2)."""
+        from swarmwatch.master_singularity import global_master_singularity, SingularityGovernor, SingularityError
+        try:
+            gov = SingularityGovernor(
+                governor_id=req.governor_id,
+                public_key_hex=req.public_key_hex,
+                voting_weight=req.voting_weight,
+            )
+            global_master_singularity.register_governor(gov)
+            return {"status": "governor_registered", "governor_id": gov.governor_id}
+        except SingularityError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/singularity/proposals")
+    async def singularity_submit_proposal_endpoint(
+        req: SubmitProposalRequest,
+        tenant: TenantContext = Depends(require_authenticated_operator)
+    ):
+        """Submits a constitutional proposal for governor ratification."""
+        from swarmwatch.master_singularity import global_master_singularity, SingularityError
+        try:
+            prop = global_master_singularity.submit_proposal(
+                proposal_id=req.proposal_id,
+                proposer_id=req.proposer_id,
+                title=req.title,
+                constitution_payload=req.constitution_payload,
+                target_epoch=req.target_epoch,
+            )
+            return {
+                "status": "proposal_submitted",
+                "proposal_id": prop.proposal_id,
+                "payload_digest": prop.payload_digest,
+                "target_epoch": prop.target_epoch,
+            }
+        except SingularityError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/singularity/vote")
+    async def singularity_vote_proposal_endpoint(
+        req: VoteProposalRequest,
+        tenant: TenantContext = Depends(require_authenticated_operator)
+    ):
+        """Records governor vote on constitutional proposal."""
+        from swarmwatch.master_singularity import global_master_singularity, SingularityError
+        try:
+            ok = global_master_singularity.vote_proposal(
+                proposal_id=req.proposal_id,
+                governor_id=req.governor_id,
+                signature_hex=req.signature_hex,
+            )
+            if not ok:
+                raise HTTPException(status_code=400, detail="Vote rejected or signature invalid.")
+            return {"status": "voted", "proposal_id": req.proposal_id, "governor_id": req.governor_id}
+        except SingularityError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/singularity/ratify")
+    async def singularity_ratify_proposal_endpoint(
+        req: RatifyProposalRequest,
+        tenant: TenantContext = Depends(require_authenticated_operator)
+    ):
+        """Ratifies proposal if super-majority governor quorum is satisfied (SNG2)."""
+        from swarmwatch.master_singularity import global_master_singularity, SingularityError
+        try:
+            prop = global_master_singularity.ratify_proposal(req.proposal_id)
+            return {
+                "status": "ratified",
+                "proposal_id": prop.proposal_id,
+                "ratified_at_ns": prop.ratified_at_ns,
+            }
+        except SingularityError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/singularity/commit")
+    async def singularity_commit_state_endpoint(
+        req: CommitSubsystemStateRequest,
+        tenant: TenantContext = Depends(require_authenticated_operator)
+    ):
+        """Commits aggregate subsystem root state for next epoch (SNG1, SNG3)."""
+        from swarmwatch.master_singularity import global_master_singularity, SingularityError
+        try:
+            commit = global_master_singularity.commit_subsystem_state(
+                epoch=req.epoch,
+                mesh_root=req.mesh_root,
+                fed_root=req.fed_root,
+                snark_root=req.snark_root,
+                fence_root=req.fence_root,
+                total_staked_solvency=req.total_staked_solvency,
+                breach_count=req.breach_count,
+            )
+            return {
+                "status": "committed",
+                "epoch": commit.epoch,
+                "state_digest": commit.state_digest,
+                "total_staked_solvency": commit.total_staked_solvency,
+            }
+        except SingularityError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.post("/api/v1/singularity/certificate")
+    async def singularity_issue_certificate_endpoint(
+        req: IssueCertificateRequest,
+        tenant: TenantContext = Depends(require_authenticated_operator)
+    ):
+        """Issues authoritative sovereign singularity certificate for verified epoch."""
+        from swarmwatch.master_singularity import global_master_singularity, SingularityError
+        try:
+            cert = global_master_singularity.issue_singularity_certificate(
+                epoch=req.epoch,
+                proposal_id=req.proposal_id,
+            )
+            return {
+                "status": "certified",
+                "certificate_id": cert.certificate_id,
+                "epoch": cert.epoch,
+                "state_digest": cert.state_digest,
+                "signature": cert.master_singularity_signature,
+            }
+        except SingularityError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    @app.get("/api/v1/singularity/status")
+    async def singularity_status_endpoint():
+        """Returns point-in-time metrics for Master Singularity."""
+        from swarmwatch.master_singularity import global_master_singularity
+        return global_master_singularity.get_status()
+
+
+
+
+
+
+
 
 
     @app.websocket("/ws/swarm/{swarm_id}")

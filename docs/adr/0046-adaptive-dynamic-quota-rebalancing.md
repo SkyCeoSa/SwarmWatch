@@ -10,7 +10,7 @@ Accepted
 Multi-agent swarms operating in distributed production environments face fundamental resource allocation challenges when executing multi-turn reasoning and tool orchestration:
 1. **The Rogue Agent Quota Drain**: An agent experiencing high semantic drift, prompt injection, or hallucinatory loops can rapidly consume the shared swarm token/budget pool before the global circuit breaker trips, prematurely halting productive agents that are converging on the user's objective.
 2. **Static Quota Stranding & Starvation**: Static equal partitioning of token/turn budgets among agents causes complex reasoning agents to hit artificial budget limits mid-task while simpler or idle agents leave tens of thousands of tokens stranded and unutilized.
-3. **Absence of Real-Time Utility-Aware Scheduling**: Traditional distributed rate limiters and quota managers treat all agents uniformly without regard for real-time semantic convergence, Shannon entropy stability, or task utility.
+3. **Absence of Real-Time Utility-Aware Scheduling**: Traditional distributed throughput throttlers and static token managers treat all agents uniformly without regard for real-time semantic convergence, Shannon entropy stability, or task utility.
 
 An in-process, zero-external-dependency, zero-token-cost mathematical rebalancer is required to continuously evaluate agent utility and dynamically re-allocate token and turn quotas across distributed swarms in $<50\mu\text{s}$ per turn.
 

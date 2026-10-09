@@ -223,6 +223,12 @@ class RedisLeaderElector:
         with self._lock:
             return self._role == ServerNodeRole.LEADER
 
+    @property
+    def is_running(self) -> bool:
+        with self._lock:
+            return self._running
+
+
     def on_elected(self, callback: Callable[[], None]) -> None:
         """Registers a callback executed when this node is elected LEADER."""
         with self._lock:

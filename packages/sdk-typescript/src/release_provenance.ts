@@ -558,8 +558,7 @@ export class ReleaseProvenance {
     // 1. Verify ECDSA signature
     const targetPubKey = options.publicKeyB64 || manifest.public_key_b64;
     if (!targetPubKey) {
-      errors.append?.("No public key available for signature verification") ||
-        errors.push("No public key available for signature verification");
+      errors.push("No public key available for signature verification");
     } else if (!manifest.signature) {
       errors.push("Manifest is unsigned (missing signature)");
     } else {

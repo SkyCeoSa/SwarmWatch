@@ -164,6 +164,78 @@ class PackageReleaseValidator:
                                 f"Forbidden member found in package: {m} (matches {pattern})"
                             )
 
+                # Track 0 Hardening: Source drift check against repository source files
+                src_dir = Path(__file__).resolve().parent
+                for m in namelist:
+                    if m.startswith("swarmwatch/") and m.endswith(".py"):
+                        rel_name = m[len("swarmwatch/"):]
+                        src_file = src_dir / rel_name
+                        if src_file.exists():
+                            wheel_text = zf.read(m).decode("utf-8", errors="ignore").replace("\r\n", "\n")
+                            src_text = src_file.read_text("utf-8", errors="ignore").replace("\r\n", "\n")
+                            if wheel_text != src_text:
+                                report.is_valid = False
+                                report.errors.append(
+                                    f"Source drift detected: wheel member '{m}' differs from repository source '{src_file.name}'"
+                                )
+
+                # Track 0 Hardening: Insecure signature fallback and vulnerability scan
+                security_critical_modules = {
+                    "swarmwatch/byzantine_oracle.py",
+                    "swarmwatch/root_witness.py",
+                    "swarmwatch/mesh_federation.py",
+                    "swarmwatch/causality_barrier.py",
+                    "swarmwatch/cross_cluster_sync.py",
+                    "swarmwatch/master_singularity.py",
+                }
+                insecure_prefix = "s" + "ig:"
+                sig_patterns = (f'"{insecure_prefix}', f"'{insecure_prefix}", f'b"{insecure_prefix}', f"b'{insecure_prefix}")
+                for m in namelist:
+                    if m in security_critical_modules:
+                        code = zf.read(m).decode("utf-8", errors="ignore")
+                        if any(pat in code for pat in sig_patterns):
+                            report.is_valid = False
+                            report.errors.append(
+                                f"Vulnerability detected: insecure signature fallback '{insecure_prefix}' found in '{m}'"
+                            )
+
+                # Track 0 Hardening: Zero X-User header authentication
+                x_user_pattern = 'x' + '-user'
+                for m in namelist:
+                    if m.startswith("swarmwatch/") and m.endswith(".py"):
+                        code = zf.read(m).decode("utf-8", errors="ignore").lower()
+                        if f'headers.get("{x_user_pattern}")' in code or f'alias="{x_user_pattern}"' in code:
+                            report.is_valid = False
+                            report.errors.append(
+                                f"Vulnerability detected: X-User header authentication found in '{m}'"
+                            )
+
+                # Track 0 Hardening: Zero anonymous Role.ADMIN fallback
+                for m in namelist:
+                    if m == "swarmwatch/tenant.py":
+                        code = zf.read(m).decode("utf-8", errors="ignore")
+                        if "role: Role = Role.ADMIN" in code:
+                            report.is_valid = False
+                            report.errors.append("Vulnerability detected: TenantContext defaults to Role.ADMIN")
+                    if m == "swarmwatch/server.py":
+                        code = zf.read(m).decode("utf-8", errors="ignore")
+                        if "role=Role.ADMIN" in code and "dev-key" in code:
+                            report.is_valid = False
+                            report.errors.append("Vulnerability detected: anonymous Role.ADMIN dev fallback in server.py")
+
+                # Track 0 Hardening: Zero emojis or non-ASCII characters (>= 0x2000)
+                for m in namelist:
+                    if m.startswith("swarmwatch/") and m.endswith((".py", ".html")):
+                        text = zf.read(m).decode("utf-8", errors="ignore")
+                        for line_no, line in enumerate(text.splitlines(), 1):
+                            for ch in line:
+                                if ord(ch) >= 0x2000:
+                                    report.is_valid = False
+                                    report.errors.append(
+                                        f"Non-ASCII/emoji character U+{ord(ch):04X} detected in '{m}' at line {line_no}"
+                                    )
+                                    break
+
         except Exception as e:
             report.is_valid = False
             report.errors.append(f"Unexpected error inspecting wheel: {str(e)}")

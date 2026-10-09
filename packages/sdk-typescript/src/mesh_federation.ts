@@ -10,6 +10,7 @@
 
 import * as crypto from "node:crypto";
 import { WitnessKeyManager } from "./root_witness.ts";
+import { verifyBftSignature } from "./byzantine_oracle.ts";
 
 // ==============================================================================
 // 1. Custom Exceptions
@@ -424,14 +425,69 @@ export function signPeerData(km: WitnessKeyManager, data: Buffer | Uint8Array | 
 }
 
 export function verifyPeerData(publicKey: string, data: Buffer | Uint8Array | string, signature: string): boolean {
+  if (!publicKey || !signature) {
+    return false;
+  }
   try {
     const km = WitnessKeyManager.fromPublicKey(publicKey);
-    return km.verifyB64(data, signature);
-  } catch {
-    const dataHex = typeof data === "string" ? Buffer.from(data).toString("hex") : Buffer.from(data).toString("hex");
-    const expected = crypto.createHash("sha256").update(`${publicKey}:${dataHex}`).digest("hex");
-    return signature === expected;
+    if (km.verifyB64(data, signature)) {
+      return true;
+    }
+  } catch {}
+
+  try {
+    if (publicKey.length === 64 && (signature.length === 128 || signature.length === 64)) {
+      const msgStr = typeof data === "string" ? data : Buffer.from(data).toString("utf-8");
+      if (verifyBftSignature(publicKey, msgStr, signature)) {
+        return true;
+      }
+    }
+  } catch {}
+
+  return false;
+}
+
+export function isValidPeerPublicKey(pk: string): boolean {
+  if (!pk || typeof pk !== "string") return false;
+  const trimmed = pk.trim();
+  if ((trimmed.length === 64 || trimmed.length === 130) && /^[0-9a-fA-F]+$/.test(trimmed)) {
+    return true;
   }
+  try {
+    WitnessKeyManager.fromPublicKey(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function computePeerRegistrationPayload(
+  node_id: string,
+  cluster_id: string,
+  tenant_id: string,
+  endpoint_url: string,
+  public_key_hex: string,
+  role: string = MeshNodeRole.WORKER,
+  nonce: string = ""
+): Buffer {
+  return Buffer.from(
+    `mesh:register:v1:${node_id}:${cluster_id}:${tenant_id}:${endpoint_url}:${public_key_hex}:${role}:${nonce}`,
+    "utf-8"
+  );
+}
+
+export function signPeerRegistration(
+  km: WitnessKeyManager,
+  node_id: string,
+  cluster_id: string,
+  tenant_id: string,
+  endpoint_url: string,
+  public_key_hex: string,
+  role: string = MeshNodeRole.WORKER,
+  nonce: string = ""
+): string {
+  const data = computePeerRegistrationPayload(node_id, cluster_id, tenant_id, endpoint_url, public_key_hex, role, nonce);
+  return signPeerData(km, data);
 }
 
 function signHelper(signer: any, data: Buffer): string {
@@ -441,8 +497,7 @@ function signHelper(signer: any, data: Buffer): string {
   if (typeof signer === "function") {
     return signer(data);
   }
-  const s = String(signer);
-  return crypto.createHash("sha256").update(`${s}:${data.toString("hex")}`).digest("hex");
+  throw new MeshPeerAuthenticationError("Invalid signer: must be WitnessKeyManager or signing function");
 }
 
 // ==============================================================================
@@ -451,6 +506,7 @@ function signHelper(signer: any, data: Buffer): string {
 
 export class MeshFederationRouter {
   stalePeerTimeoutSec: number;
+  requireSignedRegistration: boolean;
   private _peers: Map<string, PeerNode>;
   private _links: Map<string, Map<string, MeshLink>>;
   private _sessions: Map<string, Record<string, unknown>>;
@@ -458,8 +514,9 @@ export class MeshFederationRouter {
   private _circuitTripped: boolean;
   private _capabilityValidator?: (token: string, tenantId: string, destNodeId: string) => boolean;
 
-  constructor(stalePeerTimeoutSec: number = 60.0) {
+  constructor(stalePeerTimeoutSec: number = 60.0, requireSignedRegistration: boolean = true) {
     this.stalePeerTimeoutSec = stalePeerTimeoutSec;
+    this.requireSignedRegistration = requireSignedRegistration;
     this._peers = new Map();
     this._links = new Map();
     this._sessions = new Map();
@@ -489,15 +546,59 @@ export class MeshFederationRouter {
     capabilities?: string[];
     latency_ms?: number;
     signature?: string;
+    nonce?: string;
   }): PeerNode {
     if (!data.node_id || !data.cluster_id || !data.tenant_id) {
       throw new MeshPeerAuthenticationError("Peer node registration requires node_id, cluster_id, and tenant_id");
     }
 
-    if (data.signature) {
-      const payload = Buffer.from(`${data.node_id}:${data.cluster_id}:${data.tenant_id}:${data.endpoint_url}`, "utf-8");
-      if (!verifyPeerData(data.public_key_hex, payload, data.signature)) {
-        throw new MeshPeerAuthenticationError(`Cryptographic signature verification failed for peer node '${data.node_id}'`);
+    if (!isValidPeerPublicKey(data.public_key_hex)) {
+      throw new MeshPeerAuthenticationError(
+        `Malformed public key '${data.public_key_hex}': must be valid hex or base64 cryptographic key (PoC-H rejected)`
+      );
+    }
+
+    const roleStr = String(data.role || MeshNodeRole.WORKER);
+    const nonceStr = String(data.nonce || "");
+
+    const verifySig = (pubKey: string, sig: string): boolean => {
+      const candidates = [
+        computePeerRegistrationPayload(data.node_id, data.cluster_id, data.tenant_id, data.endpoint_url, data.public_key_hex, roleStr, nonceStr),
+        Buffer.from(`mesh:peer:v1:${data.node_id}:${data.cluster_id}:${data.tenant_id}:${data.endpoint_url}:${data.public_key_hex}:${roleStr}:${nonceStr}`, "utf-8"),
+        Buffer.from(`mesh:register:v1:${data.node_id}:${data.cluster_id}:${data.tenant_id}:${data.endpoint_url}:${data.public_key_hex}:${roleStr}`, "utf-8"),
+        Buffer.from(`mesh:peer:v1:${data.node_id}:${data.cluster_id}:${data.tenant_id}:${data.endpoint_url}:${data.public_key_hex}:${roleStr}`, "utf-8"),
+        Buffer.from(`${data.node_id}:${data.cluster_id}:${data.tenant_id}:${data.endpoint_url}:${data.public_key_hex}:${roleStr}`, "utf-8"),
+      ];
+      for (const cand of candidates) {
+        if (verifyPeerData(pubKey, cand, sig)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (this._peers.has(data.node_id)) {
+      const existing = this._peers.get(data.node_id)!;
+      if (!data.signature) {
+        throw new MeshPeerAuthenticationError(
+          `Cannot overwrite existing peer node '${data.node_id}' without valid cryptographic signature`
+        );
+      }
+      if (!verifySig(existing.public_key_hex, data.signature)) {
+        throw new MeshPeerAuthenticationError(
+          `Node hijacking attempt detected: re-registration of '${data.node_id}' must be signed by existing public key (PoC-G rejected)`
+        );
+      }
+    } else {
+      if (!data.signature && this.requireSignedRegistration) {
+        throw new MeshPeerAuthenticationError(
+          `Peer node '${data.node_id}' registration requires valid cryptographic signature (PoC-H rejected)`
+        );
+      }
+      if (data.signature && !verifySig(data.public_key_hex, data.signature)) {
+        throw new MeshPeerAuthenticationError(
+          `Cryptographic signature verification failed for peer node '${data.node_id}'`
+        );
       }
     }
 

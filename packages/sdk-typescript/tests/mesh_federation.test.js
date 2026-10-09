@@ -25,13 +25,82 @@ import {
   globalMeshRouter,
   generatePeerKeypair,
   signPeerData,
+  signPeerRegistration,
+  computePeerRegistrationPayload,
 } from "../src/mesh_federation.ts";
+
+function makeRegData(
+  node_id,
+  cluster_id = "c1",
+  tenant_id = "t1",
+  endpoint_url = "http://node",
+  role = MeshNodeRole.WORKER,
+  customKm = null,
+  customPub = null
+) {
+  let km = customKm;
+  let pub = customPub;
+  if (!km || !pub) {
+    const kp = generatePeerKeypair();
+    km = kp.keyManager;
+    pub = kp.publicKeyHex;
+  }
+  const sig = signPeerRegistration(km, node_id, cluster_id, tenant_id, endpoint_url, pub, role);
+  return {
+    node_id,
+    cluster_id,
+    tenant_id,
+    endpoint_url,
+    public_key_hex: pub,
+    role,
+    signature: sig,
+  };
+}
 
 test("Peer registration and signature verification", () => {
   const router = new MeshFederationRouter();
   const { keyManager: km1, publicKeyHex: pubHex } = generatePeerKeypair();
 
-  // 1. Registration without signature succeeds
+  // 1. Registration without signature is rejected (PoC-H)
+  assert.throws(
+    () => {
+      router.registerPeer({
+        node_id: "node-01",
+        cluster_id: "us-east-1",
+        tenant_id: "tenant-alpha",
+        endpoint_url: "https://node01.east.internal",
+        public_key_hex: pubHex,
+        role: MeshNodeRole.GATEWAY,
+      });
+    },
+    (err) => err instanceof MeshPeerAuthenticationError && /requires valid cryptographic signature/.test(err.message)
+  );
+
+  // 1b. Registration with malformed key is rejected (PoC-H squatting)
+  assert.throws(
+    () => {
+      router.registerPeer({
+        node_id: "node-victim",
+        cluster_id: "us-east-1",
+        tenant_id: "tenant-alpha",
+        endpoint_url: "https://evil.internal",
+        public_key_hex: "zz-not-hex",
+        signature: "any-sig",
+      });
+    },
+    (err) => err instanceof MeshPeerAuthenticationError && /Malformed public key/.test(err.message)
+  );
+
+  // 2. Registration with valid signature succeeds
+  const sig1 = signPeerRegistration(
+    km1,
+    "node-01",
+    "us-east-1",
+    "tenant-alpha",
+    "https://node01.east.internal",
+    pubHex,
+    MeshNodeRole.GATEWAY
+  );
   const peer1 = router.registerPeer({
     node_id: "node-01",
     cluster_id: "us-east-1",
@@ -39,24 +108,10 @@ test("Peer registration and signature verification", () => {
     endpoint_url: "https://node01.east.internal",
     public_key_hex: pubHex,
     role: MeshNodeRole.GATEWAY,
+    signature: sig1,
   });
   assert.equal(peer1.node_id, "node-01");
   assert.equal(peer1.status, MeshNodeStatus.ONLINE);
-
-  // 2. Registration with valid signature succeeds
-  const { keyManager: km2, publicKeyHex: pub2Hex } = generatePeerKeypair();
-  const data = Buffer.from("node-02:us-west-2:tenant-alpha:https://node02.west.internal", "utf-8");
-  const sig = signPeerData(km2, data);
-
-  const peer2 = router.registerPeer({
-    node_id: "node-02",
-    cluster_id: "us-west-2",
-    tenant_id: "tenant-alpha",
-    endpoint_url: "https://node02.west.internal",
-    public_key_hex: pub2Hex,
-    signature: sig,
-  });
-  assert.equal(peer2.node_id, "node-02");
 
   // 3. Registration with invalid signature throws MeshPeerAuthenticationError
   assert.throws(
@@ -70,15 +125,90 @@ test("Peer registration and signature verification", () => {
         signature: "deadbeef".repeat(8),
       });
     },
-    (err) => err instanceof MeshPeerAuthenticationError
+    (err) => err instanceof MeshPeerAuthenticationError && /Cryptographic signature verification failed/.test(err.message)
   );
+
+  // 4. Attempting to overwrite existing node without signature throws MeshPeerAuthenticationError
+  assert.throws(
+    () => {
+      router.registerPeer({
+        node_id: "node-01",
+        cluster_id: "us-east-1",
+        tenant_id: "tenant-alpha",
+        endpoint_url: "https://hijack.evil.internal",
+        public_key_hex: pubHex,
+      });
+    },
+    (err) => err instanceof MeshPeerAuthenticationError && /Cannot overwrite existing peer node/.test(err.message)
+  );
+
+  // 5. Attempting to overwrite existing node with Mallory's key throws MeshPeerAuthenticationError (PoC-G)
+  const { keyManager: kmMallory, publicKeyHex: pubMallory } = generatePeerKeypair();
+  const mallorySig = signPeerRegistration(
+    kmMallory,
+    "node-01",
+    "us-east-1",
+    "tenant-alpha",
+    "https://hijack.evil.internal",
+    pubMallory,
+    MeshNodeRole.GATEWAY
+  );
+  assert.throws(
+    () => {
+      router.registerPeer({
+        node_id: "node-01",
+        cluster_id: "us-east-1",
+        tenant_id: "tenant-alpha",
+        endpoint_url: "https://hijack.evil.internal",
+        public_key_hex: pubMallory,
+        signature: mallorySig,
+      });
+    },
+    (err) => err instanceof MeshPeerAuthenticationError && /Node hijacking attempt detected/.test(err.message)
+  );
+
+  // 5b. Signature replay attack with attacker key is rejected (PoC-G replay)
+  assert.throws(
+    () => {
+      router.registerPeer({
+        node_id: "node-01",
+        cluster_id: "us-east-1",
+        tenant_id: "tenant-alpha",
+        endpoint_url: "https://hijack.evil.internal",
+        public_key_hex: pubMallory,
+        signature: sig1,
+      });
+    },
+    (err) => err instanceof MeshPeerAuthenticationError && /Node hijacking attempt detected/.test(err.message)
+  );
+
+  // 6. Legitimate owner re-registration signed by km1 succeeds
+  const validUpdateSig = signPeerRegistration(
+    km1,
+    "node-01",
+    "us-east-1",
+    "tenant-alpha",
+    "https://node01-updated.east.internal",
+    pubHex,
+    MeshNodeRole.GATEWAY
+  );
+  const updatedPeer = router.registerPeer({
+    node_id: "node-01",
+    cluster_id: "us-east-1",
+    tenant_id: "tenant-alpha",
+    endpoint_url: "https://node01-updated.east.internal",
+    public_key_hex: pubHex,
+    role: MeshNodeRole.GATEWAY,
+    signature: validUpdateSig,
+  });
+  assert.equal(updatedPeer.endpoint_url, "https://node01-updated.east.internal");
 });
 
 test("Link establishment and topology graph", () => {
   const router = new MeshFederationRouter();
-  router.registerPeer({ node_id: "n1", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://n1", public_key_hex: "pub1" });
-  router.registerPeer({ node_id: "n2", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://n2", public_key_hex: "pub2" });
-  router.registerPeer({ node_id: "n3", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://n3", public_key_hex: "pub3" });
+  router.registerPeer(makeRegData("n1", "c1", "t1", "http://n1"));
+  router.registerPeer(makeRegData("n2", "c1", "t1", "http://n2"));
+  router.registerPeer(makeRegData("n3", "c1", "t1", "http://n3"));
 
   // Establish links
   assert.equal(router.establishLink("n1", "n2", 1.5, 1.0, true), true);
@@ -99,10 +229,10 @@ test("Link establishment and topology graph", () => {
 test("Dijkstra shortest path routing", () => {
   const router = new MeshFederationRouter();
   // Build diamond graph: A -> B (1) -> D (1); A -> C (5) -> D (1)
-  router.registerPeer({ node_id: "A", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://a", public_key_hex: "pub_a" });
-  router.registerPeer({ node_id: "B", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://b", public_key_hex: "pub_b" });
-  router.registerPeer({ node_id: "C", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://c", public_key_hex: "pub_c" });
-  router.registerPeer({ node_id: "D", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://d", public_key_hex: "pub_d" });
+  router.registerPeer(makeRegData("A", "c1", "t1", "http://a"));
+  router.registerPeer(makeRegData("B", "c1", "t1", "http://b"));
+  router.registerPeer(makeRegData("C", "c1", "t1", "http://c"));
+  router.registerPeer(makeRegData("D", "c1", "t1", "http://d"));
 
   router.establishLink("A", "B", 1.0);
   router.establishLink("B", "D", 1.0);
@@ -121,8 +251,8 @@ test("Dijkstra shortest path routing", () => {
 
 test("Stale peer heartbeat and eviction", () => {
   const router = new MeshFederationRouter(5.0);
-  router.registerPeer({ node_id: "p1", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://p1", public_key_hex: "pub1" });
-  router.registerPeer({ node_id: "p2", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://p2", public_key_hex: "pub2" });
+  router.registerPeer(makeRegData("p1", "c1", "t1", "http://p1"));
+  router.registerPeer(makeRegData("p2", "c1", "t1", "http://p2"));
   router.establishLink("p1", "p2");
 
   const tNow = Date.now() / 1000;
@@ -153,8 +283,8 @@ test("Mutual cryptographic handshake", () => {
   const { keyManager: kmA, publicKeyHex: pubA } = generatePeerKeypair();
   const { keyManager: kmB, publicKeyHex: pubB } = generatePeerKeypair();
 
-  router.registerPeer({ node_id: "node-a", cluster_id: "cluster-east", tenant_id: "tenant-1", endpoint_url: "http://a", public_key_hex: pubA });
-  router.registerPeer({ node_id: "node-b", cluster_id: "cluster-west", tenant_id: "tenant-1", endpoint_url: "http://b", public_key_hex: pubB });
+  router.registerPeer(makeRegData("node-a", "cluster-east", "tenant-1", "http://a", MeshNodeRole.WORKER, kmA, pubA));
+  router.registerPeer(makeRegData("node-b", "cluster-west", "tenant-1", "http://b", MeshNodeRole.WORKER, kmB, pubB));
 
   const { request: req, response: res } = router.performHandshake(
     "node-a",
@@ -172,9 +302,9 @@ test("Mutual cryptographic handshake", () => {
 
 test("Packet routing and receipt generation", () => {
   const router = new MeshFederationRouter();
-  router.registerPeer({ node_id: "node-src", cluster_id: "c1", tenant_id: "tenant-alpha", endpoint_url: "http://src", public_key_hex: "pub_src" });
-  router.registerPeer({ node_id: "node-relay", cluster_id: "c1", tenant_id: "tenant-alpha", endpoint_url: "http://relay", public_key_hex: "pub_relay" });
-  router.registerPeer({ node_id: "node-dst", cluster_id: "c1", tenant_id: "tenant-alpha", endpoint_url: "http://dst", public_key_hex: "pub_dst" });
+  router.registerPeer(makeRegData("node-src", "c1", "tenant-alpha", "http://src"));
+  router.registerPeer(makeRegData("node-relay", "c1", "tenant-alpha", "http://relay"));
+  router.registerPeer(makeRegData("node-dst", "c1", "tenant-alpha", "http://dst"));
 
   router.establishLink("node-src", "node-relay");
   router.establishLink("node-relay", "node-dst");
@@ -202,8 +332,8 @@ test("Packet routing and receipt generation", () => {
 
 test("Hop limit (TTL) exceeded", () => {
   const router = new MeshFederationRouter();
-  router.registerPeer({ node_id: "src", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://s", public_key_hex: "p1" });
-  router.registerPeer({ node_id: "dst", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://d", public_key_hex: "p2" });
+  router.registerPeer(makeRegData("src", "c1", "t1", "http://s"));
+  router.registerPeer(makeRegData("dst", "c1", "t1", "http://d"));
   router.establishLink("src", "dst");
 
   const packet = new MeshPacket({
@@ -230,8 +360,8 @@ test("Hop limit (TTL) exceeded", () => {
 
 test("Loop detection and prevention", () => {
   const router = new MeshFederationRouter();
-  router.registerPeer({ node_id: "node-x", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://x", public_key_hex: "px" });
-  router.registerPeer({ node_id: "node-y", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://y", public_key_hex: "py" });
+  router.registerPeer(makeRegData("node-x", "c1", "t1", "http://x"));
+  router.registerPeer(makeRegData("node-y", "c1", "t1", "http://y"));
   router.establishLink("node-x", "node-y");
 
   // Packet claims node-x is already in path (loop)
@@ -254,8 +384,8 @@ test("Loop detection and prevention", () => {
 
 test("Cross-tenant capability fencing", () => {
   const router = new MeshFederationRouter();
-  router.registerPeer({ node_id: "node-t1", cluster_id: "c1", tenant_id: "tenant-corp", endpoint_url: "http://t1", public_key_hex: "p1" });
-  router.registerPeer({ node_id: "node-t2", cluster_id: "c1", tenant_id: "tenant-finance", endpoint_url: "http://t2", public_key_hex: "p2" });
+  router.registerPeer(makeRegData("node-t1", "c1", "tenant-corp", "http://t1"));
+  router.registerPeer(makeRegData("node-t2", "c1", "tenant-finance", "http://t2"));
   router.establishLink("node-t1", "node-t2");
 
   // 1. Cross-tenant packet without capability token fails
@@ -288,8 +418,8 @@ test("Cross-tenant capability fencing", () => {
 
 test("Safety circuit tripped blocks mesh fail-closed", () => {
   const router = new MeshFederationRouter();
-  router.registerPeer({ node_id: "s1", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://s1", public_key_hex: "p1" });
-  router.registerPeer({ node_id: "s2", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://s2", public_key_hex: "p2" });
+  router.registerPeer(makeRegData("s1", "c1", "t1", "http://s1"));
+  router.registerPeer(makeRegData("s2", "c1", "t1", "http://s2"));
   router.establishLink("s1", "s2");
 
   router.setCircuitTripped(true);
@@ -315,8 +445,8 @@ test("Safety circuit tripped blocks mesh fail-closed", () => {
 
 test("Tamper-evident receipt canonical hash", () => {
   const router = new MeshFederationRouter();
-  router.registerPeer({ node_id: "n-a", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://a", public_key_hex: "pa" });
-  router.registerPeer({ node_id: "n-b", cluster_id: "c1", tenant_id: "t1", endpoint_url: "http://b", public_key_hex: "pb" });
+  router.registerPeer(makeRegData("n-a", "c1", "t1", "http://a"));
+  router.registerPeer(makeRegData("n-b", "c1", "t1", "http://b"));
   router.establishLink("n-a", "n-b");
 
   const pkt = new MeshPacket({
@@ -339,13 +469,7 @@ test("Sub-250us mesh routing SLO", () => {
   const router = new MeshFederationRouter();
   // Build 5-node chain
   for (let i = 0; i < 5; i++) {
-    router.registerPeer({
-      node_id: `bench-node-${i}`,
-      cluster_id: "c1",
-      tenant_id: "t-bench",
-      endpoint_url: `http://b${i}`,
-      public_key_hex: `pub${i}`,
-    });
+    router.registerPeer(makeRegData(`bench-node-${i}`, "c1", "t-bench", `http://b${i}`));
     if (i > 0) {
       router.establishLink(`bench-node-${i - 1}`, `bench-node-${i}`);
     }
@@ -387,13 +511,7 @@ test("Global mesh router singleton status and reset", () => {
   assert.ok("online_peers_count" in st);
   assert.ok("active_links_count" in st);
 
-  globalMeshRouter.registerPeer({
-    node_id: "g-peer",
-    cluster_id: "g-cluster",
-    tenant_id: "g-tenant",
-    endpoint_url: "http://g",
-    public_key_hex: "pub_g",
-  });
+  globalMeshRouter.registerPeer(makeRegData("g-peer", "g-cluster", "g-tenant", "http://g"));
   assert.ok(Number(globalMeshRouter.status()["total_peers_count"]) >= 1);
 
   globalMeshRouter.reset();

@@ -35,6 +35,7 @@ from swarmwatch.mesh_federation import (
     MeshRoutingReceipt,
     generate_peer_keypair,
     sign_peer_data,
+    sign_peer_registration,
     MeshPeerAuthenticationError,
     MeshRoutingLoopError,
     MeshHopLimitExceededError,
@@ -88,6 +89,7 @@ class MeshSimulationAuditor:
         for nid, cid, tid, url, role in nodes:
             km, pub = generate_peer_keypair()
             self.keypairs[nid] = (km, pub)
+            sig = sign_peer_registration(km, nid, cid, tid, url, pub, role.value)
             peer = self.router.register_peer(
                 node_id=nid,
                 cluster_id=cid,
@@ -95,6 +97,7 @@ class MeshSimulationAuditor:
                 endpoint_url=url,
                 public_key_hex=pub,
                 role=role,
+                signature=sig,
             )
             self.log_info(f"Node '{nid}'", f"Role={peer.role.value:<7} Cluster={peer.cluster_id:<10} Tenant={peer.tenant_id}")
 

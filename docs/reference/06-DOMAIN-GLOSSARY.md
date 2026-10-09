@@ -54,7 +54,14 @@ _Avoid_: Fork name, thread, session variant
 
 **Time-Machine Fork**:
 A non-destructive operation that clones historical state at a target span into a new branch for parallel exploration or bug recovery.
-_Avoid_: Rewind, roll back, restore point
+_Avoid_: Unqualified rewind, roll back, restore point, destructive session reset
+_Note_: Use 'Time-Machine Fork' for non-destructive state branching, or 'Causal Rewind' when referring specifically to linear causal graph traversal during partition reconciliation.
+
+### Permitted Technical Terms
+- `Causal Rewind`: Linear causal DAG traversal during partition reconciliation and state restoration (ADRs 0025, 0089).
+- `logging` / `std_logging`: Standard library process diagnostics and Python logging module references (distinguished from telemetry spans).
+- `RaftLog`: Consensus distributed state machine replicate entries (ADR 0031).
+- `SignedWitnessSnapshot`: Cryptographically anchored root witness commits (ADR 0074).
 
 ---
 
@@ -1823,6 +1830,270 @@ _Avoid_: Cycle crash, loop error, recursive proof fault, circular deduction exce
 **EpistemicDeadlockError**:
 The fail-closed exception raised when opposing epistemic claims exhibit score margins below the deterministic decision threshold $\theta$, requiring safety circuit escalation.
 _Avoid_: Tie fault, deadlock crash, equal score exception, standoff abort
+
+---
+
+### Autonomous Cross-Cluster State Synchronization & Distributed Hyper-Graph Reconciliation (Seam 77 / ADR 0088)
+
+**HyperNode**:
+An atomic state entity within a cluster's distributed hyper-graph, binding a cluster identifier, entity type (`AGENT_CONTEXT`, `RESOURCE_LEASE`, `DATA_PIPELINE`), payload, epoch, and nanosecond timestamp into a deterministic SHA-256 digest.
+_Avoid_: State node, graph vertex, context entity, data item
+
+**HyperEdge**:
+An $n$-ary relational hyper-edge linking two or more hyper-nodes ($|\mathcal{V}_e| \ge 2$) with an associated weight $w \in [0.0, 1.0]$, version vector, properties, and canonical digest.
+_Avoid_: Relationship, graph link, multi-node edge, connection line
+
+**DistributedHyperGraph**:
+The CRDT-reconciled state machine $\mathcal{H} = (\mathcal{V}_H, \mathcal{E}_H)$ modeling global multi-agent state across clusters, enforcing structural integrity and deriving composite Merkle-like root digests.
+_Avoid_: Global state tree, cluster map, shared memory graph, central graph
+
+**SyncPacket**:
+An authenticated cross-cluster state transmission container carrying version vector metadata, node/edge delta sets, Proof-of-Execution certificate attestations, and cryptographic committee root proofs.
+_Avoid_: Data delta, sync payload, migration message, transport chunk
+
+**SyncReconciliationReceipt**:
+An immutable, tamper-evident cryptographic receipt (`sw:sync:v1:<sha256>`) certifying the successful CRDT reconciliation, causal ordering verdict, and composite state root digest across cluster boundaries.
+_Avoid_: Sync voucher, reconciliation cert, merge confirmation, update ticket
+
+**AntiEntropyDigest**:
+A lightweight state summary payload exchanging version vectors and hyper-graph root digests to discover missing causal deltas without full-state serialization.
+_Avoid_: Sync ping, summary beacon, state handshake, status packet
+
+**Invariant I1 (Cross-Cluster PoE Verification)**:
+The inviolable cross-cluster safety invariant requiring foreign Proof-of-Execution certificates to be cryptographically verified against the registered epoch committee root and quorum threshold before admitting foreign mutations.
+_Avoid_: Remote cert check, external signature validation, cluster poe gate
+
+---
+
+### Autonomous Hyper-Graph Partition Healing & Causal Resumption (Seam 78 / ADR 0089)
+
+**PartitionHealingEngine**:
+The autonomous coordinator responsible for detecting multi-cluster hyper-graph partitions, calculating causal vector divergence, formulating deterministic resumption plans, and splicing backlog deltas into a unified CRDT state.
+_Avoid_: Split recovery engine, partition repairer, network reconciler, sync restorer
+
+**PartitionState**:
+The deterministic 6-phase state automaton governing partition lifecycle transitions: `NOMINAL`, `PARTITION_DETECTED`, `PLANNING_RESUMPTION`, `RECONCILING_DELTAS`, `HEALED`, and `CIRCUIT_TRIPPED`.
+_Avoid_: Healer status, split phase, recovery mode
+
+**ResumptionDelta**:
+An authenticated backlog mutation bundle containing hyper-nodes, hyper-edges, vector clocks, and foreign Proof-of-Execution certificates spliced across a healed network partition.
+_Avoid_: Catchup packet, backlog chunk, sync delta, partition update
+
+**PartitionHealingPlan**:
+A deterministic structural specification defining divergent clusters, missing unilateral step counts, and the target join supremum vector clock for multi-cluster causal reconciliation.
+_Avoid_: Recovery roadmap, heal plan, repair blueprint
+
+**PartitionHealingReceipt**:
+A cryptographically verifiable, domain-tagged receipt (`sw:heal:v1:<sha256>`) certifying successful partition splicing, reconciled node/edge counts, post-healing clocks, and composite root digests.
+_Avoid_: Healed confirmation, recovery receipt, merge proof
+
+**Invariant I2 (Vector Monotonicity Resumption)**:
+The fundamental distributed causal invariant guaranteeing that post-healing vector clocks monotonically advance or remain equal across all cluster dimensions: $V_{\text{post}}[k] \ge \max(V_L[k], V_R[k])$, with zero backward regression permitted.
+_Avoid_: Monotonic clock check, no-regression rule, clock supremum rule
+
+**Symmetric Causal Difference Matrix**:
+The directional vector difference mapping $\vec{\delta}_{\text{causal}}[k] = V_{\text{remote}}[k] - V_{\text{local}}[k]$ used to classify concurrent divergence, quantify unilateral progress, and size missing backlog replay windows.
+_Avoid_: Clock diff array, vector subtraction, time gap matrix
+
+---
+
+### Dynamic Topology Re-Partitioning & Adaptive Sub-Graph Migration (Seam 79 / ADR 0090)
+
+**DynamicTopologyMigrator**:
+The autonomous coordinator responsible for evaluating multi-cluster hyper-graph cut skew, formulating cut-minimizing re-partitioning plans, packaging isolated sub-graph bundles with boundary contracts, and executing atomic cross-cluster sub-graph migrations in $<250\mu\text{s}$ with zero LLM API calls.
+_Avoid_: Subgraph mover, cluster rebalancer, partition shuffler, graph migrator
+
+**ClusterLoadProfile**:
+A normalized operational profile capturing node counts, edge counts, CPU/memory utilization, and active agent density to determine composite cluster load and evaluate hyper-graph partition skew.
+_Avoid_: Load report, cluster stats, node metrics
+
+**SubGraphBoundaryContract**:
+A formal structural contract defining hyper-edges severed during sub-graph extraction, mapping migrating cut nodes and retained source nodes to enforce zero-orphan boundary closure.
+_Avoid_: Cut edge spec, boundary rule, edge link contract
+
+**SubGraphBundle**:
+An authenticated, portable migration payload containing serialized hyper-nodes, internal hyper-edges, boundary contracts, source vector clocks, and cryptographic Proof-of-Execution attestations.
+_Avoid_: Subgraph package, migration payload, transfer zip, graph chunk
+
+**MigrationPlan**:
+A deterministic re-partitioning specification detailing source and target clusters, candidate node IDs, internal edge IDs, boundary cut edge IDs, and estimated cut reduction metrics.
+_Avoid_: Transfer plan, migration schedule, repartitioning task
+
+**MigrationReceipt**:
+A cryptographically verifiable, domain-tagged receipt (`sw:mig:rcpt:v1:<sha256>`) certifying atomic sub-graph migration, migrated node/edge counts, post-migration vector clocks, and execution duration.
+_Avoid_: Migration confirmation, transfer proof, move receipt
+
+**Invariant M1 (Causal Vector Monotonicity Handover)**:
+The distributed causal invariant requiring post-migration target vector clocks to strictly satisfy $V_{\text{dst\_post}}[k] \ge \max(V_{\text{src}}[k], V_{\text{dst\_pre}}[k])$ across all clusters, with negative counter rejection and regression defense.
+_Avoid_: Clock step rule, monotonicity handover, vector advance rule
+
+**Invariant M2 (Sub-Graph Boundary Closure)**:
+The hyper-graph integrity invariant guaranteeing that sub-graph migration leaves zero dangling internal edges and converts boundary cut edges into cross-cluster references with retained stubs.
+_Avoid_: Dangling edge defense, boundary closure check, orphan edge prevention
+
+**Invariant M3 (Cryptographic Target Proof Verification)**:
+The security invariant requiring target clusters to verify foreign committee roots, validator public keys, and BFT threshold signatures before admitting migrating sub-graphs into local topology.
+_Avoid_: Remote cert check, migration proof verification, foreign poe gate
+
+---
+
+### Autonomous Cross-Cluster Causality Barrier & Multi-Swarm Epoch Cut-Over Synchronization (Seam 80 / ADR 0091)
+
+**CrossClusterCausalityBarrier**:
+The deep module coordinating atomic multi-cluster epoch cut-over and causal vector quiescence barriers across distributed swarms.
+_Avoid_: Cluster barrier, sync gate, cutover manager
+
+**BarrierProposal**:
+A formal cut-over specification defining the target epoch, participating cluster committee, calculated supremum barrier vector clock $\vec{V}_{\text{barrier}}$, and canonical proposal hash.
+_Avoid_: Cutover request, barrier plan, epoch proposal
+
+**ClusterQuiescenceReport**:
+A telemetry report submitted by a participating cluster communicating current vector clock progress, inflight operation count, and quiescent status relative to the target barrier vector.
+_Avoid_: Quiescence status, cluster ready ping, drain report
+
+**EpochCutOverCertificate**:
+A tamper-evident, multi-signed cryptographic certificate (`sw:barrier:cert:v1:<sha256>`) attesting to verified causal quiescence and authorizing atomic epoch advancement from $e \to e + 1$.
+_Avoid_: Cutover proof, epoch cert, advancement token
+
+**BarrierReceipt**:
+A cryptographically verifiable receipt (`sw:barrier:rcpt:v1:<sha256>`) certifying atomic cross-cluster synchronization, final barrier vector, duration, and committee root rotation.
+_Avoid_: Barrier proof, cutover receipt, sync receipt
+
+**Invariant B1 (Barrier Monotonicity & Causal Quiescence)**:
+The distributed causal invariant requiring all participating clusters to satisfy $V_i \succeq \vec{V}_{\text{barrier}}$ and $\text{InFlightCount} = 0$ before synchronization, rejecting stale pre-barrier operations.
+_Avoid_: Monotonic drain rule, causal quiescence check, barrier gate
+
+**Invariant B2 (Atomic Multi-Cluster Epoch Cut-Over)**:
+The consensus invariant ensuring that epoch transitions $e \to e + 1$ execute atomically across all participating clusters, rejecting operations tagged with stale previous epochs.
+_Avoid_: Epoch lock, atomic rotation rule, multi-cluster step
+
+**Invariant B3 (Cryptographic Cut-Over Certificate & Foreign Attestation)**:
+The cryptographic integrity invariant requiring all epoch cut-overs to be bound to canonical certificates and receipts with domain separation tags and BFT committee root verification.
+_Avoid_: Epoch signature gate, foreign cutover check, cert verification
+
+---
+
+### Committee Key Ceremony & Threshold Quorum Certificates (Seam 81 / ADR 0092)
+
+**QuorumCertificate**:
+An immutable cryptographic certificate aggregating Ed25519 threshold signatures from $\lceil (N+f+1)/2 \rceil$ committee members bound to an authenticated RFC 6962 binary Merkle roster root.
+_Avoid_: Quorum ticket, threshold token, signature bundle
+
+**CommitteeRoster**:
+An immutable committee roster establishing public keys, epoch number, and fault-tolerance bounds $f = \lfloor (N-1)/3 \rfloor$ with a 32-byte cryptographic Merkle root.
+_Avoid_: Member directory, validator list, peer table
+
+---
+
+### Unified Safety Circuit Bus & Quorum-Gated Rearm (Seam 82 / ADR 0093)
+
+**SafetyCircuitBus**:
+The single cluster-wide monotonic safety bus aggregating trip events across all subsystem barriers and enforcing threshold quorum-gated rearm.
+_Avoid_: Global fuse, central breaker, shared killswitch
+
+**CircuitRearmProof**:
+An authenticated multi-operator cryptographic certificate authorizing circuit transition from `TRIPPED` back to `ARMED` with monotonic generation tracking.
+_Avoid_: Reset key, unlatch ticket, rearm token
+
+---
+
+### Hybrid Logical Clocks & Bounded-Skew Causal Timestamps (Seam 83 / ADR 0094)
+
+**HybridLogicalClock**:
+A physical-logical clock coordinator enforcing $l = \max(l, \text{msg}.l, \text{pt})$ with logical counter increments on physical collision, providing strict causal ordering without unbounded clock drift.
+_Avoid_: Wall clock, Lamport timer, hybrid stamp
+
+**HlcTimestamp**:
+A discrete totally-ordered causal event coordinate tuple `(logical_time, counter, node_id)`.
+_Avoid_: Logical mark, causal stamp, event id
+
+---
+
+### Property-Verified δ-CRDT Kernel with Causal Delivery (Seam 84 / ADR 0095)
+
+**CrdtKernel**:
+A delta-state CRDT join semilattice kernel providing verified algebraic commutativity, associativity, and idempotence with causal dependency buffering.
+_Avoid_: CRDT engine, state merger, delta patcher
+
+**CrdtDelta**:
+An atomic incremental state transition accompanied by causal prerequisite dependencies.
+_Avoid_: State diff, update slice, change packet
+
+---
+
+### Barrier Leases, Liveness & Atomic Abort (Seam 85 / ADR 0096)
+
+**BarrierLeaseManager**:
+The deep module governing time-bounded barrier cut-over synchronization with non-blocking atomic abort on participant silence or timeout.
+_Avoid_: Lease watchdog, barrier timer, abort coordinator
+
+**BarrierAbortProof**:
+An irrefutable cryptographic proof broadcast when a barrier cut-over fails to reach unanimous quiescence within the lease duration.
+_Avoid_: Failure ticket, cancellation cert, abort token
+
+---
+
+### Durable Causal Stream Segments & Crash-Consistent Recovery (Seam 86 / ADR 0097)
+
+**DurableCausalStream**:
+An append-only segmented disk stream with binary record framing, CRC-32/SHA-256 integrity checksums, and crash-consistent torn-tail recovery.
+_Avoid_: Causal log, disk journal, stream storage
+
+**StreamSegment**:
+A bounded, immutable binary file segment providing zero-fragmentation sequential streaming.
+_Avoid_: Log chunk, file slice, segment block
+
+---
+
+### BFT View-Change & Accountable Primary Rotation (Seam 87 / ADR 0098)
+
+**BftViewChangeCoordinator**:
+The coordinator executing deterministic round-robin primary rotation and verifying $2f + 1$ signed view-change votes.
+_Avoid_: Leader selector, view rotator, election manager
+
+**NewViewCertificate**:
+A cryptographic attestation proving majority consensus on advancing to view $v+1$.
+_Avoid_: View ticket, election proof, leader cert
+
+---
+
+### Fraud-Provable Optimistic State Attestation (Seam 88 / ADR 0099)
+
+**OptimisticAttestationEngine**:
+The engine coordinating optimistic state transition commitments backed by bonded provers, challenge windows, and interactive single-step fraud challenges.
+_Avoid_: Optimistic bridge, rollup verifier, fraud manager
+
+**FraudProof**:
+A succinct cryptographic demonstration proving an invalid state transition within an attestation's challenge period.
+_Avoid_: Dispute evidence, violation proof, fraud ticket
+
+---
+
+### Tenant-Scoped Engine Registry & Non-Interference (Seam 89 / ADR 0100)
+
+**TenantEngineRegistry**:
+The centralized manager enforcing strict isolation, isolated memory namespaces, CRDT kernels, and zero-bleed tenant eviction.
+_Avoid_: Tenant pool, multi-tenant container, engine store
+
+**TenantEngineProfile**:
+The complete isolated operational context and resource budget for an individual tenant.
+_Avoid_: Tenant config, account scope, workspace record
+
+---
+
+### Deterministic Simulation & Model-Checked Protocol Harness (Seam 90 / ADR 0101)
+
+**ProtocolSimulator**:
+A deterministic discrete-event simulation harness providing bit-for-bit replay equivalence under identical PRNG seeds and invariant assertion across adversarial schedules.
+_Avoid_: Test simulator, mock cluster, chaos engine
+
+**SimulationTrace**:
+A recorded sequence of deterministic steps and safety assertions verifiable offline.
+_Avoid_: Run log, trace record, sim history
+
+
+
+
 
 
 

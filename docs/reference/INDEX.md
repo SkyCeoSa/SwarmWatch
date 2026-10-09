@@ -55,7 +55,7 @@ Whenever beginning a new session or designing new features, consult this index t
       - [ADR 0028: Industrial Production Monitoring Stack & Grafana Dashboard Topology](../adr/0028-grafana-monitoring-stack-and-docker-topology.md)
       - [ADR 0029: Automated Alert Route Webhook Testing & Synthetic Simulation Pipeline](../adr/0029-synthetic-alert-simulation-pipeline.md)
       - [ADR 0030: High-Frequency Telemetry Ingestion Micro-Benchmark & Flamegraph Profile Suite](../adr/0030-high-frequency-telemetry-micro-benchmark-and-profiler.md)
-    - [ADRs 0031 through 0087: Advanced Resilience, Cryptography & Governance](../adr/)
+    - [ADRs 0031 through 0101: Advanced Resilience, Cryptography & Governance (including ADRs 0092–0101: Threshold Quorum Certificates, Unified Circuit Bus, HLC, δ-CRDT Kernel, Barrier Leases, Durable Streams, BFT View-Change, Optimistic Attestations, Tenant Registry, and Deterministic Simulation)](../adr/)
 10. [10. External Audit Resolution & Certification Dossier](../audit/AUDIT_RESOLUTION_SEAMS_61_71.md)
     - Comprehensive resolution of all 8 Foundational Gaps and 5 Audit Dimensions from the external audit report, certifying SwarmWatch as a production-ready enterprise safety operating system.
 
@@ -65,11 +65,12 @@ Whenever beginning a new session or designing new features, consult this index t
 
 | Component | Verification Command | Expected Standard |
 | :--- | :--- | :--- |
-| **Python Test Suite** | `.venv\Scripts\pytest packages/sdk-python/tests/` | 100% Pass (671/671 tests) |
-| **TypeScript Test Suite** | `npm.cmd test` (in `packages/sdk-typescript/`) | 100% Pass (560/560 tests) |
-| **Combined Local Baseline** | Full Dual-SDK test suites | 100% Pass (1,231/1,231 tests) |
+| **Python Test Suite** | `pytest packages/sdk-python/tests/` | 100% Pass (771/771 tests) |
+| **TypeScript Test Suite** | `cmd.exe /c npm test` (in `packages/sdk-typescript/`) | 100% Pass (645/645 tests) |
+| **Combined Local Baseline** | Full Dual-SDK test suites | 100% Pass (1,416/1,416 tests) |
 | **Prometheus Exporter** | `curl http://127.0.0.1:8765/metrics` | 100% OpenMetrics 0.0.4 Valid |
 | **Package Distribution Integrity** | `python scripts/verify_release.py --strict` | 100% Valid (Wheel & Tarball) |
 | **Console Craft Floor** | Inspect `dashboard.html` (`#080B11`, `tnum`, badges $\le 30$ chars) | 0 Anti-Patterns |
-| **Local Dashboard Server** | `.venv\Scripts\swarmwatch ui --port 8765` | `http://127.0.0.1:8765` Active |
-| **Git Working Tree** | `git status -s` | Clean, synchronized with `origin/main` |
+| **Local Dashboard Server** | `swarmwatch ui --port 8765` | `http://127.0.0.1:8765` Active |
+| **Git Working Tree** | `git status -s` | Clean, synchronized |
+

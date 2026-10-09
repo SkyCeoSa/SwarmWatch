@@ -104,11 +104,11 @@ export class CausalInferenceEngine {
 
     if (symptomSpanId && spanById.has(symptomSpanId)) {
       targetSymptom = spanById.get(symptomSpanId)!;
-      symptomReason = `Specified symptom span: ${targetSymptom.status || "ok"}`;
+      symptomReason = `Specified symptom span: ${(targetSymptom as any).status || "ok"}`;
     } else {
       for (let i = orderedSpans.length - 1; i >= 0; i--) {
         const s = orderedSpans[i];
-        const st = (s.status || "ok").toLowerCase();
+        const st = ((s as any).status || "ok").toLowerCase();
         const ent = s.entropy_score ?? null;
         const outP = s.output_payload || {};
 
@@ -194,7 +194,7 @@ export class CausalInferenceEngine {
         agent_name: s.source_agent || "agent",
         target_agent: s.target_agent || "agent",
         span_type: s.span_type || "turn",
-        status: s.status || "ok",
+        status: (s as any).status || "ok",
         entropy_score: s.entropy_score ?? null,
         is_fault_origin: isOrigin,
         contribution_score: Number(cScore.toFixed(3)),
@@ -288,7 +288,7 @@ export class CausalInferenceEngine {
     let score = 0.1;
     const reasons: string[] = [];
 
-    const status = (span.status || "ok").toLowerCase();
+    const status = ((span as any).status || "ok").toLowerCase();
     const spanType = (span.span_type || "turn").toLowerCase();
     const entropy = span.entropy_score ?? null;
     const outPayload = span.output_payload;
@@ -296,7 +296,7 @@ export class CausalInferenceEngine {
     // 1. Error status or exception in payload
     if (["error", "failed", "failure"].includes(status)) {
       score += 0.5;
-      reasons.append?.(`Explicit ${status} status`) || reasons.push(`Explicit ${status} status`);
+      reasons.push(`Explicit ${status} status`);
     }
 
     if (outPayload && typeof outPayload === "object") {
@@ -351,7 +351,7 @@ export class CausalInferenceEngine {
       }
     }
 
-    const status = (rootSpan.status || "ok").toLowerCase();
+    const status = (((rootSpan as any).status || "ok") as string).toLowerCase();
     const spanType = (rootSpan.span_type || "turn").toLowerCase();
     const ent = rootSpan.entropy_score ?? 1.0;
 

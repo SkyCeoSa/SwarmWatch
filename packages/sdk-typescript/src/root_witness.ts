@@ -89,6 +89,8 @@ export class WitnessKeyManager {
   public readonly publicKeyB64: string;
   public readonly privateKeyB64?: string;
   private readonly _privateKeyPem?: string;
+  private readonly _privateKeyObj?: crypto.KeyObject;
+  private readonly _publicKeyObj: crypto.KeyObject;
   private readonly _rawPublicKey: Buffer;
 
   constructor(options?: {
@@ -98,14 +100,18 @@ export class WitnessKeyManager {
   }) {
     if (options?.privateKeyPem) {
       this._privateKeyPem = options.privateKeyPem;
+      this._privateKeyObj = crypto.createPrivateKey(this._privateKeyPem);
       if (options.publicKeyB64) {
         this.publicKeyB64 = options.publicKeyB64;
         this._rawPublicKey = base64UrlDecode(options.publicKeyB64);
+        const spkiDer = Buffer.concat([P256_SPKI_HEADER, this._rawPublicKey]);
+        this._publicKeyObj = crypto.createPublicKey({ key: spkiDer, format: "der", type: "spki" });
       } else {
         const pubKeyObj = crypto.createPublicKey(this._privateKeyPem);
         const spkiDer = pubKeyObj.export({ type: "spki", format: "der" });
         this._rawPublicKey = spkiDer.subarray(spkiDer.length - 65);
         this.publicKeyB64 = base64UrlEncode(this._rawPublicKey);
+        this._publicKeyObj = pubKeyObj;
       }
       this.privateKeyB64 = options.privateKeyB64;
     } else if (options?.publicKeyB64) {
@@ -114,6 +120,8 @@ export class WitnessKeyManager {
       if (this._rawPublicKey.length !== 65 || this._rawPublicKey[0] !== 0x04) {
         throw new Error("Invalid public key: expected 65-byte uncompressed point starting with 0x04");
       }
+      const spkiDer = Buffer.concat([P256_SPKI_HEADER, this._rawPublicKey]);
+      this._publicKeyObj = crypto.createPublicKey({ key: spkiDer, format: "der", type: "spki" });
       this.privateKeyB64 = options.privateKeyB64;
     } else {
       // Generate new EC prime256v1 (NIST P-256) keypair
@@ -126,6 +134,8 @@ export class WitnessKeyManager {
       this.publicKeyB64 = base64UrlEncode(this._rawPublicKey);
       this._privateKeyPem = keyPair.privateKey;
       this.privateKeyB64 = base64UrlEncode(Buffer.from(keyPair.privateKey, "utf-8"));
+      this._privateKeyObj = crypto.createPrivateKey(keyPair.privateKey);
+      this._publicKeyObj = crypto.createPublicKey({ key: keyPair.publicKey, format: "der", type: "spki" });
     }
   }
 
@@ -142,13 +152,13 @@ export class WitnessKeyManager {
   }
 
   public sign(message: Buffer | Uint8Array | string): Buffer {
-    if (!this._privateKeyPem) {
+    if (!this._privateKeyObj) {
       throw new WitnessError("Cannot sign without private key");
     }
     const signer = crypto.createSign("SHA256");
     signer.update(message);
     return signer.sign({
-      key: this._privateKeyPem,
+      key: this._privateKeyObj,
       dsaEncoding: "ieee-p1363",
     });
   }
@@ -159,14 +169,11 @@ export class WitnessKeyManager {
 
   public verify(message: Buffer | Uint8Array | string, signature: Buffer | Uint8Array): boolean {
     try {
-      const spkiDer = Buffer.concat([P256_SPKI_HEADER, this._rawPublicKey]);
       const verifier = crypto.createVerify("SHA256");
       verifier.update(message);
       return verifier.verify(
         {
-          key: spkiDer,
-          format: "der",
-          type: "spki",
+          key: this._publicKeyObj,
           dsaEncoding: "ieee-p1363",
         },
         signature

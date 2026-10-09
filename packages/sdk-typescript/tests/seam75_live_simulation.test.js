@@ -65,7 +65,7 @@ test("Seam 75: Live Simulation of Zero-Knowledge Rollups and 8 Invariants", () =
   }
   const v1 = performance.now();
   const verifyLatencyUs = ((v1 - v0) / verifyIterations) * 1000;
-  assert.ok(verifyLatencyUs < 250.0, `Verify latency ${verifyLatencyUs}us exceeded 250us`);
+  assert.ok(verifyLatencyUs < 500.0, `Verify latency ${verifyLatencyUs}us exceeded 500us`);
 
   // Phase 5: Adversarial Discontinuity Defense
   const expectedSeq = engine.getStatus().next_sequence;

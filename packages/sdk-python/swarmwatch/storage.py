@@ -792,7 +792,7 @@ class SQLiteStorageAdapter(StorageAdapter):
         if project_id:
             query += " AND s.project_id = ?"
             params.append(project_id)
-        query += " ORDER BY s.created_at ASC"
+        query += " ORDER BY s.created_at ASC, s.rowid ASC"
 
         cursor = conn.execute(query, params)
         rows = cursor.fetchall()

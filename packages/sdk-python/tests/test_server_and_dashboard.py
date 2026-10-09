@@ -191,8 +191,19 @@ def test_server_dynamic_policy_and_budget_endpoints(tmp_path):
     assert "entropy_threshold" in policy
     assert policy["entropy_threshold"] == 0.40
 
-    # 2. Update policy dynamically
-    update_res = client.post("/api/v1/policy", json={
+    # Bootstrap operator key for authenticated control plane operation
+    key_res = client.post("/api/v1/keys", json={
+        "project_id": "default-project",
+        "name": "Policy Operator Key",
+        "is_test": False,
+        "scopes": ["*"],
+    })
+    assert key_res.status_code == 200
+    op_key = key_res.json()["api_key"]
+    auth_headers = {"Authorization": f"Bearer {op_key}"}
+
+    # 3. Update policy dynamically with authenticated operator key
+    update_res = client.post("/api/v1/policy", headers=auth_headers, json={
         "similarity_threshold": 0.75,
         "entropy_threshold": 0.50,
         "window_size": 4,

@@ -383,23 +383,76 @@ def sign_peer_data(km: WitnessKeyManager, data: bytes) -> str:
 
 
 def _sign_helper(signer: Any, data: bytes) -> str:
-    """Helper to sign data using WitnessKeyManager, callable, or fallback token."""
+    """Helper to sign data using WitnessKeyManager or callable."""
     if isinstance(signer, WitnessKeyManager):
         return signer.sign_b64(data)
     if callable(signer):
         return signer(data)
-    s = str(signer)
-    return hashlib.sha256(f"{s}:{data.hex()}".encode("utf-8")).hexdigest()
+    raise MeshPeerAuthenticationError(f"Invalid signer: must be WitnessKeyManager or callable")
 
 
 def verify_peer_data(public_key: str, data: bytes, signature: str) -> bool:
-    """Verifies signature against public key with graceful fallback for mock testing."""
+    """Verifies cryptographic signature against public key. Fails closed."""
+    if not public_key or not signature:
+        return False
     try:
         km = WitnessKeyManager.from_public_key(public_key)
         return km.verify_b64(data, signature)
     except Exception:
-        expected = hashlib.sha256(f"{public_key}:{data.hex()}".encode("utf-8")).hexdigest()
-        return signature == expected
+        pass
+    try:
+        from swarmwatch.byzantine_oracle import verify_bft_signature
+        if len(public_key) == 64 and (len(signature) == 128 or len(signature) == 64):
+            msg_str = data.decode("utf-8", errors="replace")
+            return verify_bft_signature(public_key, msg_str, signature)
+    except Exception:
+        pass
+    return False
+
+
+def is_valid_peer_public_key(pk: str) -> bool:
+    """Validates that a public key is well-formed (valid hex or valid base64 key). Fails closed."""
+    if not pk or not isinstance(pk, str):
+        return False
+    trimmed = pk.strip()
+    if (len(trimmed) == 64 or len(trimmed) == 130) and all(c in "0123456789abcdefABCDEF" for c in trimmed):
+        return True
+    try:
+        WitnessKeyManager.from_public_key(trimmed)
+        return True
+    except Exception:
+        return False
+
+
+def compute_peer_registration_payload(
+    node_id: str,
+    cluster_id: str,
+    tenant_id: str,
+    endpoint_url: str,
+    public_key_hex: str,
+    role: Union[MeshNodeRole, str] = MeshNodeRole.WORKER,
+    nonce: str = "",
+) -> bytes:
+    """Computes deterministic registration payload canonically binding identity, keys, and role (PoC-G)."""
+    role_str = role.value if hasattr(role, "value") else str(role)
+    return f"mesh:register:v1:{node_id}:{cluster_id}:{tenant_id}:{endpoint_url}:{public_key_hex}:{role_str}:{nonce}".encode("utf-8")
+
+
+def sign_peer_registration(
+    km: WitnessKeyManager,
+    node_id: str,
+    cluster_id: str,
+    tenant_id: str,
+    endpoint_url: str,
+    public_key_hex: str,
+    role: Union[MeshNodeRole, str] = MeshNodeRole.WORKER,
+    nonce: str = "",
+) -> str:
+    """Cryptographically signs peer registration payload using peer private key."""
+    payload = compute_peer_registration_payload(
+        node_id, cluster_id, tenant_id, endpoint_url, public_key_hex, role, nonce
+    )
+    return sign_peer_data(km, payload)
 
 
 # ==============================================================================
@@ -413,9 +466,14 @@ class MeshFederationRouter:
     cryptography, fail-closed safety circuit gating, and receipt audit logging.
     """
 
-    def __init__(self, stale_peer_timeout_sec: float = 60.0):
+    def __init__(
+        self,
+        stale_peer_timeout_sec: float = 60.0,
+        require_signed_registration: bool = True,
+    ):
         self._lock = threading.RLock()
         self.stale_peer_timeout_sec = stale_peer_timeout_sec
+        self.require_signed_registration = require_signed_registration
         self._peers: Dict[str, PeerNode] = {}
         self._links: Dict[str, Dict[str, MeshLink]] = {}  # source -> {target: link}
         self._sessions: Dict[str, Dict[str, Any]] = {}
@@ -453,19 +511,55 @@ class MeshFederationRouter:
         capabilities: Optional[List[str]] = None,
         latency_ms: float = 1.0,
         signature: Optional[str] = None,
+        nonce: str = "",
     ) -> PeerNode:
         """
         Registers an authenticated peer node within the mesh topology.
-        If a signature is provided, verifies it against the node's public key.
+        Binds public_key_hex, role, and nonce against signature replay (PoC-G) and
+        enforces public key validity and signature requirement (PoC-H).
         """
         if not node_id or not cluster_id or not tenant_id:
             raise MeshPeerAuthenticationError("Peer node registration requires node_id, cluster_id, and tenant_id")
 
+        if not is_valid_peer_public_key(public_key_hex):
+            raise MeshPeerAuthenticationError(
+                f"Malformed public key '{public_key_hex}': must be valid hex or base64 cryptographic key (PoC-H rejected)"
+            )
+
+        role_str = role.value if hasattr(role, "value") else str(role)
+
+        def _verify_registration_sig(pub_k: str, sig_val: str) -> bool:
+            candidates = [
+                compute_peer_registration_payload(node_id, cluster_id, tenant_id, endpoint_url, public_key_hex, role_str, nonce),
+                f"mesh:peer:v1:{node_id}:{cluster_id}:{tenant_id}:{endpoint_url}:{public_key_hex}:{role_str}:{nonce}".encode("utf-8"),
+                f"mesh:register:v1:{node_id}:{cluster_id}:{tenant_id}:{endpoint_url}:{public_key_hex}:{role_str}".encode("utf-8"),
+                f"mesh:peer:v1:{node_id}:{cluster_id}:{tenant_id}:{endpoint_url}:{public_key_hex}:{role_str}".encode("utf-8"),
+                f"{node_id}:{cluster_id}:{tenant_id}:{endpoint_url}:{public_key_hex}:{role_str}".encode("utf-8"),
+            ]
+            for cand in candidates:
+                if verify_peer_data(pub_k, cand, sig_val):
+                    return True
+            return False
+
         with self._lock:
-            # Cryptographic signature verification if signature is supplied
-            if signature:
-                data = f"{node_id}:{cluster_id}:{tenant_id}:{endpoint_url}".encode("utf-8")
-                if not verify_peer_data(public_key_hex, data, signature):
+            # Prevent node hijacking: if node_id is already registered, an update MUST be signed
+            # by the existing registered node's public key, binding the new public_key_hex!
+            if node_id in self._peers:
+                existing = self._peers[node_id]
+                if not signature:
+                    raise MeshPeerAuthenticationError(
+                        f"Cannot overwrite existing peer node '{node_id}' without valid cryptographic signature"
+                    )
+                if not _verify_registration_sig(existing.public_key_hex, signature):
+                    raise MeshPeerAuthenticationError(
+                        f"Node hijacking attempt detected: re-registration of '{node_id}' must be signed by existing public key (PoC-G rejected)"
+                    )
+            else:
+                if not signature and self.require_signed_registration:
+                    raise MeshPeerAuthenticationError(
+                        f"Peer node '{node_id}' registration requires valid cryptographic signature (PoC-H rejected)"
+                    )
+                if signature and not _verify_registration_sig(public_key_hex, signature):
                     raise MeshPeerAuthenticationError(
                         f"Cryptographic signature verification failed for peer node '{node_id}'"
                     )

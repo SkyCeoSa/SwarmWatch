@@ -41,6 +41,7 @@ from swarmwatch.byzantine_oracle import (
     generate_node_keypair,
     sign_bft_payload,
     verify_bft_signature,
+    NodeSigner,
 )
 
 
@@ -75,16 +76,18 @@ def main():
     log_phase(1, "Multi-Cluster Validator Provisioning & Quorum Math")
     clusters = ["us-east-aws", "eu-central-gcp", "ap-south-azure", "us-west-onprem"]
     nodes = []
+    signers = {}
     for i, cl in enumerate(clusters, start=1):
         priv, pub = generate_node_keypair()
         role = NodeRole.PRIMARY if i == 1 else NodeRole.REPLICA
+        nid = f"val-node-{i}"
         n = oracle.register_node(
-            node_id=f"val-node-{i}",
+            node_id=nid,
             cluster_id=cl,
             public_key_hex=pub,
-            secret_key=priv,
             role=role,
         )
+        signers[nid] = NodeSigner(nid, cl, priv, pub)
         nodes.append(n)
         log_info(f"Registered node '{n.node_id}' in cluster '{cl}' (Role: {role.value})")
 
@@ -113,19 +116,19 @@ def main():
     digest = proposal.compute_digest()
     log_info(f"Proposal ID: {proposal.proposal_id} | Type: {proposal.action_type} | Digest: {digest[:24]}...")
 
-    pre_prepare = oracle.propose(proposal)
+    pre_prepare = oracle.propose(proposal, signer=signers["val-node-1"])
     assert pre_prepare.phase == BftPhase.PRE_PREPARE
     assert pre_prepare.view == 0
     assert pre_prepare.sequence_number == 1
-    assert len(pre_prepare.signature) == 64
+    assert len(pre_prepare.signature) == 128
     log_pass(f"Primary '{primary.node_id}' issued Pre-Prepare message (Seq: {pre_prepare.sequence_number}, Sig: {pre_prepare.signature[:16]}...)")
 
     # --------------------------------------------------------------------------
     # Phase 3: Multi-Cluster Prepare Phase & Quorum Assembly
     # --------------------------------------------------------------------------
     log_phase(3, "Multi-Cluster Prepare Phase & Quorum Assembly")
-    prep_msg_2 = oracle.prepare(pre_prepare, "val-node-2")
-    prep_msg_3 = oracle.prepare(pre_prepare, "val-node-3")
+    prep_msg_2 = oracle.prepare(pre_prepare, "val-node-2", signer=signers["val-node-2"])
+    prep_msg_3 = oracle.prepare(pre_prepare, "val-node-3", signer=signers["val-node-3"])
     log_info(f"Prepare vote collected from node 'val-node-2' ({prep_msg_2.cluster_id})")
     log_info(f"Prepare vote collected from node 'val-node-3' ({prep_msg_3.cluster_id})")
 
@@ -136,9 +139,9 @@ def main():
     # Phase 4: Threshold Commit Phase & Quorum Signatures
     # --------------------------------------------------------------------------
     log_phase(4, "Threshold Commit Phase & Quorum Signatures")
-    com_1 = oracle.commit(prep_msg_2, "val-node-1")
-    com_2 = oracle.commit(prep_msg_2, "val-node-2")
-    com_3 = oracle.commit(prep_msg_2, "val-node-3")
+    com_1 = oracle.commit(prep_msg_2, "val-node-1", signer=signers["val-node-1"])
+    com_2 = oracle.commit(prep_msg_2, "val-node-2", signer=signers["val-node-2"])
+    com_3 = oracle.commit(prep_msg_2, "val-node-3", signer=signers["val-node-3"])
     log_info(f"Commit vote received from '{com_1.node_id}' (Sig: {com_1.signature[:16]}...)")
     log_info(f"Commit vote received from '{com_2.node_id}' (Sig: {com_2.signature[:16]}...)")
     log_info(f"Commit vote received from '{com_3.node_id}' (Sig: {com_3.signature[:16]}...)")
@@ -182,14 +185,13 @@ def main():
         sequence_number=pre_prepare.sequence_number,
         proposal_id=rogue_proposal.proposal_id,
         digest="conflicting-malicious-digest-cafebabe",
-        node_id="val-node-1",
-        cluster_id="us-east-aws",
+        node_id="val-node-2",
+        cluster_id="eu-central-gcp",
     )
-    node1 = oracle.get_node("val-node-1")
-    rogue_msg.signature = sign_bft_payload(node1.secret_key, rogue_msg.signing_content())
+    signers["val-node-2"].sign_phase(rogue_msg)
 
     try:
-        oracle.prepare(rogue_msg, "val-node-2")
+        oracle.prepare(rogue_msg, "val-node-2", signer=signers["val-node-2"])
         raise RuntimeError("Oracle should have detected equivocation and slashed node!")
     except EquivocationDetectedError as e:
         log_pass(f"Equivocation detected and intercepted: {e}")
@@ -207,7 +209,7 @@ def main():
     log_info("Simulated safety circuit breaker trip event.")
 
     try:
-        oracle.propose(ProposalPayload("prop-blocked", "ACTION", "cluster-1"))
+        oracle.propose(ProposalPayload("prop-blocked", "ACTION", "cluster-1"), signer=signers["val-node-1"])
         raise RuntimeError("Should have rejected proposal while circuit is tripped!")
     except OracleCircuitTrippedError as e:
         log_pass(f"Fail-closed lockout enforced: {e}")
@@ -221,9 +223,12 @@ def main():
     # --------------------------------------------------------------------------
     log_phase(8, "Microsecond Precision Latency Benchmark & Operations")
     bench_oracle = ByzantineConsensusOracle()
+    bench_signers = {}
     for i in range(1, 5):
         priv, pub = generate_node_keypair()
-        bench_oracle.register_node(f"bench-node-{i}", f"cloud-{i}", pub, priv)
+        nid = f"bench-node-{i}"
+        bench_oracle.register_node(nid, f"cloud-{i}", pub)
+        bench_signers[nid] = NodeSigner(nid, f"cloud-{i}", priv, pub)
 
     iterations = 500
     latencies_us = []
@@ -232,12 +237,12 @@ def main():
     for k in range(iterations):
         p = ProposalPayload(f"prop-bench-{k}", "SWARM_TRANSFER", "cloud-1")
         t0 = time.perf_counter_ns()
-        pre = bench_oracle.propose(p)
-        bench_oracle.prepare(pre, "bench-node-2")
-        bench_oracle.prepare(pre, "bench-node-3")
-        bench_oracle.commit(pre, "bench-node-1")
-        bench_oracle.commit(pre, "bench-node-2")
-        bench_oracle.commit(pre, "bench-node-3")
+        pre = bench_oracle.propose(p, signer=bench_signers["bench-node-1"])
+        bench_oracle.prepare(pre, "bench-node-2", signer=bench_signers["bench-node-2"])
+        bench_oracle.prepare(pre, "bench-node-3", signer=bench_signers["bench-node-3"])
+        bench_oracle.commit(pre, "bench-node-1", signer=bench_signers["bench-node-1"])
+        bench_oracle.commit(pre, "bench-node-2", signer=bench_signers["bench-node-2"])
+        bench_oracle.commit(pre, "bench-node-3", signer=bench_signers["bench-node-3"])
         c = bench_oracle.execute_and_certify(p.proposal_id)
         t1 = time.perf_counter_ns()
         latencies_us.append((t1 - t0) / 1000.0)

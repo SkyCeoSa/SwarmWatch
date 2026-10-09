@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-SwarmWatch Zero-Knowledge State Transition Rollup & Succinct Proof Verification (Seam 75 / ADR 0086).
+SwarmWatch Optimistic State Transition Rollup & Succinct Attestation Engine (Seam 75 / ADR 0086).
 
-Implements in-process, zero-token Zero-Knowledge State Transition Rollup aggregation,
+Implements in-process, zero-token Optimistic State Transition Rollup aggregation,
 sparse state Merkle tree tracking, polynomial commitment evaluations, Fiat-Shamir
-non-interactive succinct proofs, fail-closed safety circuit coupling, and tamper-evident
-rollup receipts ('sw:rollup:v1:<sha256>').
+succinct attestations, asymmetric Ed25519 prover digital signatures, fail-closed safety
+circuit coupling, and tamper-evident attestation receipts ('sw:rollup:v1:<sha256>').
 
 Guarantees:
 - Zero-Token Cost: 100% deterministic local state machine and arithmetic ($0.00 USD cost).
 - Sub-250µs execution latency.
 - Strict sequence monotonicity and fraud detection.
-- Zero-knowledge privacy for confidential agent scratchpads and execution payloads.
+- Asymmetric Third-Party Verifiability: Signed with Ed25519; anyone can verify, no shared secret.
 - Fail-closed circuit breaker latching upon verification failure or fraud challenge.
 """
 
@@ -22,10 +22,18 @@ from enum import Enum
 import hashlib
 import hmac
 import json
+import re
 import secrets
 import threading
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
+
+from swarmwatch.byzantine_oracle import (
+    generate_node_keypair,
+    sign_bft_payload,
+    verify_bft_signature,
+    _get_ed25519_priv,
+)
 
 
 # ==============================================================================
@@ -34,6 +42,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 # Standard BN254 / alt_bn128 scalar field prime
 BN254_PRIME: int = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+
+HEX64_REGEX = re.compile(r"^[0-9a-f]{64}$")
 
 
 def canonical_json(data: Any) -> str:
@@ -53,43 +63,27 @@ def hmac_sha256_hex(key: str, message: str) -> str:
     return hmac.new(key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def compute_merkle_root(leaf_hashes: List[str]) -> str:
-    """
-    Compute deterministic SHA-256 Merkle root from an ordered list of leaf hashes.
-    Returns 64 zeros if empty.
-    """
-    if not leaf_hashes:
-        return "0" * 64
-    current_layer = list(leaf_hashes)
-    while len(current_layer) > 1:
-        next_layer: List[str] = []
-        for i in range(0, len(current_layer), 2):
-            left = current_layer[i]
-            right = current_layer[i + 1] if i + 1 < len(current_layer) else left
-            combined = sha256_hex(left + right)
-            next_layer.append(combined)
-        current_layer = next_layer
-    return current_layer[0]
-
-
 # ==============================================================================
 # 1. Custom Exceptions
 # ==============================================================================
 
-class ZkRollupError(Exception):
-    """Base exception for all Zero-Knowledge Rollup errors."""
+class RollupEngineError(Exception):
+    """Base exception for all Rollup Engine errors."""
 
 
-class RollupCircuitTrippedError(ZkRollupError):
+ZkRollupError = RollupEngineError
+
+
+class RollupCircuitTrippedError(RollupEngineError):
     """Raised when rollup operations are rejected due to an active safety circuit trip."""
 
 
-class InvalidStateTransitionError(ZkRollupError):
+class InvalidStateTransitionError(RollupEngineError):
     """Raised when an atomic state transition violates pre-state or sequence invariants."""
 
 
-class RollupVerificationFailedError(ZkRollupError):
-    """Raised when a succinct rollup proof fails mathematical or cryptographic verification."""
+class RollupVerificationFailedError(RollupEngineError):
+    """Raised when a succinct rollup attestation fails mathematical or cryptographic verification."""
 
 
 class SequenceDiscontinuityError(InvalidStateTransitionError):
@@ -100,12 +94,60 @@ class FraudulentStateTransitionError(InvalidStateTransitionError):
     """Raised when a state mutation fails cryptographic validity or conflicts with slot state."""
 
 
-class BatchCapacityExceededError(ZkRollupError):
+class BatchCapacityExceededError(RollupEngineError):
     """Raised when a batch exceeds configured maximum transition capacity."""
 
 
 # ==============================================================================
-# 2. Data Models & Enums
+# 2. Cryptographic Merkle Tree Primitives (RFC 6962 Domain Separation)
+# ==============================================================================
+
+def _leaf_hash(h: str) -> str:
+    """
+    Hash leaf node with RFC 6962 domain separation prefix (0x00).
+    Enforces strict 64-character lowercase hexadecimal hash input to prevent encoding collisions.
+    """
+    if not isinstance(h, str) or not HEX64_REGEX.match(h):
+        raise InvalidStateTransitionError(
+            f"Merkle leaf must be a 64-character lowercase hexadecimal hash, got: {repr(h)}"
+        )
+    return hashlib.sha256(b"\x00" + bytes.fromhex(h)).hexdigest()
+
+
+def _node_hash(l: str, r: str) -> str:
+    """
+    Hash internal node with RFC 6962 domain separation prefix (0x01).
+    Enforces strict 64-character lowercase hexadecimal hash inputs.
+    """
+    if not isinstance(l, str) or not HEX64_REGEX.match(l) or not isinstance(r, str) or not HEX64_REGEX.match(r):
+        raise InvalidStateTransitionError(
+            "Merkle internal node must be a 64-character lowercase hexadecimal hash"
+        )
+    return hashlib.sha256(b"\x01" + bytes.fromhex(l) + bytes.fromhex(r)).hexdigest()
+
+
+def compute_merkle_root(leaf_hashes: List[str]) -> str:
+    """
+    Compute deterministic SHA-256 Merkle root from an ordered list of 64-character lowercase hex leaf hashes
+    following RFC 6962 domain separation (0x00 for leaves, 0x01 for nodes) and promoting solitary nodes without duplication.
+    Returns 64 zeros if empty.
+    """
+    if not leaf_hashes:
+        return "0" * 64
+    current_layer = [_leaf_hash(h) for h in leaf_hashes]
+    while len(current_layer) > 1:
+        next_layer: List[str] = []
+        for i in range(0, len(current_layer), 2):
+            if i + 1 < len(current_layer):
+                next_layer.append(_node_hash(current_layer[i], current_layer[i + 1]))
+            else:
+                next_layer.append(current_layer[i])
+        current_layer = next_layer
+    return current_layer[0]
+
+
+# ==============================================================================
+# 3. Data Models & Enums
 # ==============================================================================
 
 class RollupStatus(str, Enum):
@@ -118,7 +160,8 @@ class RollupStatus(str, Enum):
 
 
 class ProofSystem(str, Enum):
-    """Succinct zero-knowledge proof system."""
+    """Succinct attestation proof system."""
+    STATE_ATTESTATION = "STATE_ATTESTATION"
     POLYNOMIAL_ZK = "POLYNOMIAL_ZK"
     FIAT_SHAMIR_STARK = "FIAT_SHAMIR_STARK"
     MERKLE_ARITHMETIC = "MERKLE_ARITHMETIC"
@@ -203,8 +246,12 @@ class RollupBatch:
 
 
 @dataclass
-class RollupProofReceipt:
-    """Tamper-evident, zero-knowledge verifiable proof receipt."""
+class StateTransitionAttestation:
+    """
+    Succinct, third-party verifiable state transition attestation receipt.
+    Authenticated with Prover's asymmetric Ed25519 digital signature and
+    Fiat-Shamir polynomial state evaluation over BN254 scalar field.
+    """
     rollup_id: str
     batch_id: str
     sequence_start: int
@@ -216,13 +263,24 @@ class RollupProofReceipt:
     proof_system: ProofSystem
     zk_proof_data: Dict[str, Any]
     receipt_hash: str
+    prover_public_key_hex: str = ""
+    prover_signature: str = ""
     is_valid: bool = True
-    prover_id: str = "swarmwatch-zk-prover"
+    prover_id: str = "swarmwatch-prover"
     verified_at_ns: int = field(default_factory=time.time_ns)
+
+    @property
+    def attestation_id(self) -> str:
+        return self.rollup_id
+
+    @property
+    def attestation_data(self) -> Dict[str, Any]:
+        return self.zk_proof_data
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "rollup_id": self.rollup_id,
+            "attestation_id": self.rollup_id,
             "batch_id": self.batch_id,
             "sequence_start": self.sequence_start,
             "sequence_end": self.sequence_end,
@@ -232,28 +290,35 @@ class RollupProofReceipt:
             "batch_digest": self.batch_digest,
             "proof_system": self.proof_system.value,
             "zk_proof_data": self.zk_proof_data,
+            "attestation_data": self.zk_proof_data,
             "receipt_hash": self.receipt_hash,
+            "prover_public_key_hex": self.prover_public_key_hex,
+            "prover_signature": self.prover_signature,
             "is_valid": self.is_valid,
             "prover_id": self.prover_id,
             "verified_at_ns": self.verified_at_ns,
         }
 
 
+# Backward-compatible alias for receipt
+RollupProofReceipt = StateTransitionAttestation
+
+
 # ==============================================================================
-# 3. Sparse State Merkle Tree
+# 4. Sparse State Merkle Tree
 # ==============================================================================
 
 class StateMerkleTree:
     """
-    Maintains agent working memory state slots and derives deterministic
-    cryptographic Merkle roots over key-value bindings.
+    Sparse in-memory key-value state tree producing deterministic Merkle roots.
+    Maps arbitrary string slot keys to 64-character hex state digests.
     """
 
     def __init__(self, initial_slots: Optional[Dict[str, str]] = None) -> None:
         self._slots: Dict[str, str] = dict(initial_slots) if initial_slots else {}
 
     def get_slot(self, slot_key: str) -> str:
-        """Get the hash of a state slot (defaults to 64 zeros for uninitialized slots)."""
+        """Return the current hash bound to slot_key, or 64 zeros if uninitialized."""
         return self._slots.get(slot_key, "0" * 64)
 
     def set_slot(self, slot_key: str, value_hash: str) -> None:
@@ -281,32 +346,45 @@ class StateMerkleTree:
 
 
 # ==============================================================================
-# 4. Zero-Knowledge State Transition Rollup Engine
+# 5. Optimistic Rollup Engine with Asymmetric Attestations
 # ==============================================================================
 
-class ZkRollupEngine:
+class OptimisticRollupEngine:
     """
-    Deep module orchestrating atomic state transition queuing, sparse Merkle updates,
-    succinct polynomial Zero-Knowledge proof generation, batch commitment, verification,
-    and fail-closed circuit coupling.
+    In-process, zero-token Optimistic State Transition Rollup & Succinct Attestation Engine.
+    Combines sparse state Merkle tree tracking, sequence monotonicity enforcement,
+    Fiat-Shamir polynomial state evaluation constraints, asymmetric Ed25519 prover attestations,
+    and optimistic fraud dispute challenges.
     """
 
     def __init__(
         self,
         max_batch_size: int = 100,
-        secret_seed: str = "swarmwatch-zk-rollup-seed-v1",
+        secret_seed: str = "swarmwatch-rollup-seed-v1",
         circuit_breaker: Optional[Any] = None,
         proof_system: ProofSystem = ProofSystem.POLYNOMIAL_ZK,
+        prover_private_key: Optional[str] = None,
+        prover_public_key_hex: Optional[str] = None,
     ) -> None:
         self.max_batch_size: int = max_batch_size
         self.secret_seed: str = secret_seed
         self.circuit_breaker: Optional[Any] = circuit_breaker
         self.proof_system: ProofSystem = proof_system
 
+        # Asymmetric Ed25519 Prover Keypair
+        if prover_private_key:
+            self.prover_private_key = prover_private_key
+            if not prover_public_key_hex:
+                self.prover_public_key_hex = _get_ed25519_priv(prover_private_key).public_key().public_bytes_raw().hex()
+            else:
+                self.prover_public_key_hex = prover_public_key_hex
+        else:
+            self.prover_private_key, self.prover_public_key_hex = generate_node_keypair()
+
         self._state_tree: StateMerkleTree = StateMerkleTree()
         self._pending_transitions: List[StateTransition] = []
         self._batches: Dict[str, RollupBatch] = {}
-        self._receipts: Dict[str, RollupProofReceipt] = {}
+        self._receipts: Dict[str, StateTransitionAttestation] = {}
         self._next_sequence: int = 1
         self._circuit_tripped: bool = False
         self._trip_reason: Optional[str] = None
@@ -345,8 +423,20 @@ class ZkRollupEngine:
                 except Exception:
                     pass
 
+    def reset_circuit(self) -> None:
+        """Reset safety circuit to operational status."""
+        self._circuit_tripped = False
+        self._trip_reason = None
+        if self.circuit_breaker is not None:
+            reset_fn = getattr(self.circuit_breaker, "reset", None)
+            if callable(reset_fn):
+                try:
+                    reset_fn()
+                except Exception:
+                    pass
+
     # --------------------------------------------------------------------------
-    # State Transition Ingestion
+    # Transition Queuing & Monotonicity
     # --------------------------------------------------------------------------
 
     def queue_transition(
@@ -392,7 +482,7 @@ class ZkRollupEngine:
             # Compute delta hash
             delta_payload_hash = sha256_hex(delta_payload)
 
-            # Zero-knowledge private payload mask
+            # Scratchpad private mask
             private_mask = None
             if private_scratchpad:
                 private_mask = sha256_hex(
@@ -413,32 +503,33 @@ class ZkRollupEngine:
                 metadata=metadata or {},
             )
 
-            # Apply state update in sparse tree
+            # Apply mutation to active state tree
             self._state_tree.set_slot(slot_key, to_value_hash)
-            self._next_sequence += 1
             self._pending_transitions.append(transition)
+            self._next_sequence += 1
 
             return transition
 
     # --------------------------------------------------------------------------
-    # Rollup Batch Commitment & Proof Generation
+    # Batch Commitment & Attestation Generation
     # --------------------------------------------------------------------------
 
-    def commit_batch(self, batch_id: Optional[str] = None) -> RollupProofReceipt:
+    def commit_batch(self, batch_id: Optional[str] = None) -> StateTransitionAttestation:
         """
-        Commit all pending state transitions into an immutable RollupBatch,
-        synthesize a succinct Zero-Knowledge proof, and produce a tamper-evident receipt.
+        Seal pending transitions into an immutable RollupBatch,
+        synthesize a succinct State Transition Attestation, sign it with the Prover's
+        Ed25519 private key, and produce a tamper-evident receipt.
         """
         with self._lock:
             self.check_circuit()
 
             if not self._pending_transitions:
-                raise ZkRollupError("Cannot commit rollup batch: pending transition queue is empty")
+                raise InvalidStateTransitionError("Cannot commit empty rollup batch: no pending transitions")
 
-            batch_txs = list(self._pending_transitions)
-            self._pending_transitions = []
+            batch_txs = list(self._pending_transitions[: self.max_batch_size])
+            self._pending_transitions = self._pending_transitions[self.max_batch_size :]
 
-            b_id = batch_id or f"batch_{int(time.time())}_{secrets.token_hex(4)}"
+            b_id = batch_id or f"batch_{batch_txs[0].sequence:06d}_{secrets.token_hex(4)}"
             seq_start = batch_txs[0].sequence
             seq_end = batch_txs[-1].sequence
 
@@ -456,8 +547,8 @@ class ZkRollupEngine:
             delta_merkle_root = compute_merkle_root(delta_hashes)
             batch_digest = sha256_hex("".join(tx.digest for tx in batch_txs))
 
-            # Synthesize succinct Zero-Knowledge proof
-            zk_proof_data = self._generate_succinct_proof(
+            # Synthesize succinct state attestation
+            attestation_data = self._generate_succinct_proof(
                 pre_state_root=pre_state_root,
                 post_state_root=post_state_root,
                 batch_digest=batch_digest,
@@ -479,7 +570,7 @@ class ZkRollupEngine:
             )
             self._batches[b_id] = batch
 
-            # Construct Proof Receipt
+            # Construct Attestation Receipt
             raw_receipt = {
                 "batch_id": b_id,
                 "sequence_start": seq_start,
@@ -489,13 +580,15 @@ class ZkRollupEngine:
                 "transition_count": len(batch_txs),
                 "batch_digest": batch_digest,
                 "proof_system": self.proof_system.value,
-                "zk_proof_data": zk_proof_data,
+                "zk_proof_data": attestation_data,
+                "prover_public_key_hex": self.prover_public_key_hex,
             }
             receipt_hash_raw = sha256_hex(canonical_json(raw_receipt))
             receipt_hash = f"sw:rollup:v1:{receipt_hash_raw}"
             rollup_id = f"rollup_{receipt_hash_raw[:16]}"
+            prover_sig = sign_bft_payload(self.prover_private_key, receipt_hash)
 
-            receipt = RollupProofReceipt(
+            receipt = StateTransitionAttestation(
                 rollup_id=rollup_id,
                 batch_id=b_id,
                 sequence_start=seq_start,
@@ -505,8 +598,10 @@ class ZkRollupEngine:
                 transition_count=len(batch_txs),
                 batch_digest=batch_digest,
                 proof_system=self.proof_system,
-                zk_proof_data=zk_proof_data,
+                zk_proof_data=attestation_data,
                 receipt_hash=receipt_hash,
+                prover_public_key_hex=self.prover_public_key_hex,
+                prover_signature=prover_sig,
                 is_valid=True,
             )
             self._receipts[b_id] = receipt
@@ -515,7 +610,7 @@ class ZkRollupEngine:
             return receipt
 
     # --------------------------------------------------------------------------
-    # Succinct ZK Proof Mathematics
+    # Succinct State Attestation Mathematics
     # --------------------------------------------------------------------------
 
     def _generate_succinct_proof(
@@ -526,49 +621,48 @@ class ZkRollupEngine:
         delta_merkle_root: str,
     ) -> Dict[str, Any]:
         """
-        Synthesize Fiat-Shamir non-interactive polynomial evaluation proof over BN254 scalar field.
-        Guarantees zero-knowledge privacy for private agent scratchpads.
+        Synthesize Fiat-Shamir polynomial evaluation over BN254 scalar field.
+        Binds pre_state_root, post_state_root, batch_digest, and delta_merkle_root into evaluation.
         """
         p = BN254_PRIME
 
-        # 1. Private Blinding Commitment
-        blinding_commitment = hmac_sha256_hex(self.secret_seed, batch_digest)
-        b = int(blinding_commitment, 16) % p
-
-        # 2. Fiat-Shamir challenge evaluation point z
-        challenge_seed = f"{pre_state_root}{post_state_root}{batch_digest}{blinding_commitment}"
+        # Fiat-Shamir challenge evaluation point z binding all state commitments
+        challenge_seed = f"{pre_state_root}{post_state_root}{batch_digest}{delta_merkle_root}"
         z = int(sha256_hex(challenge_seed), 16) % p
 
-        # 3. Transition polynomial coefficients
+        # Transition polynomial coefficients
         c0 = int(pre_state_root, 16) % p
         c1 = int(batch_digest, 16) % p
         c2 = int(delta_merkle_root, 16) % p
+        c3 = int(post_state_root, 16) % p
 
-        # 4. Polynomial evaluation: P(z) = c0 + c1*z + c2*z^2 mod p
-        pz = (c0 + c1 * z + c2 * (z * z % p)) % p
-
-        # 5. Shielded proof evaluation: E = (P(z) + b) mod p
-        shielded_eval = (pz + b) % p
-
-        # 6. Expected transition transition law digest
-        expected_post_eval = sha256_hex(f"{pre_state_root}{batch_digest}{delta_merkle_root}")
+        # Polynomial evaluation: P(z) = c0 + c1*z + c2*z^2 + c3*z^3 mod p
+        z2 = (z * z) % p
+        z3 = (z2 * z) % p
+        pz = (c0 + c1 * z + c2 * z2 + c3 * z3) % p
 
         return {
             "eval_point": hex(z),
-            "proof_eval": hex(shielded_eval),
-            "blinding_commitment": blinding_commitment,
+            "proof_eval": hex(pz),
+            "polynomial_eval": hex(pz),
+            "blinding_commitment": sha256_hex(challenge_seed),
             "delta_merkle_root": delta_merkle_root,
-            "transition_law_digest": expected_post_eval,
+            "transition_law_digest": sha256_hex(challenge_seed),
             "field_modulus": hex(p),
         }
 
     # --------------------------------------------------------------------------
-    # Proof Verification & Fraud Challenge
+    # Attestation Verification & Fraud Challenge
     # --------------------------------------------------------------------------
 
-    def verify_rollup_proof(self, receipt: RollupProofReceipt) -> Tuple[bool, Optional[str]]:
+    def verify_rollup_proof(
+        self,
+        receipt: StateTransitionAttestation,
+        expected_prover_public_key: Optional[str] = None,
+    ) -> Tuple[bool, Optional[str]]:
         """
-        Verify a RollupProofReceipt in O(1) time without re-executing private state transitions.
+        Verify a StateTransitionAttestation in O(1) time without re-executing private state transitions.
+        Third-party verifiable: verifies asymmetric Ed25519 Prover signature and polynomial invariants.
         Returns (True, None) on success, or (False, error_reason) on failure.
         """
         p = BN254_PRIME
@@ -589,42 +683,57 @@ class ZkRollupEngine:
             "batch_digest": receipt.batch_digest,
             "proof_system": receipt.proof_system.value,
             "zk_proof_data": data,
+            "prover_public_key_hex": receipt.prover_public_key_hex,
         }
         recomputed_hash = f"sw:rollup:v1:{sha256_hex(canonical_json(expected_receipt_payload))}"
         if recomputed_hash != receipt.receipt_hash:
             return False, "Receipt hash mismatch: payload tampering detected"
 
-        # 3. Verify Fiat-Shamir challenge point z
-        blinding_commitment = data.get("blinding_commitment", "")
-        challenge_seed = f"{receipt.pre_state_root}{receipt.post_state_root}{receipt.batch_digest}{blinding_commitment}"
+        # 3. Verify asymmetric Ed25519 Prover signature
+        if not receipt.prover_public_key_hex or not receipt.prover_signature:
+            return False, "Attestation missing mandatory Prover public key or digital signature"
+
+        if expected_prover_public_key and receipt.prover_public_key_hex != expected_prover_public_key:
+            return False, "Prover public key does not match expected verifier pin"
+
+        sig_valid = verify_bft_signature(
+            receipt.prover_public_key_hex,
+            receipt.receipt_hash,
+            receipt.prover_signature,
+        )
+        if not sig_valid:
+            return False, "Prover Ed25519 signature verification failed: attestation forgery detected"
+
+        # 4. Verify Fiat-Shamir challenge point z
+        delta_merkle_root = data.get("delta_merkle_root", "")
+        challenge_seed = f"{receipt.pre_state_root}{receipt.post_state_root}{receipt.batch_digest}{delta_merkle_root}"
         expected_z = int(sha256_hex(challenge_seed), 16) % p
 
         actual_z = int(data.get("eval_point", "0x0"), 16)
         if expected_z != actual_z:
             return False, "Fiat-Shamir challenge evaluation point mismatch"
 
-        # 4. Verify polynomial evaluation: P(z) + b == shielded_eval mod p
-        delta_merkle_root = data.get("delta_merkle_root", "")
+        # 5. Verify polynomial evaluation: P(z) == proof_eval mod p
         c0 = int(receipt.pre_state_root, 16) % p
         c1 = int(receipt.batch_digest, 16) % p
         c2 = int(delta_merkle_root, 16) % p
+        c3 = int(receipt.post_state_root, 16) % p
 
-        expected_pz = (c0 + c1 * actual_z + c2 * (actual_z * actual_z % p)) % p
-        b = int(blinding_commitment, 16) % p
-        expected_shielded_eval = (expected_pz + b) % p
+        z2 = (actual_z * actual_z) % p
+        z3 = (z2 * actual_z) % p
+        expected_pz = (c0 + c1 * actual_z + c2 * z2 + c3 * z3) % p
 
-        actual_shielded_eval = int(data.get("proof_eval", "0x0"), 16)
-        if expected_shielded_eval != actual_shielded_eval:
+        actual_eval = int(data.get("proof_eval", data.get("polynomial_eval", "0x0")), 16)
+        if expected_pz != actual_eval:
             return False, "Polynomial proof evaluation equation failed"
 
-        # 5. Verify transition law digest
-        expected_transition_digest = sha256_hex(
-            f"{receipt.pre_state_root}{receipt.batch_digest}{delta_merkle_root}"
-        )
-        if data.get("transition_law_digest") != expected_transition_digest:
+        # 6. Verify transition law digest
+        if data.get("transition_law_digest") != sha256_hex(challenge_seed):
             return False, "Transition law digest mismatch"
 
         return True, None
+
+    verify_attestation = verify_rollup_proof
 
     def challenge_fraud(
         self,
@@ -696,8 +805,8 @@ class ZkRollupEngine:
         with self._lock:
             return self._batches.get(batch_id)
 
-    def get_receipt(self, batch_id: str) -> Optional[RollupProofReceipt]:
-        """Retrieve proof receipt by batch_id."""
+    def get_receipt(self, batch_id: str) -> Optional[StateTransitionAttestation]:
+        """Retrieve attestation receipt by batch_id."""
         with self._lock:
             return self._receipts.get(batch_id)
 
@@ -706,8 +815,8 @@ class ZkRollupEngine:
         with self._lock:
             return list(self._batches.values())
 
-    def get_receipts(self) -> List[RollupProofReceipt]:
-        """Return all generated receipts."""
+    def get_receipts(self) -> List[StateTransitionAttestation]:
+        """Return all generated attestation receipts."""
         with self._lock:
             return list(self._receipts.values())
 
@@ -723,6 +832,7 @@ class ZkRollupEngine:
                 "circuit_tripped": self._circuit_tripped,
                 "trip_reason": self._trip_reason,
                 "proof_system": self.proof_system.value,
+                "prover_public_key_hex": self.prover_public_key_hex,
             }
 
     def reset(self) -> None:
@@ -737,5 +847,9 @@ class ZkRollupEngine:
             self._trip_reason = None
 
 
+# Backward-compatible alias for engine
+ZkRollupEngine = OptimisticRollupEngine
+
 # Global singleton instance
-global_zk_rollup_engine = ZkRollupEngine()
+global_optimistic_rollup_engine = OptimisticRollupEngine()
+global_zk_rollup_engine = global_optimistic_rollup_engine

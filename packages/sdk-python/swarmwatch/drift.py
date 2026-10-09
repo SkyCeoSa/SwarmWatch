@@ -152,8 +152,8 @@ class SwarmDriftState:
     def __init__(self, swarm_id: str) -> None:
         self.swarm_id = swarm_id
         self.anchor_text: Optional[str] = None
-        self.anchor_sig: Optional[List[int]] = None
-        self.last_sig: Optional[List[int]] = None
+        self.anchor_minhash: Optional[List[int]] = None
+        self.last_minhash: Optional[List[int]] = None
         self.history: List[SemanticDriftProfile] = []
         self.consecutive_divergent_count: int = 0
         self.is_tripped: bool = False
@@ -196,7 +196,7 @@ class SemanticDriftDetector:
         """Explicitly defines the root objective anchor text for a swarm session."""
         state = self._get_or_create_state(swarm_id)
         state.anchor_text = anchor_text
-        state.anchor_sig = self.signer.compute_signature(anchor_text)
+        state.anchor_minhash = self.signer.compute_signature(anchor_text)
 
     def evaluate_turn(
         self,
@@ -217,10 +217,10 @@ class SemanticDriftDetector:
         words_count = len(re.findall(r"[a-zA-Z0-9_]+", text.lower()))
 
         # If no anchor is set, this initial turn establishes the root task anchor
-        if state.anchor_sig is None:
+        if state.anchor_minhash is None:
             state.anchor_text = text
-            state.anchor_sig = sig
-            state.last_sig = sig
+            state.anchor_minhash = sig
+            state.last_minhash = sig
             profile = SemanticDriftProfile(
                 span_id=span_id,
                 swarm_id=swarm_id,
@@ -239,10 +239,10 @@ class SemanticDriftDetector:
             return profile
 
         # Calculate raw Jaccard similarities
-        raw_anchor_sim = self.signer.jaccard_similarity(sig, state.anchor_sig)
+        raw_anchor_sim = self.signer.jaccard_similarity(sig, state.anchor_minhash)
         raw_consecutive_sim = (
-            self.signer.jaccard_similarity(sig, state.last_sig)
-            if state.last_sig is not None
+            self.signer.jaccard_similarity(sig, state.last_minhash)
+            if state.last_minhash is not None
             else 1.0
         )
 
@@ -298,7 +298,7 @@ class SemanticDriftDetector:
             state.trip_reason = trip_reason
 
         # Update last signature
-        state.last_sig = sig
+        state.last_minhash = sig
 
         profile = SemanticDriftProfile(
             span_id=span_id,

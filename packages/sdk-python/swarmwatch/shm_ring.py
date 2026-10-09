@@ -7,6 +7,7 @@ Provides high-throughput, cross-process telemetry ingestion via memory-mapped ci
 
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import struct
@@ -82,20 +83,24 @@ class ShmRingBuffer:
         if HAS_MP_SHM:
             try:
                 if create:
-                    # Clean up preexisting shm if any
                     try:
-                        old = shared_memory.SharedMemory(name=self.name)
-                        old.close()
-                        old.unlink()
-                    except FileNotFoundError:
-                        pass
-                    except Exception:
-                        pass
-                    self._shm = shared_memory.SharedMemory(
-                        name=self.name, create=True, size=self.total_size
-                    )
+                        self._shm = shared_memory.SharedMemory(
+                            name=self.name, create=True, size=self.total_size
+                        )
+                    except FileExistsError:
+                        # Existing segment found: attach without clobbering other process
+                        self._shm = shared_memory.SharedMemory(name=self.name, create=False)
+                        self.is_creator = False
                 else:
                     self._shm = shared_memory.SharedMemory(name=self.name, create=False)
+                if not self.is_creator and self._shm is not None:
+                    # POSIX safety: unregister from multiprocessing.resource_tracker so that
+                    # this non-creator process exiting does NOT unlink the creator's segment!
+                    try:
+                        from multiprocessing import resource_tracker
+                        resource_tracker.unregister(self._shm._name, "shared_memory")
+                    except Exception:
+                        pass
                 self._buf = self._shm.buf
             except Exception:
                 # Fallback to local bytearray buffer if shm allocation not permitted
@@ -104,8 +109,19 @@ class ShmRingBuffer:
         else:
             self._buf = bytearray(self.total_size)
 
-        if create:
+        if self.is_creator:
             self._init_header()
+        else:
+            # Header validation and geometry synchronization on attach
+            try:
+                hdr = self._read_header_unlocked()
+                if hdr.magic == HEADER_MAGIC.decode("latin1"):
+                    if hdr.capacity_slots > 0 and hdr.slot_size > 0:
+                        self.capacity_slots = hdr.capacity_slots
+                        self.slot_size = hdr.slot_size
+                        self.total_size = HEADER_SIZE + (self.capacity_slots * self.slot_size)
+            except Exception:
+                pass
 
     def _init_header(self) -> None:
         """Initializes the 64-byte binary header."""
@@ -211,6 +227,11 @@ class ShmRingBuffer:
         """Unlinks the shared memory resource from OS namespace."""
         if self._shm is not None and self.is_creator:
             try:
+                try:
+                    from multiprocessing import resource_tracker
+                    resource_tracker.register(self._shm._name, "shared_memory")
+                except Exception:
+                    pass
                 self._shm.unlink()
             except Exception:
                 pass
@@ -437,5 +458,34 @@ class ShmIpcGateway:
         self.ring.unlink()
 
 
-# Global singleton instance for server and background operations
-global_shm_gateway = ShmIpcGateway()
+# ==============================================================================
+# Lazy, PID-Isolated Global Gateway
+# ==============================================================================
+
+_global_shm_gateway: Optional[ShmIpcGateway] = None
+_global_shm_lock = threading.Lock()
+
+
+def get_global_shm_gateway(name: Optional[str] = None) -> ShmIpcGateway:
+    """Returns or lazily instantiates a PID-isolated process-safe shared-memory gateway."""
+    global _global_shm_gateway
+    with _global_shm_lock:
+        if _global_shm_gateway is None:
+            gw_name = name or f"sw_ring_{os.getpid()}"
+            gw = ShmIpcGateway(name=gw_name)
+            atexit.register(gw.close)
+            _global_shm_gateway = gw
+        return _global_shm_gateway
+
+
+class _LazyShmGatewayProxy:
+    """Proxy object providing transparent lazy backward compatibility for global_shm_gateway."""
+    def __getattr__(self, name: str) -> Any:
+        return getattr(get_global_shm_gateway(), name)
+
+    def __repr__(self) -> str:
+        return f"<_LazyShmGatewayProxy target={_global_shm_gateway!r}>"
+
+
+# Global singleton proxy for server and background operations (lazy, does not clobber on import)
+global_shm_gateway: ShmIpcGateway = _LazyShmGatewayProxy()  # type: ignore[assignment]

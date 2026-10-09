@@ -277,9 +277,7 @@ export class AcceptanceHarness {
 
     // 1. Palette check
     if (!content.includes("#080B11") && !content.includes("#080b11")) {
-      violations.append
-        ? violations.push("Palette invariant violated: primary background #080B11 not found in styles")
-        : violations.push("Palette invariant violated: primary background #080B11 not found in styles");
+      violations.push("Palette invariant violated: primary background #080B11 not found in styles");
     }
 
     // 2. Emoji check (Unicode emoji pattern)
@@ -491,7 +489,8 @@ export class AcceptanceHarness {
     );
     let lossFailClosedOk = false;
     try {
-      evo.reverse(migLossy.migratedPayload, "2.0.0", "1.1.0", undefined);
+      const payload = (migLossy as any).migratedPayload || (migLossy as any).migrated_payload;
+      evo.reverse(payload, "2.0.0", "1.1.0", undefined);
     } catch (err: unknown) {
       if (err instanceof LossyMigrationError) {
         lossFailClosedOk = true;

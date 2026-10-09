@@ -249,7 +249,7 @@ class PushMessage(BaseModel):
 def format_circuit_push_message(event: CircuitEvent) -> PushMessage:
     """Converts a SwarmWatch CircuitEvent into a structured PushMessage."""
     is_trip = event.event_type.lower() == "trip"
-    title = f"{'🛑 [TRIP]' if is_trip else '⚠️ [WARN]'} Swarm {event.swarm_id}"
+    title = f"{'[TRIP]' if is_trip else '[WARN]'} Swarm {event.swarm_id}"
     body = f"{event.reason} (Metric: {event.metric_val:.4f})"
     if event.counterfactual_savings:
         body += f" | Saved: {event.counterfactual_savings.tokens_saved:,} tokens (${event.counterfactual_savings.dollars_saved:.4f})"

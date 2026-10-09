@@ -80,7 +80,7 @@ export function reversibilityJoin(classes: (ReversibilityClass | string | number
   if (!classes || classes.length === 0) {
     return ReversibilityClass.REVERSIBLE;
   }
-  let maxVal = ReversibilityClass.REVERSIBLE;
+  let maxVal: ReversibilityClass = ReversibilityClass.REVERSIBLE;
   for (const c of classes) {
     const parsed = parseReversibilityClass(c);
     if (parsed > maxVal) {

@@ -10,12 +10,19 @@
  */
 
 import * as crypto from "node:crypto";
+import {
+  generateNodeKeypair,
+  signBftPayload,
+  verifyBftSignature,
+} from "./byzantine_oracle.ts";
 
 // ==============================================================================
 // 0. Mathematical Constants & Field Arithmetic (BN254 Scalar Field)
 // ==============================================================================
 
 export const BN254_PRIME = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+export const HEX64_REGEX = /^[0-9a-f]{64}$/;
 
 export function deepCanonicalJson(val: any): string {
   if (val === null || val === undefined) return "null";
@@ -45,18 +52,37 @@ export function hexToBigInt(hexStr: string): bigint {
   return clean ? BigInt("0x" + clean) : 0n;
 }
 
+function leafHash(h: string): string {
+  if (typeof h !== "string" || !HEX64_REGEX.test(h)) {
+    throw new InvalidStateTransitionError(
+      `Merkle leaf must be a 64-character lowercase hexadecimal hash, got: ${JSON.stringify(h)}`
+    );
+  }
+  return crypto.createHash("sha256").update(Buffer.concat([Buffer.from([0x00]), Buffer.from(h, "hex")])).digest("hex");
+}
+
+function nodeHash(l: string, r: string): string {
+  if (typeof l !== "string" || !HEX64_REGEX.test(l) || typeof r !== "string" || !HEX64_REGEX.test(r)) {
+    throw new InvalidStateTransitionError(
+      "Merkle internal node must be a 64-character lowercase hexadecimal hash"
+    );
+  }
+  return crypto.createHash("sha256").update(Buffer.concat([Buffer.from([0x01]), Buffer.from(l, "hex"), Buffer.from(r, "hex")])).digest("hex");
+}
+
 export function computeMerkleRoot(leafHashes: string[]): string {
   if (leafHashes.length === 0) {
     return "0".repeat(64);
   }
-  let currentLayer = [...leafHashes];
+  let currentLayer = leafHashes.map(leafHash);
   while (currentLayer.length > 1) {
     const nextLayer: string[] = [];
     for (let i = 0; i < currentLayer.length; i += 2) {
-      const left = currentLayer[i];
-      const right = i + 1 < currentLayer.length ? currentLayer[i + 1] : left;
-      const combined = sha256Hex(left + right);
-      nextLayer.push(combined);
+      if (i + 1 < currentLayer.length) {
+        nextLayer.push(nodeHash(currentLayer[i], currentLayer[i + 1]));
+      } else {
+        nextLayer.push(currentLayer[i]);
+      }
     }
     currentLayer = nextLayer;
   }
@@ -67,21 +93,24 @@ export function computeMerkleRoot(leafHashes: string[]): string {
 // 1. Custom Exceptions
 // ==============================================================================
 
-export class ZkRollupError extends Error {
+export class RollupEngineError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "ZkRollupError";
+    this.name = "RollupEngineError";
   }
 }
 
-export class RollupCircuitTrippedError extends ZkRollupError {
+export const ZkRollupError = RollupEngineError;
+export type ZkRollupError = RollupEngineError;
+
+export class RollupCircuitTrippedError extends RollupEngineError {
   constructor(message: string) {
     super(message);
     this.name = "RollupCircuitTrippedError";
   }
 }
 
-export class InvalidStateTransitionError extends ZkRollupError {
+export class InvalidStateTransitionError extends RollupEngineError {
   constructor(message: string) {
     super(message);
     this.name = "InvalidStateTransitionError";
@@ -166,8 +195,9 @@ export interface RollupBatch {
   sealed_at_ns?: number | null;
 }
 
-export interface RollupProofReceipt {
+export interface StateTransitionAttestation {
   rollup_id: string;
+  attestation_id?: string;
   batch_id: string;
   sequence_start: number;
   sequence_end: number;
@@ -177,11 +207,16 @@ export interface RollupProofReceipt {
   batch_digest: string;
   proof_system: ProofSystem;
   zk_proof_data: Record<string, any>;
+  attestation_data?: Record<string, any>;
   receipt_hash: string;
+  prover_public_key_hex?: string;
+  prover_signature?: string;
   is_valid: boolean;
   prover_id: string;
   verified_at_ns: number;
 }
+
+export type RollupProofReceipt = StateTransitionAttestation;
 
 // ==============================================================================
 // 3. Sparse State Merkle Tree
@@ -246,11 +281,13 @@ export class ZkRollupEngine {
   secretSeed: string;
   circuitBreaker: any;
   proofSystem: ProofSystem;
+  proverPrivateKey: string;
+  proverPublicKeyHex: string;
 
   private _stateTree: StateMerkleTree;
   private _pendingTransitions: StateTransition[];
   private _batches: Map<string, RollupBatch>;
-  private _receipts: Map<string, RollupProofReceipt>;
+  private _receipts: Map<string, StateTransitionAttestation>;
   private _nextSequence: number;
   private _circuitTripped: boolean;
   private _tripReason: string | null;
@@ -260,11 +297,27 @@ export class ZkRollupEngine {
     secretSeed?: string;
     circuitBreaker?: any;
     proofSystem?: ProofSystem;
+    proverPrivateKey?: string;
+    proverPublicKeyHex?: string;
   }) {
     this.maxBatchSize = options?.maxBatchSize ?? 100;
-    this.secretSeed = options?.secretSeed ?? "swarmwatch-zk-rollup-seed-v1";
+    this.secretSeed = options?.secretSeed ?? "swarmwatch-rollup-seed-v1";
     this.circuitBreaker = options?.circuitBreaker ?? null;
     this.proofSystem = options?.proofSystem ?? ProofSystem.POLYNOMIAL_ZK;
+
+    if (options?.proverPrivateKey) {
+      this.proverPrivateKey = options.proverPrivateKey;
+      if (options.proverPublicKeyHex) {
+        this.proverPublicKeyHex = options.proverPublicKeyHex;
+      } else {
+        const pair = generateNodeKeypair();
+        this.proverPublicKeyHex = pair.publicKeyHex;
+      }
+    } else {
+      const pair = generateNodeKeypair();
+      this.proverPrivateKey = pair.privateKey;
+      this.proverPublicKeyHex = pair.publicKeyHex;
+    }
 
     this._stateTree = new StateMerkleTree();
     this._pendingTransitions = [];
@@ -454,13 +507,16 @@ export class ZkRollupEngine {
       batch_digest: batchDigest,
       proof_system: this.proofSystem,
       zk_proof_data: zkProofData,
+      prover_public_key_hex: this.proverPublicKeyHex,
     };
     const receiptHashRaw = sha256Hex(deepCanonicalJson(rawReceipt));
     const receiptHash = `sw:rollup:v1:${receiptHashRaw}`;
     const rollupId = `rollup_${receiptHashRaw.slice(0, 16)}`;
+    const proverSig = signBftPayload(this.proverPrivateKey, receiptHash);
 
-    const receipt: RollupProofReceipt = {
+    const receipt: StateTransitionAttestation = {
       rollup_id: rollupId,
+      attestation_id: rollupId,
       batch_id: bId,
       sequence_start: seqStart,
       sequence_end: seqEnd,
@@ -470,9 +526,12 @@ export class ZkRollupEngine {
       batch_digest: batchDigest,
       proof_system: this.proofSystem,
       zk_proof_data: zkProofData,
+      attestation_data: zkProofData,
       receipt_hash: receiptHash,
+      prover_public_key_hex: this.proverPublicKeyHex,
+      prover_signature: proverSig,
       is_valid: true,
-      prover_id: "swarmwatch-zk-prover",
+      prover_id: "swarmwatch-prover",
       verified_at_ns: Date.now() * 1_000_000,
     };
     this._receipts.set(bId, receipt);
@@ -482,7 +541,7 @@ export class ZkRollupEngine {
   }
 
   // --------------------------------------------------------------------------
-  // Succinct ZK Proof Mathematics
+  // Succinct State Attestation Mathematics
   // --------------------------------------------------------------------------
 
   private _generateSuccinctProof(params: {
@@ -493,46 +552,40 @@ export class ZkRollupEngine {
   }): Record<string, any> {
     const p = BN254_PRIME;
 
-    // 1. Private Blinding Commitment
-    const blindingCommitment = hmacSha256Hex(this.secretSeed, params.batchDigest);
-    const b = hexToBigInt(blindingCommitment) % p;
-
-    // 2. Fiat-Shamir challenge evaluation point z
-    const challengeSeed = `${params.preStateRoot}${params.postStateRoot}${params.batchDigest}${blindingCommitment}`;
+    // Fiat-Shamir challenge evaluation point z binding all state commitments
+    const challengeSeed = `${params.preStateRoot}${params.postStateRoot}${params.batchDigest}${params.deltaMerkleRoot}`;
     const z = hexToBigInt(sha256Hex(challengeSeed)) % p;
 
-    // 3. Transition polynomial coefficients
+    // Transition polynomial coefficients
     const c0 = hexToBigInt(params.preStateRoot) % p;
     const c1 = hexToBigInt(params.batchDigest) % p;
     const c2 = hexToBigInt(params.deltaMerkleRoot) % p;
+    const c3 = hexToBigInt(params.postStateRoot) % p;
 
-    // 4. Polynomial evaluation: P(z) = c0 + c1*z + c2*z^2 mod p
+    // Polynomial evaluation: P(z) = c0 + c1*z + c2*z^2 + c3*z^3 mod p
     const z2 = (z * z) % p;
-    const pz = (c0 + ((c1 * z) % p) + ((c2 * z2) % p)) % p;
-
-    // 5. Shielded proof evaluation: E = (P(z) + b) mod p
-    const shieldedEval = (pz + b) % p;
-
-    // 6. Expected transition transition law digest
-    const expectedPostEval = sha256Hex(
-      `${params.preStateRoot}${params.batchDigest}${params.deltaMerkleRoot}`
-    );
+    const z3 = (z2 * z) % p;
+    const pz = (c0 + ((c1 * z) % p) + ((c2 * z2) % p) + ((c3 * z3) % p)) % p;
 
     return {
       eval_point: "0x" + z.toString(16),
-      proof_eval: "0x" + shieldedEval.toString(16),
-      blinding_commitment: blindingCommitment,
+      proof_eval: "0x" + pz.toString(16),
+      polynomial_eval: "0x" + pz.toString(16),
+      blinding_commitment: sha256Hex(challengeSeed),
       delta_merkle_root: params.deltaMerkleRoot,
-      transition_law_digest: expectedPostEval,
+      transition_law_digest: sha256Hex(challengeSeed),
       field_modulus: "0x" + p.toString(16),
     };
   }
 
   // --------------------------------------------------------------------------
-  // Proof Verification & Fraud Challenge
+  // Attestation Verification & Fraud Challenge
   // --------------------------------------------------------------------------
 
-  verifyRollupProof(receipt: RollupProofReceipt): {
+  verifyRollupProof(
+    receipt: StateTransitionAttestation,
+    expectedProverPublicKey?: string
+  ): {
     isValid: boolean;
     errorReason: string | null;
   } {
@@ -555,6 +608,7 @@ export class ZkRollupEngine {
       batch_digest: receipt.batch_digest,
       proof_system: receipt.proof_system,
       zk_proof_data: data,
+      prover_public_key_hex: receipt.prover_public_key_hex || "",
     };
     const recomputedHash = `sw:rollup:v1:${sha256Hex(deepCanonicalJson(expectedReceiptPayload))}`;
     if (recomputedHash !== receipt.receipt_hash) {
@@ -564,9 +618,36 @@ export class ZkRollupEngine {
       };
     }
 
-    // 3. Verify Fiat-Shamir challenge point z
-    const blindingCommitment = data.blinding_commitment || "";
-    const challengeSeed = `${receipt.pre_state_root}${receipt.post_state_root}${receipt.batch_digest}${blindingCommitment}`;
+    // 3. Verify asymmetric Ed25519 Prover signature
+    if (!receipt.prover_public_key_hex || !receipt.prover_signature) {
+      return {
+        isValid: false,
+        errorReason: "Attestation missing mandatory Prover public key or digital signature",
+      };
+    }
+
+    if (expectedProverPublicKey && receipt.prover_public_key_hex !== expectedProverPublicKey) {
+      return {
+        isValid: false,
+        errorReason: "Prover public key does not match expected verifier pin",
+      };
+    }
+
+    const sigValid = verifyBftSignature(
+      receipt.prover_public_key_hex,
+      receipt.receipt_hash,
+      receipt.prover_signature
+    );
+    if (!sigValid) {
+      return {
+        isValid: false,
+        errorReason: "Prover Ed25519 signature verification failed: attestation forgery detected",
+      };
+    }
+
+    // 4. Verify Fiat-Shamir challenge point z
+    const deltaMerkleRoot = data.delta_merkle_root || "";
+    const challengeSeed = `${receipt.pre_state_root}${receipt.post_state_root}${receipt.batch_digest}${deltaMerkleRoot}`;
     const expectedZ = hexToBigInt(sha256Hex(challengeSeed)) % p;
 
     const actualZ = hexToBigInt(data.eval_point || "0x0");
@@ -577,34 +658,41 @@ export class ZkRollupEngine {
       };
     }
 
-    // 4. Verify polynomial evaluation: P(z) + b == shielded_eval mod p
-    const deltaMerkleRoot = data.delta_merkle_root || "";
+    // 5. Verify polynomial evaluation: P(z) == proof_eval mod p
     const c0 = hexToBigInt(receipt.pre_state_root) % p;
     const c1 = hexToBigInt(receipt.batch_digest) % p;
     const c2 = hexToBigInt(deltaMerkleRoot) % p;
+    const c3 = hexToBigInt(receipt.post_state_root) % p;
 
     const z2 = (actualZ * actualZ) % p;
-    const expectedPz = (c0 + ((c1 * actualZ) % p) + ((c2 * z2) % p)) % p;
-    const b = hexToBigInt(blindingCommitment) % p;
-    const expectedShieldedEval = (expectedPz + b) % p;
+    const z3 = (z2 * actualZ) % p;
+    const expectedPz = (c0 + ((c1 * actualZ) % p) + ((c2 * z2) % p) + ((c3 * z3) % p)) % p;
 
-    const actualShieldedEval = hexToBigInt(data.proof_eval || "0x0");
-    if (expectedShieldedEval !== actualShieldedEval) {
+    const actualEval = hexToBigInt(data.proof_eval || data.polynomial_eval || "0x0");
+    if (expectedPz !== actualEval) {
       return {
         isValid: false,
         errorReason: "Polynomial proof evaluation equation failed",
       };
     }
 
-    // 5. Verify transition law digest
-    const expectedTransitionDigest = sha256Hex(
-      `${receipt.pre_state_root}${receipt.batch_digest}${deltaMerkleRoot}`
-    );
+    // 6. Verify transition law digest
+    const expectedTransitionDigest = sha256Hex(challengeSeed);
     if (data.transition_law_digest !== expectedTransitionDigest) {
       return { isValid: false, errorReason: "Transition law digest mismatch" };
     }
 
     return { isValid: true, errorReason: null };
+  }
+
+  verifyAttestation(
+    receipt: StateTransitionAttestation,
+    expectedProverPublicKey?: string
+  ): {
+    isValid: boolean;
+    errorReason: string | null;
+  } {
+    return this.verifyRollupProof(receipt, expectedProverPublicKey);
   }
 
   challengeFraud(params: {
@@ -711,3 +799,7 @@ export class ZkRollupEngine {
 
 // Global singleton instance
 export const globalZkRollupEngine = new ZkRollupEngine();
+export const OptimisticRollupEngine = ZkRollupEngine;
+export type OptimisticRollupEngine = ZkRollupEngine;
+export const globalOptimisticRollupEngine = globalZkRollupEngine;
+

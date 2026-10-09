@@ -186,11 +186,23 @@ export class EpistemicProofDAG {
     }
   }
 
+  private _reachable: Set<string> = new Set();
+
   addNode(node: ProofNode): void {
+    if (node.evidence_weight < 0.0 || node.evidence_weight > 1.0) {
+      throw new InvalidEpistemicProofError(
+        `Evidence weight ${node.evidence_weight} out of bounds [0.0, 1.0]`
+      );
+    }
     this.nodes.set(node.node_id, node);
   }
 
   validateAcyclicity(): boolean {
+    if (this.nodes.size === 0) {
+      this._reachable = new Set();
+      return true;
+    }
+
     const visited = new Set<string>();
     const recStack = new Set<string>();
 
@@ -209,11 +221,15 @@ export class EpistemicProofDAG {
         return true;
       }
 
+      const node = this.nodes.get(nodeId);
+      if (!node) {
+        throw new InvalidEpistemicProofError(`Dangling premise reference '${nodeId}'`);
+      }
+
       visited.add(nodeId);
       recStack.add(nodeId);
 
-      const node = this.nodes.get(nodeId);
-      if (node && node.premise_ids) {
+      if (node.premise_ids) {
         for (const premiseId of node.premise_ids) {
           dfs(premiseId, depth + 1);
         }
@@ -225,6 +241,11 @@ export class EpistemicProofDAG {
 
     if (this.root_node_id) {
       dfs(this.root_node_id, 1);
+      if (visited.size !== this.nodes.size) {
+        throw new InvalidEpistemicProofError(
+          `Proof DAG contains nodes unreachable from root (reachable=${visited.size}, total=${this.nodes.size})`
+        );
+      }
     } else {
       for (const nId of this.nodes.keys()) {
         if (!visited.has(nId)) {
@@ -233,6 +254,7 @@ export class EpistemicProofDAG {
       }
     }
 
+    this._reachable = visited;
     return true;
   }
 
@@ -273,11 +295,29 @@ export class EpistemicProofDAG {
       return { isValid: false, avgLeafWeight: 0.0, deductionRatio: 0.0 };
     }
 
+    const evalNodes: ProofNode[] = [];
+    if (this.root_node_id && this._reachable) {
+      for (const nid of this._reachable) {
+        const n = this.nodes.get(nid);
+        if (n) evalNodes.push(n);
+      }
+    } else {
+      for (const n of this.nodes.values()) {
+        evalNodes.push(n);
+      }
+    }
+
     const leafWeights: number[] = [];
     let validRules = 0;
     let totalRules = 0;
 
-    for (const node of this.nodes.values()) {
+    for (const node of evalNodes) {
+      if (node.evidence_weight < 0.0 || node.evidence_weight > 1.0) {
+        throw new InvalidEpistemicProofError(
+          `Evidence weight ${node.evidence_weight} out of bounds [0.0, 1.0]`
+        );
+      }
+
       if (!node.is_valid) {
         return { isValid: false, avgLeafWeight: 0.0, deductionRatio: 0.0 };
       }
@@ -291,7 +331,21 @@ export class EpistemicProofDAG {
         leafWeights.push(node.evidence_weight);
       } else {
         totalRules += 1;
-        if (node.is_valid) {
+        let ruleOk = true;
+        if (node.rule === DeductionRule.MODUS_PONENS) {
+          if (node.premise_ids.length !== 2) ruleOk = false;
+        } else if (node.rule === DeductionRule.CONJUNCTION) {
+          if (node.premise_ids.length < 2) ruleOk = false;
+        } else if (node.rule === DeductionRule.EPISTEMIC_NECESSITATION) {
+          if (node.premise_ids.length !== 1) ruleOk = false;
+        } else if (
+          node.rule === DeductionRule.AXIOM ||
+          node.rule === DeductionRule.EVIDENTIARY_GROUNDING
+        ) {
+          if (node.premise_ids.length !== 0) ruleOk = false;
+        }
+
+        if (ruleOk && node.is_valid) {
           validRules += 1;
         }
       }
@@ -606,8 +660,14 @@ export class EpistemicArbitrationEngine {
         depthPenalty;
 
       return { isValid: true, score: Math.max(0.0, Math.min(1.0, score)) };
-    } catch {
-      return { isValid: false, score: 0.0 };
+    } catch (err) {
+      if (
+        err instanceof EpistemicCircularityError ||
+        err instanceof InvalidEpistemicProofError
+      ) {
+        return { isValid: false, score: 0.0 };
+      }
+      throw err;
     }
   }
 

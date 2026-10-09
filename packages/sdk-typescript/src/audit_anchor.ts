@@ -282,7 +282,7 @@ export class AuditAnchor {
         try {
           const record = JSON.parse(line);
           const ep = RootEpoch.fromDict(record);
-          loadedEpochs.append ? loadedEpochs.push(ep) : loadedEpochs.push(ep);
+          loadedEpochs.push(ep);
         } catch (e: any) {
           throw new AuditIntegrityError(
             `Corrupted record at line ${i + 1} in ${this.storagePath}: ${e.message}`

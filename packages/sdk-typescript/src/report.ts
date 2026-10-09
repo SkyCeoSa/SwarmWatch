@@ -273,7 +273,7 @@ export class IncidentReportGenerator {
   }
 
   private formatMarkdown(pm: IncidentPostMortem): string {
-    const statusBadge = pm.circuit_tripped ? "🔴 HALTED_BY_CIRCUIT_BREAKER" : "🟢 COMPLETED_SUCCESSFULLY";
+    const statusBadge = pm.circuit_tripped ? "[HALTED_BY_CIRCUIT_BREAKER]" : "[COMPLETED_SUCCESSFULLY]";
 
     const lines: string[] = [
       `# SwarmWatch Incident Post-Mortem: ${pm.swarm_id}`,
@@ -362,7 +362,7 @@ export class IncidentReportGenerator {
   }
 
   private formatTerminal(pm: IncidentPostMortem): string {
-    const statusLine = pm.circuit_tripped ? "🔴 HALTED BY CIRCUIT BREAKER" : "🟢 COMPLETED SUCCESSFULLY";
+    const statusLine = pm.circuit_tripped ? "[HALTED BY CIRCUIT BREAKER]" : "[COMPLETED SUCCESSFULLY]";
     const bar = "=".repeat(76);
     const subBar = "-".repeat(76);
 

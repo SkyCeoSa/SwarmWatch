@@ -20,6 +20,11 @@ import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature, encode_dss_signature
+
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -127,7 +132,7 @@ class WitnessKeyManager:
     """
     Manages asymmetric NIST P-256 (secp256r1 / ES256) keypair generation,
     IEEE P1363 (64-byte r || s) signing, and public-key verification.
-    Guarantees pure zero-dependency cross-runtime compatibility with Node.js crypto.
+    Guarantees constant-time cryptographic operations and cross-runtime compatibility with Node.js crypto.
     """
 
     def __init__(
@@ -139,9 +144,16 @@ class WitnessKeyManager:
         self.public_key_b64 = public_key_b64
         self._private_scalar: Optional[int] = None
         self._public_point: Optional[Tuple[int, int]] = None
+        self._ec_private_key: Optional[ec.EllipticCurvePrivateKey] = None
+        self._ec_public_key: Optional[ec.EllipticCurvePublicKey] = None
 
         if private_key_b64:
             self._private_scalar = int.from_bytes(_b64url_decode(private_key_b64), "big")
+            self._ec_private_key = ec.derive_private_key(self._private_scalar, ec.SECP256R1())
+            self._ec_public_key = self._ec_private_key.public_key()
+            pn = self._ec_public_key.public_numbers()
+            self._public_point = (pn.x, pn.y)
+
             if public_key_b64:
                 pub_raw = _b64url_decode(public_key_b64)
                 if len(pub_raw) == 65 and pub_raw[0] == 0x04:
@@ -149,13 +161,9 @@ class WitnessKeyManager:
                         int.from_bytes(pub_raw[1:33], "big"),
                         int.from_bytes(pub_raw[33:65], "big"),
                     )
-                else:
-                    self._public_point = _point_mul(self._private_scalar, (P_256_GX, P_256_GY))
             else:
-                self._public_point = _point_mul(self._private_scalar, (P_256_GX, P_256_GY))
-                if self._public_point is not None:
-                    pub_bytes = b"\x04" + self._public_point[0].to_bytes(32, "big") + self._public_point[1].to_bytes(32, "big")
-                    self.public_key_b64 = _b64url_encode(pub_bytes)
+                pub_bytes = b"\x04" + pn.x.to_bytes(32, "big") + pn.y.to_bytes(32, "big")
+                self.public_key_b64 = _b64url_encode(pub_bytes)
         elif public_key_b64:
             pub_raw = _b64url_decode(public_key_b64)
             if len(pub_raw) == 65 and pub_raw[0] == 0x04:
@@ -163,17 +171,19 @@ class WitnessKeyManager:
                     int.from_bytes(pub_raw[1:33], "big"),
                     int.from_bytes(pub_raw[33:65], "big"),
                 )
+                self._ec_public_key = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), pub_raw)
             else:
                 raise ValueError("Invalid public key: expected 65-byte uncompressed point starting with 0x04")
         else:
             # Generate brand new keypair
-            self._private_scalar = secrets.randbelow(P_256_N - 2) + 1
-            self._public_point = _point_mul(self._private_scalar, (P_256_GX, P_256_GY))
-            if self._public_point is None:
-                raise RuntimeError("Failed to compute P-256 public point")
+            self._ec_private_key = ec.generate_private_key(ec.SECP256R1())
+            self._private_scalar = self._ec_private_key.private_numbers().private_value
+            self._ec_public_key = self._ec_private_key.public_key()
+            pn = self._ec_public_key.public_numbers()
+            self._public_point = (pn.x, pn.y)
 
             priv_bytes = self._private_scalar.to_bytes(32, "big")
-            pub_bytes = b"\x04" + self._public_point[0].to_bytes(32, "big") + self._public_point[1].to_bytes(32, "big")
+            pub_bytes = b"\x04" + pn.x.to_bytes(32, "big") + pn.y.to_bytes(32, "big")
 
             self.private_key_b64 = _b64url_encode(priv_bytes)
             self.public_key_b64 = _b64url_encode(pub_bytes)
@@ -199,26 +209,14 @@ class WitnessKeyManager:
         Computes IEEE P1363 64-byte (r || s) ES256 signature for message bytes.
         Enforces standard low-s (BIP 62) canonicalization.
         """
-        if self._private_scalar is None:
+        if self._ec_private_key is None:
             raise WitnessError("Cannot sign without private key")
 
-        e = int.from_bytes(hashlib.sha256(message).digest(), "big")
-        while True:
-            k = secrets.randbelow(P_256_N - 2) + 1
-            pt_r = _point_mul(k, (P_256_GX, P_256_GY))
-            if pt_r is None:
-                continue
-            r = pt_r[0] % P_256_N
-            if r == 0:
-                continue
-            k_inv = pow(k, P_256_N - 2, P_256_N)
-            s = (k_inv * (e + self._private_scalar * r)) % P_256_N
-            if s == 0:
-                continue
-            # Enforce low-s
-            if s > P_256_N // 2:
-                s = P_256_N - s
-            return r.to_bytes(32, "big") + s.to_bytes(32, "big")
+        der_sig = self._ec_private_key.sign(message, ec.ECDSA(hashes.SHA256()))
+        r, s = decode_dss_signature(der_sig)
+        if s > P_256_N // 2:
+            s = P_256_N - s
+        return r.to_bytes(32, "big") + s.to_bytes(32, "big")
 
     def sign_b64(self, message: bytes) -> str:
         """Computes IEEE P1363 signature and returns as URL-safe Base64 string."""
@@ -226,24 +224,19 @@ class WitnessKeyManager:
 
     def verify(self, message: bytes, signature: bytes) -> bool:
         """Verifies 64-byte (r || s) ES256 signature against current public key."""
-        if len(signature) != 64 or self._public_point is None:
+        if len(signature) != 64 or self._ec_public_key is None:
             return False
         r = int.from_bytes(signature[:32], "big")
         s = int.from_bytes(signature[32:], "big")
         if not (0 < r < P_256_N and 0 < s < P_256_N):
             return False
 
-        e = int.from_bytes(hashlib.sha256(message).digest(), "big")
-        w = pow(s, P_256_N - 2, P_256_N)
-        u1 = (e * w) % P_256_N
-        u2 = (r * w) % P_256_N
-
-        pt1 = _point_mul(u1, (P_256_GX, P_256_GY))
-        pt2 = _point_mul(u2, self._public_point)
-        v = _point_add(pt1, pt2)
-        if v is None:
+        try:
+            der_sig = encode_dss_signature(r, s)
+            self._ec_public_key.verify(der_sig, message, ec.ECDSA(hashes.SHA256()))
+            return True
+        except (InvalidSignature, ValueError):
             return False
-        return (v[0] % P_256_N) == r
 
     def verify_b64(self, message: bytes, signature_b64: str) -> bool:
         """Verifies base64url-encoded signature against message."""

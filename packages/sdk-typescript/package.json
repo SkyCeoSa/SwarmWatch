@@ -3,23 +3,23 @@
   "version": "0.1.0",
   "description": "SwarmWatch Universal Observability, Zero-Token Shannon Entropy Circuit Breaker & Safe Time-Machine for Multi-Agent LLM Systems in TypeScript & Node.js.",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
-    "src",
+    "dist",
     "README.md"
   ],
   "scripts": {
-    "test": "node --expose-gc --experimental-strip-types --test --test-concurrency=1 tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js tests/multilingual_stress.test.js tests/tenant_multitenancy.test.js tests/security_sanitizer.test.js tests/incident_report.test.js tests/policy_engine.test.js tests/webhooks.test.js tests/timemachine.test.js tests/fork_resumption_runner.test.js tests/alert_simulation.test.js tests/telemetry_benchmark.test.js tests/redis_circuit.test.js tests/redis_lock_election.test.js tests/storage_archival.test.js tests/mfa_rbac.test.js tests/otlp.test.js tests/sse_push.test.js tests/ebpf.test.js tests/raft.test.js tests/self_healing.test.js tests/causal_inference.test.js tests/grpc.test.js tests/drift.test.js tests/rebalancer.test.js tests/coalition.test.js tests/shm_ring.test.js tests/diff_privacy.test.js tests/forecast.test.js tests/byzantine.test.js tests/honeypot.test.js tests/model_checker.test.js tests/topology_healer.test.js tests/multimodal_inspector.test.js tests/gossip_mesh_sync.test.js tests/workload_sharding.test.js tests/schema_migration.test.js tests/epistemic_logic.test.js tests/zk_proof_engine.test.js tests/canonical_codec.test.js tests/safety_authority.test.js tests/effect_ledger.test.js tests/causal_ingress.test.js tests/audit_anchor.test.js tests/safety_verifier.test.js tests/remediation_governor.test.js tests/mesh_reconciler.test.js tests/privacy_ledger.test.js tests/schema_evolution.test.js tests/acceptance.test.js tests/consensus_authority.test.js tests/downstream_effect_protocol.test.js tests/critical_evidence_spool.test.js tests/root_witness.test.js tests/tenant_capability.test.js tests/compensation_algebra.test.js tests/dataset_privacy.test.js tests/interop_lab.test.js tests/release_provenance.test.js tests/datacenter_exercise.test.js tests/action_gateway.test.js tests/mesh_federation.test.js tests/seam72_live_simulation.test.js tests/cognitive_grounding.test.js tests/seam73_live_simulation.test.js tests/byzantine_oracle.test.js tests/seam74_live_simulation.test.js tests/zk_rollup.test.js tests/seam75_live_simulation.test.js tests/epistemic_arbitration.test.js tests/seam76_live_simulation.test.js"
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/index.js && tsc -p tsconfig.json",
+    "test": "node --expose-gc --experimental-strip-types --test --test-concurrency=1 tests/entropy_circuit.test.js tests/client_transport.test.js tests/otel_adapters.test.js tests/multilingual_stress.test.js tests/tenant_multitenancy.test.js tests/security_sanitizer.test.js tests/incident_report.test.js tests/policy_engine.test.js tests/webhooks.test.js tests/timemachine.test.js tests/fork_resumption_runner.test.js tests/alert_simulation.test.js tests/telemetry_benchmark.test.js tests/redis_circuit.test.js tests/redis_lock_election.test.js tests/storage_archival.test.js tests/mfa_rbac.test.js tests/otlp.test.js tests/sse_push.test.js tests/ebpf.test.js tests/raft.test.js tests/self_healing.test.js tests/causal_inference.test.js tests/grpc.test.js tests/drift.test.js tests/rebalancer.test.js tests/coalition.test.js tests/shm_ring.test.js tests/diff_privacy.test.js tests/forecast.test.js tests/byzantine.test.js tests/honeypot.test.js tests/model_checker.test.js tests/topology_healer.test.js tests/multimodal_inspector.test.js tests/gossip_mesh_sync.test.js tests/workload_sharding.test.js tests/schema_migration.test.js tests/epistemic_logic.test.js tests/zk_proof_engine.test.js tests/canonical_codec.test.js tests/safety_authority.test.js tests/effect_ledger.test.js tests/causal_ingress.test.js tests/audit_anchor.test.js tests/safety_verifier.test.js tests/remediation_governor.test.js tests/mesh_reconciler.test.js tests/privacy_ledger.test.js tests/schema_evolution.test.js tests/acceptance.test.js tests/consensus_authority.test.js tests/downstream_effect_protocol.test.js tests/critical_evidence_spool.test.js tests/root_witness.test.js tests/tenant_capability.test.js tests/compensation_algebra.test.js tests/dataset_privacy.test.js tests/interop_lab.test.js tests/release_provenance.test.js tests/datacenter_exercise.test.js tests/action_gateway.test.js tests/mesh_federation.test.js tests/seam72_live_simulation.test.js tests/cognitive_grounding.test.js tests/seam73_live_simulation.test.js tests/byzantine_oracle.test.js tests/seam74_live_simulation.test.js tests/zk_rollup.test.js tests/seam75_live_simulation.test.js tests/epistemic_arbitration.test.js tests/seam76_live_simulation.test.js tests/adversarial_security_hardening.test.js tests/cross_cluster_sync.test.js tests/seam77_live_simulation.test.js tests/partition_healer.test.js tests/seam78_live_simulation.test.js tests/topology_migrator.test.js tests/seam79_live_simulation.test.js tests/causality_barrier.test.js tests/seam80_live_simulation.test.js tests/adversarial_audit_exploits.test.js tests/quorum_certificate.test.js tests/safety_circuit_bus.test.js tests/hlc.test.js tests/crdt_kernel.test.js tests/barrier_lease.test.js tests/durable_stream.test.js tests/bft_view_change.test.js tests/optimistic_attestation.test.js tests/engine_registry.test.js tests/deterministic_sim.test.js tests/mesh_relay.test.js tests/sovereign_federation.test.js tests/proof_marketplace.test.js tests/recursive_snark.test.js tests/billing_channel.test.js tests/byzantine_gossip.test.js tests/slashing_tribunal.test.js tests/enclave_attestation.test.js tests/boundary_fence.test.js tests/master_singularity.test.js"
   },
-
   "keywords": [
     "swarmwatch",
     "observability",
@@ -30,6 +30,6 @@
     "vercel-ai",
     "mastra"
   ],
-  "author": "Google Deepmind / SwarmWatch Authors",
-  "license": "Apache-2.0"
+  "author": "SwarmWatch Authors",
+  "license": "MIT"
 }

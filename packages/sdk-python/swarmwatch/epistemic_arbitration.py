@@ -122,6 +122,12 @@ class ProofNode:
     evidence_weight: float = 1.0
     is_valid: bool = True
 
+    def __post_init__(self) -> None:
+        if self.evidence_weight < 0.0 or self.evidence_weight > 1.0:
+            raise InvalidEpistemicProofError(
+                f"Evidence weight {self.evidence_weight} out of bounds [0.0, 1.0]"
+            )
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "node_id": self.node_id,
@@ -150,6 +156,10 @@ class EpistemicProofDAG:
         Verify that the graph is strictly acyclic via topological DFS.
         Raises EpistemicCircularityError if a cycle is detected.
         """
+        if not self.nodes:
+            self._reachable = set()
+            return True
+
         visited: Set[str] = set()
         rec_stack: Set[str] = set()
 
@@ -169,20 +179,26 @@ class EpistemicProofDAG:
             rec_stack.add(node_id)
 
             node = self.nodes.get(node_id)
-            if node:
-                for premise_id in node.premise_ids:
-                    dfs(premise_id, depth + 1)
+            if node is None:
+                raise InvalidEpistemicProofError(f"Dangling premise reference '{node_id}'")
+            for premise_id in node.premise_ids:
+                dfs(premise_id, depth + 1)
 
             rec_stack.remove(node_id)
             return True
 
         if self.root_node_id:
             dfs(self.root_node_id, 1)
+            if len(visited) != len(self.nodes):
+                raise InvalidEpistemicProofError(
+                    f"Proof DAG contains nodes unreachable from root (reachable={len(visited)}, total={len(self.nodes)})"
+                )
         else:
-            for n_id in self.nodes:
+            for n_id in list(self.nodes.keys()):
                 if n_id not in visited:
                     dfs(n_id, 1)
 
+        self._reachable = visited
         return True
 
     def compute_depth(self) -> int:
@@ -213,11 +229,23 @@ class EpistemicProofDAG:
         if not self.nodes:
             return False, 0.0, 0.0
 
+        reachable_ids = getattr(self, "_reachable", self.nodes.keys())
+        eval_nodes = (
+            [self.nodes[nid] for nid in reachable_ids if nid in self.nodes]
+            if self.root_node_id
+            else list(self.nodes.values())
+        )
+
         leaf_weights: List[float] = []
         valid_rules = 0
         total_rules = 0
 
-        for node in self.nodes.values():
+        for node in eval_nodes:
+            if node.evidence_weight < 0.0 or node.evidence_weight > 1.0:
+                raise InvalidEpistemicProofError(
+                    f"Evidence weight {node.evidence_weight} out of bounds [0.0, 1.0]"
+                )
+
             if not node.is_valid:
                 return False, 0.0, 0.0
 
@@ -228,7 +256,21 @@ class EpistemicProofDAG:
                 leaf_weights.append(node.evidence_weight)
             else:
                 total_rules += 1
-                if node.is_valid:
+                rule_ok = True
+                if node.rule == DeductionRule.MODUS_PONENS:
+                    if len(node.premise_ids) != 2:
+                        rule_ok = False
+                elif node.rule == DeductionRule.CONJUNCTION:
+                    if len(node.premise_ids) < 2:
+                        rule_ok = False
+                elif node.rule == DeductionRule.EPISTEMIC_NECESSITATION:
+                    if len(node.premise_ids) != 1:
+                        rule_ok = False
+                elif node.rule in (DeductionRule.AXIOM, DeductionRule.EVIDENTIARY_GROUNDING):
+                    if len(node.premise_ids) != 0:
+                        rule_ok = False
+
+                if rule_ok and node.is_valid:
                     valid_rules += 1
 
         avg_leaf = sum(leaf_weights) / len(leaf_weights) if leaf_weights else 0.0
@@ -552,9 +594,7 @@ class EpistemicArbitrationEngine:
                 - depth_penalty
             )
             return True, max(0.0, min(1.0, score))
-        except EpistemicCircularityError:
-            return False, 0.0
-        except Exception:
+        except (EpistemicCircularityError, InvalidEpistemicProofError):
             return False, 0.0
 
     def resolve_dispute(

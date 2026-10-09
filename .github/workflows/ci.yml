@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  test-python:
     name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -29,17 +29,34 @@ jobs:
       - name: Install Dependencies & SwarmWatch
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio anyio httpx websockets fastapi uvicorn build
+          pip install pytest pytest-asyncio anyio httpx websockets fastapi uvicorn cryptography build
           pip install -e packages/sdk-python
 
-      - name: Run Test Suite
+      - name: Run Python Test Suite (including Adversarial)
         run: |
           pytest packages/sdk-python/tests/ -v
+
+  test-typescript:
+    name: Test TypeScript SDK on Node 22
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run TypeScript Test Suite (including Adversarial)
+        run: |
+          cd packages/sdk-typescript
+          npm test
 
   package-check:
     name: Build & Verify Wheel Distribution
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test-python, test-typescript]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

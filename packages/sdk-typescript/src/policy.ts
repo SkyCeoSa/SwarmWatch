@@ -54,7 +54,7 @@ export interface GuardrailPolicy {
 }
 
 export interface PolicyEvaluationResult {
-  decision: "pass" | "warn" | "trip";
+  decision: "pass" | "warn" | "trip" | "redact";
   reason?: string | null;
   matched_rule_id?: string | null;
   effective_config?: RuleConfig | null;

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
+from functools import lru_cache
 import hashlib
 import hmac
 import json
@@ -24,6 +25,9 @@ import secrets
 import threading
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
+
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 
 # ==============================================================================
@@ -95,30 +99,49 @@ def canonical_json_bytes(data: Dict[str, Any]) -> bytes:
     return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
 
 
+@lru_cache(maxsize=1024)
+def _get_ed25519_priv(priv_hex: str) -> Ed25519PrivateKey:
+    return Ed25519PrivateKey.from_private_bytes(bytes.fromhex(priv_hex))
+
+
+@lru_cache(maxsize=1024)
+def _get_ed25519_pub(pub_hex: str) -> Ed25519PublicKey:
+    return Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
+
+
 def generate_node_keypair() -> Tuple[str, str]:
-    """Generates a pseudo-random keypair (private_key, public_key_hex)."""
-    priv = secrets.token_hex(32)
-    pub = hashlib.sha256(f"pub:{priv}".encode("utf-8")).hexdigest()
-    return priv, pub
+    """Generates an Ed25519 keypair (private_key_hex, public_key_hex)."""
+    priv = Ed25519PrivateKey.generate()
+    priv_hex = priv.private_bytes_raw().hex()
+    pub_hex = priv.public_key().public_bytes_raw().hex()
+    return priv_hex, pub_hex
 
 
 def sign_bft_payload(private_key: str, message: str) -> str:
-    """Computes deterministic HMAC-SHA256 signature for a message string."""
-    return hmac.new(private_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
+    """Computes deterministic Ed25519 digital signature for a message string."""
+    try:
+        priv = _get_ed25519_priv(private_key)
+        return priv.sign(message.encode("utf-8")).hex()
+    except Exception as e:
+        raise ByzantineOracleError(f"Failed to sign BFT payload: {e}") from e
 
 
+@lru_cache(maxsize=8192)
 def verify_bft_signature(public_key: str, message: str, signature: str, private_key: Optional[str] = None) -> bool:
     """
-    Verifies a signature.
-    If private_key is available locally, directly compares HMAC digest in constant time.
-    Otherwise, compares against signature using public_key mapping.
+    Verifies an Ed25519 digital signature.
+    Fails closed on any signature mismatch, malformed hex, or length error.
     """
-    if private_key is not None:
-        expected = hmac.new(private_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected, signature)
-    # Verification using public_key deterministic relation
-    expected = hmac.new(public_key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature) or len(signature) == 64
+    try:
+        sig_bytes = bytes.fromhex(signature)
+        if len(sig_bytes) != 64:
+            return False
+        pub = _get_ed25519_pub(public_key)
+        pub.verify(sig_bytes, message.encode("utf-8"))
+        return True
+    except (InvalidSignature, ValueError, TypeError, Exception):
+        return False
+
 
 
 def compute_canonical_poe_hash(cert_dict: Dict[str, Any]) -> str:
@@ -136,6 +159,9 @@ def compute_canonical_poe_hash(cert_dict: Dict[str, Any]) -> str:
         "pre_state_hash": cert_dict.get("pre_state_hash", ""),
         "post_state_hash": cert_dict.get("post_state_hash", ""),
         "signers": sorted(cert_dict.get("signers", [])),
+        "epoch": cert_dict.get("epoch", 1),
+        "committee_root": cert_dict.get("committee_root", ""),
+        "quorum_required": cert_dict.get("quorum_required", 0),
     }
     raw_digest = hashlib.sha256(canonical_json_bytes(clean_dict)).hexdigest()
     return f"sw:oracle:poe:v1:{raw_digest}"
@@ -233,6 +259,9 @@ class ProofOfExecutionCertificate:
     timestamp_ns: int
     receipt_hash: str
     duration_us: float = 0.0
+    epoch: int = 1
+    committee_root: str = ""
+    quorum_required: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -240,13 +269,16 @@ class ProofOfExecutionCertificate:
 
 @dataclass
 class ValidatorNode:
-    """Represents an authorized consensus participant node across clusters."""
+    """
+    Represents an authorized consensus participant node across clusters.
+    Contains strictly public validator identity. Private signing keys reside strictly
+    on the validator nodes (NodeSigner) and are never held by the consensus oracle.
+    """
     node_id: str
     cluster_id: str
     public_key_hex: str
     role: NodeRole = NodeRole.REPLICA
     status: NodeStatus = NodeStatus.ACTIVE
-    secret_key: Optional[str] = None
     fault_score: int = 0
     registered_at_ns: int = field(default_factory=time.time_ns)
 
@@ -254,8 +286,36 @@ class ValidatorNode:
         d = asdict(self)
         d["role"] = self.role.value
         d["status"] = self.status.value
-        d.pop("secret_key", None)
         return d
+
+
+class NodeSigner:
+    """
+    Client-side / node-side cryptographic signer holding private key material.
+    Enforces the architectural boundary: private keys reside strictly on validator nodes,
+    never in the Byzantine Consensus Oracle.
+    """
+    def __init__(
+        self,
+        node_id: str,
+        cluster_id: str,
+        private_key_hex: str,
+        public_key_hex: Optional[str] = None,
+    ) -> None:
+        self.node_id = node_id
+        self.cluster_id = cluster_id
+        self.private_key_hex = private_key_hex
+        if not public_key_hex:
+            priv = _get_ed25519_priv(private_key_hex)
+            public_key_hex = priv.public_key().public_bytes_raw().hex()
+        self.public_key_hex = public_key_hex
+
+    def sign_phase(self, msg: BftMessage) -> BftMessage:
+        """Signs a PBFT message envelope with the node's private key."""
+        msg.node_id = self.node_id
+        msg.cluster_id = self.cluster_id
+        msg.signature = sign_bft_payload(self.private_key_hex, msg.signing_content())
+        return msg
 
 
 # ==============================================================================
@@ -280,8 +340,10 @@ class ByzantineConsensusOracle:
         self._circuit_tripped = False
         self._view = 0
         self._sequence_number = 0
+        self._epoch = 1
+        self._committee_size = 0
 
-        # Validator registry: node_id -> ValidatorNode
+        # Validator registry: node_id -> ValidatorNode (contains public keys only)
         self._nodes: Dict[str, ValidatorNode] = {}
 
         # Proposals: proposal_id -> ProposalPayload
@@ -319,7 +381,18 @@ class ByzantineConsensusOracle:
 
     def is_circuit_tripped(self) -> bool:
         with self._lock:
+            if self.committee_size >= 4 and self.active_nodes_count < self.quorum_size_q:
+                self._circuit_tripped = True
             return self._circuit_tripped
+
+    def set_node_status(self, node_id: str, status: NodeStatus) -> None:
+        """Sets operational status for a node and trips circuit if active nodes fall below quorum Q."""
+        with self._lock:
+            node = self._nodes.get(node_id)
+            if node:
+                node.status = status
+            if self.committee_size >= 4 and self.active_nodes_count < self.quorum_size_q:
+                self._circuit_tripped = True
 
     # --------------------------------------------------------------------------
     # Cluster Node Management & PBFT Math
@@ -333,7 +406,7 @@ class ByzantineConsensusOracle:
         secret_key: Optional[str] = None,
         role: NodeRole = NodeRole.REPLICA,
     ) -> ValidatorNode:
-        """Registers a validator node in the consensus committee."""
+        """Registers a validator node in the consensus committee (public key only)."""
         with self._lock:
             node = ValidatorNode(
                 node_id=node_id,
@@ -341,7 +414,6 @@ class ByzantineConsensusOracle:
                 public_key_hex=public_key_hex,
                 role=role,
                 status=NodeStatus.ACTIVE,
-                secret_key=secret_key,
             )
             self._nodes[node_id] = node
             return node
@@ -367,22 +439,54 @@ class ByzantineConsensusOracle:
             return sum(1 for n in self._nodes.values() if n.status == NodeStatus.ACTIVE)
 
     @property
-    def fault_tolerance_f(self) -> int:
-        """Maximum tolerable Byzantine nodes: f = floor((N - 1) / 3)."""
+    def committee_size(self) -> int:
+        """The total committee size fixed for the membership period / epoch."""
         with self._lock:
-            active_count = self.active_nodes_count
-            if active_count < 1:
+            if self._committee_size > 0:
+                return self._committee_size
+            return len(self._nodes)
+
+    def set_committee_size(self, size: int) -> None:
+        """Explicitly sets or reconfigures committee membership size for the epoch."""
+        with self._lock:
+            self._committee_size = size
+
+    def reconfigure_committee(self, new_committee_size: int, reason: str = "") -> int:
+        """Committed reconfiguration event: updates committee size and advances epoch."""
+        with self._lock:
+            self._epoch += 1
+            self._committee_size = new_committee_size
+            return self._epoch
+
+    def compute_committee_root(self) -> str:
+        """Computes deterministic SHA-256 root of sorted active committee public keys."""
+        with self._lock:
+            active_pks = sorted([n.public_key_hex for n in self._nodes.values() if n.status == NodeStatus.ACTIVE])
+            return hashlib.sha256(canonical_json_bytes(active_pks)).hexdigest()
+
+    @property
+    def epoch(self) -> int:
+        with self._lock:
+            return self._epoch
+
+    @property
+    def fault_tolerance_f(self) -> int:
+        """Maximum tolerable Byzantine nodes: f = floor((N_committee - 1) / 3)."""
+        with self._lock:
+            n = self.committee_size
+            if n < 1:
                 return 0
-            return max(0, (active_count - 1) // 3)
+            return max(0, (n - 1) // 3)
 
     @property
     def quorum_size_q(self) -> int:
-        """PBFT quorum size Q = 2f + 1 (or 1 if total nodes <= 1)."""
+        """PBFT quorum size Q = ceil((N_committee + f + 1) / 2)."""
         with self._lock:
-            f = self.fault_tolerance_f
-            if self.active_nodes_count <= 1:
+            n = self.committee_size
+            if n <= 1:
                 return 1
-            return 2 * f + 1
+            f = self.fault_tolerance_f
+            return -(-(n + f + 1) // 2)
 
     def get_primary_node(self) -> Optional[ValidatorNode]:
         """Deterministic primary node for current view: active_nodes[view % N]."""
@@ -407,8 +511,12 @@ class ByzantineConsensusOracle:
 
             # Check if total slashed/faulty nodes exceeds tolerance threshold f
             slashed_count = sum(1 for n in self._nodes.values() if n.status == NodeStatus.SLASHED)
-            if slashed_count > self.fault_tolerance_f and self.total_nodes_count >= 4:
+            if slashed_count > self.fault_tolerance_f and self.committee_size >= 4:
                 # Byzantine safety threshold breached: trip circuit fail-closed
+                self.trip_circuit()
+
+            # If remaining active nodes fall below required quorum Q, liveness/safety is lost: trip circuit
+            if self.active_nodes_count < self.quorum_size_q and self.committee_size >= 4:
                 self.trip_circuit()
 
     def _check_and_record_signing(self, node_id: str, view: int, seq: int, digest: str, cluster_id: str) -> None:
@@ -434,31 +542,25 @@ class ByzantineConsensusOracle:
         self._signed_digests[key] = digest
 
     # --------------------------------------------------------------------------
-    # PBFT Consensus Protocol Execution
+    # PBFT Consensus Protocol Execution (Decoupled Node Signing & Oracle Verification)
     # --------------------------------------------------------------------------
 
-    def propose(self, proposal: ProposalPayload) -> BftMessage:
-        """
-        Phase 1: PRE_PREPARE.
-        The designated primary node broadcasts the proposal with monotonic sequence number.
-        """
+    def create_pre_prepare(self, proposal: ProposalPayload, primary_node_id: Optional[str] = None) -> BftMessage:
+        """Constructs an unsigned PRE_PREPARE envelope for the primary node to sign."""
         with self._lock:
             if self._circuit_tripped:
                 raise OracleCircuitTrippedError("Cannot propose action: SwarmWatch safety circuit is tripped.")
-
-            primary = self.get_primary_node()
-            if primary is None:
-                raise ByzantineQuorumExceededError("Cannot propose: No active validator nodes in cluster.")
+            primary = self._nodes.get(primary_node_id) if primary_node_id else self.get_primary_node()
+            if primary is None or primary.status != NodeStatus.ACTIVE:
+                raise ByzantineQuorumExceededError("Cannot propose: Primary validator node unavailable or slashed.")
 
             self._sequence_number += 1
             seq = self._sequence_number
             view = self._view
             digest = proposal.compute_digest()
-
             self._proposals[proposal.proposal_id] = proposal
-            self._check_and_record_signing(primary.node_id, view, seq, digest, primary.cluster_id)
 
-            msg = BftMessage(
+            return BftMessage(
                 msg_id=f"msg-pre-prepare-{secrets.token_hex(6)}",
                 phase=BftPhase.PRE_PREPARE,
                 view=view,
@@ -469,124 +571,209 @@ class ByzantineConsensusOracle:
                 cluster_id=primary.cluster_id,
             )
 
-            # Primary signs message
-            priv = primary.secret_key or primary.public_key_hex
-            msg.signature = sign_bft_payload(priv, msg.signing_content())
+    def accept_pre_prepare(self, msg: BftMessage) -> bool:
+        """
+        Oracle verifies primary's digital signature and admits the pre-prepare proposal.
+        Private key material is never held in the oracle.
+        """
+        with self._lock:
+            if self._circuit_tripped:
+                raise OracleCircuitTrippedError("Cannot accept pre-prepare: SwarmWatch safety circuit is tripped.")
+            primary = self._nodes.get(msg.node_id)
+            if not primary or primary.status != NodeStatus.ACTIVE:
+                raise InvalidOracleSignatureError(f"Primary node '{msg.node_id}' is invalid or slashed.")
 
-            self._phase_states[(view, seq)] = BftPhase.PRE_PREPARE
+            if not verify_bft_signature(primary.public_key_hex, msg.signing_content(), msg.signature):
+                raise InvalidOracleSignatureError("Pre-prepare signature verification failed.")
 
-            # Initialize prepare votes with primary's signature
-            vote_key = (view, seq, digest)
+            self._check_and_record_signing(msg.node_id, msg.view, msg.sequence_number, msg.digest, primary.cluster_id)
+            self._phase_states[(msg.view, msg.sequence_number)] = BftPhase.PRE_PREPARE
+
+            vote_key = (msg.view, msg.sequence_number, msg.digest)
             if vote_key not in self._prepare_votes:
                 self._prepare_votes[vote_key] = {}
             self._prepare_votes[vote_key][primary.node_id] = msg.signature
+            return True
 
-            return msg
+    def propose(
+        self,
+        proposal: ProposalPayload,
+        private_key: Optional[str] = None,
+        signature: Optional[str] = None,
+        signer: Optional[NodeSigner] = None,
+    ) -> BftMessage:
+        """
+        Phase 1: PRE_PREPARE.
+        Caller supplies digital signature, NodeSigner, or private key for primary node.
+        Oracle validates signature and never stores the private key.
+        """
+        msg = self.create_pre_prepare(proposal)
+        if signer:
+            msg = signer.sign_phase(msg)
+        elif signature:
+            msg.signature = signature
+        elif private_key:
+            msg.signature = sign_bft_payload(private_key, msg.signing_content())
+        else:
+            raise ByzantineOracleError(
+                f"Primary node '{msg.node_id}' pre-prepare must be signed externally (provide signer, signature, or private_key)."
+            )
+        self.accept_pre_prepare(msg)
+        return msg
 
-    def prepare(self, pre_prepare_msg: BftMessage, node_id: str) -> BftMessage:
-        """
-        Phase 2: PREPARE.
-        A validator node verifies the pre-prepare proposal and broadcasts a prepare vote.
-        """
+    def create_prepare(self, pre_prepare_msg: BftMessage, node_id: str) -> BftMessage:
+        """Constructs an unsigned PREPARE envelope for a replica node to sign."""
         with self._lock:
             if self._circuit_tripped:
                 raise OracleCircuitTrippedError("Cannot prepare: SwarmWatch safety circuit is tripped.")
-
             node = self._nodes.get(node_id)
             if not node or node.status != NodeStatus.ACTIVE:
                 raise ByzantineOracleError(f"Node '{node_id}' is not active or authorized.")
-
-            view = pre_prepare_msg.view
-            seq = pre_prepare_msg.sequence_number
-            digest = pre_prepare_msg.digest
-
-            if view != self._view:
-                raise InvalidViewSequenceError(f"Message view {view} does not match active view {self._view}.")
-
-            # Verify primary signature
-            primary = self._nodes.get(pre_prepare_msg.node_id)
-            if not primary or primary.status != NodeStatus.ACTIVE:
-                raise InvalidOracleSignatureError(f"Primary node '{pre_prepare_msg.node_id}' is invalid or slashed.")
-
-            valid_sig = verify_bft_signature(
-                primary.public_key_hex,
-                pre_prepare_msg.signing_content(),
-                pre_prepare_msg.signature,
-                primary.secret_key,
-            )
-            if not valid_sig:
-                raise InvalidOracleSignatureError("Pre-prepare signature verification failed.")
-
-            self._check_and_record_signing(node_id, view, seq, digest, node.cluster_id)
-
-            prep_msg = BftMessage(
+            return BftMessage(
                 msg_id=f"msg-prepare-{secrets.token_hex(6)}",
                 phase=BftPhase.PREPARE,
-                view=view,
-                sequence_number=seq,
+                view=pre_prepare_msg.view,
+                sequence_number=pre_prepare_msg.sequence_number,
                 proposal_id=pre_prepare_msg.proposal_id,
-                digest=digest,
+                digest=pre_prepare_msg.digest,
                 node_id=node.node_id,
                 cluster_id=node.cluster_id,
             )
-            priv = node.secret_key or node.public_key_hex
-            prep_msg.signature = sign_bft_payload(priv, prep_msg.signing_content())
 
-            vote_key = (view, seq, digest)
-            if vote_key not in self._prepare_votes:
-                self._prepare_votes[vote_key] = {}
-            self._prepare_votes[vote_key][node_id] = prep_msg.signature
-
-            if len(self._prepare_votes[vote_key]) >= self.quorum_size_q:
-                self._phase_states[(view, seq)] = BftPhase.PREPARE
-
-            return prep_msg
-
-    def commit(self, prepare_msg: BftMessage, node_id: str) -> BftMessage:
+    def accept_prepare(self, prep_msg: BftMessage) -> bool:
         """
-        Phase 3: COMMIT.
-        Upon observing a valid Prepare Certificate (>= 2f+1 prepares), nodes broadcast commit votes.
+        Oracle verifies replica's digital signature and records prepare vote.
+        Advances state to PREPARE when quorum Q is reached.
         """
         with self._lock:
             if self._circuit_tripped:
-                raise OracleCircuitTrippedError("Cannot commit: SwarmWatch safety circuit is tripped.")
+                raise OracleCircuitTrippedError("Cannot accept prepare: SwarmWatch safety circuit is tripped.")
 
+            node = self._nodes.get(prep_msg.node_id)
+            if not node or node.status != NodeStatus.ACTIVE:
+                raise ByzantineOracleError(f"Node '{prep_msg.node_id}' is not active or authorized.")
+
+            if prep_msg.view != self._view:
+                raise InvalidViewSequenceError(f"Message view {prep_msg.view} does not match active view {self._view}.")
+
+            if not verify_bft_signature(node.public_key_hex, prep_msg.signing_content(), prep_msg.signature):
+                raise InvalidOracleSignatureError(f"Prepare signature verification failed for node '{prep_msg.node_id}'.")
+
+            self._check_and_record_signing(prep_msg.node_id, prep_msg.view, prep_msg.sequence_number, prep_msg.digest, node.cluster_id)
+
+            vote_key = (prep_msg.view, prep_msg.sequence_number, prep_msg.digest)
+            if vote_key not in self._prepare_votes:
+                self._prepare_votes[vote_key] = {}
+            self._prepare_votes[vote_key][prep_msg.node_id] = prep_msg.signature
+
+            if len(self._prepare_votes[vote_key]) >= self.quorum_size_q:
+                self._phase_states[(prep_msg.view, prep_msg.sequence_number)] = BftPhase.PREPARE
+
+            return True
+
+    def prepare(
+        self,
+        pre_prepare_msg: BftMessage,
+        node_id: str,
+        private_key: Optional[str] = None,
+        signature: Optional[str] = None,
+        signer: Optional[NodeSigner] = None,
+    ) -> BftMessage:
+        """Phase 2: PREPARE."""
+        prep_msg = self.create_prepare(pre_prepare_msg, node_id)
+        if signer:
+            prep_msg = signer.sign_phase(prep_msg)
+        elif signature:
+            prep_msg.signature = signature
+        elif private_key:
+            prep_msg.signature = sign_bft_payload(private_key, prep_msg.signing_content())
+        else:
+            raise ByzantineOracleError(
+                f"Node '{node_id}' prepare message must be signed externally (provide signer, signature, or private_key)."
+            )
+        self.accept_prepare(prep_msg)
+        return prep_msg
+
+    def create_commit(self, prepare_msg: BftMessage, node_id: str) -> BftMessage:
+        """Constructs an unsigned COMMIT envelope once prepare quorum has been achieved."""
+        with self._lock:
+            if self._circuit_tripped:
+                raise OracleCircuitTrippedError("Cannot commit: SwarmWatch safety circuit is tripped.")
             node = self._nodes.get(node_id)
             if not node or node.status != NodeStatus.ACTIVE:
                 raise ByzantineOracleError(f"Node '{node_id}' is not active or authorized.")
 
-            view = prepare_msg.view
-            seq = prepare_msg.sequence_number
-            digest = prepare_msg.digest
-
-            vote_key = (view, seq, digest)
+            vote_key = (prepare_msg.view, prepare_msg.sequence_number, prepare_msg.digest)
             prepares = self._prepare_votes.get(vote_key, {})
             if len(prepares) < self.quorum_size_q:
                 raise ByzantineQuorumExceededError(
                     f"Cannot enter COMMIT phase: Insufficient prepare votes ({len(prepares)} < quorum {self.quorum_size_q})."
                 )
 
-            commit_msg = BftMessage(
+            return BftMessage(
                 msg_id=f"msg-commit-{secrets.token_hex(6)}",
                 phase=BftPhase.COMMIT,
-                view=view,
-                sequence_number=seq,
+                view=prepare_msg.view,
+                sequence_number=prepare_msg.sequence_number,
                 proposal_id=prepare_msg.proposal_id,
-                digest=digest,
+                digest=prepare_msg.digest,
                 node_id=node.node_id,
                 cluster_id=node.cluster_id,
             )
-            priv = node.secret_key or node.public_key_hex
-            commit_msg.signature = sign_bft_payload(priv, commit_msg.signing_content())
 
+    def accept_commit(self, commit_msg: BftMessage) -> bool:
+        """
+        Oracle verifies validator's digital commit signature and records commit vote.
+        Advances state to COMMIT when quorum Q is reached.
+        """
+        with self._lock:
+            if self._circuit_tripped:
+                raise OracleCircuitTrippedError("Cannot accept commit: SwarmWatch safety circuit is tripped.")
+
+            node = self._nodes.get(commit_msg.node_id)
+            if not node or node.status != NodeStatus.ACTIVE:
+                raise ByzantineOracleError(f"Node '{commit_msg.node_id}' is not active or authorized.")
+
+            if commit_msg.view != self._view:
+                raise InvalidViewSequenceError(f"Message view {commit_msg.view} does not match active view {self._view}.")
+
+            if not verify_bft_signature(node.public_key_hex, commit_msg.signing_content(), commit_msg.signature):
+                raise InvalidOracleSignatureError(f"Commit signature verification failed for node '{commit_msg.node_id}'.")
+
+            self._check_and_record_signing(commit_msg.node_id, commit_msg.view, commit_msg.sequence_number, commit_msg.digest, node.cluster_id)
+
+            vote_key = (commit_msg.view, commit_msg.sequence_number, commit_msg.digest)
             if vote_key not in self._commit_votes:
                 self._commit_votes[vote_key] = {}
-            self._commit_votes[vote_key][node_id] = commit_msg.signature
+            self._commit_votes[vote_key][commit_msg.node_id] = commit_msg.signature
 
             if len(self._commit_votes[vote_key]) >= self.quorum_size_q:
-                self._phase_states[(view, seq)] = BftPhase.COMMIT
+                self._phase_states[(commit_msg.view, commit_msg.sequence_number)] = BftPhase.COMMIT
 
-            return commit_msg
+            return True
+
+    def commit(
+        self,
+        prepare_msg: BftMessage,
+        node_id: str,
+        private_key: Optional[str] = None,
+        signature: Optional[str] = None,
+        signer: Optional[NodeSigner] = None,
+    ) -> BftMessage:
+        """Phase 3: COMMIT."""
+        commit_msg = self.create_commit(prepare_msg, node_id)
+        if signer:
+            commit_msg = signer.sign_phase(commit_msg)
+        elif signature:
+            commit_msg.signature = signature
+        elif private_key:
+            commit_msg.signature = sign_bft_payload(private_key, commit_msg.signing_content())
+        else:
+            raise ByzantineOracleError(
+                f"Node '{node_id}' commit message must be signed externally (provide signer, signature, or private_key)."
+            )
+        self.accept_commit(commit_msg)
+        return commit_msg
 
     def execute_and_certify(
         self,
@@ -596,7 +783,7 @@ class ByzantineConsensusOracle:
         """
         Phase 4: DECIDED / EXECUTED.
         Verifies commit certificate (>= 2f+1 commit signatures) and mints a tamper-evident
-        cryptographic Proof-of-Execution certificate with domain tag 'sw:oracle:poe:v1:...'.
+        cryptographic Proof-of-Execution certificate bound to epoch and committee root.
         """
         t0 = time.perf_counter_ns()
         with self._lock:
@@ -622,6 +809,9 @@ class ByzantineConsensusOracle:
 
             cert_id = f"poe-cert-{secrets.token_hex(8)}"
             signers = sorted(list(commit_sigs.keys()))
+            epoch = self._epoch
+            committee_root = self.compute_committee_root()
+            quorum_required = self.quorum_size_q
 
             cert_dict = {
                 "certificate_id": cert_id,
@@ -635,6 +825,9 @@ class ByzantineConsensusOracle:
                 "signers": signers,
                 "signatures": commit_sigs,
                 "timestamp_ns": time.time_ns(),
+                "epoch": epoch,
+                "committee_root": committee_root,
+                "quorum_required": quorum_required,
             }
             receipt_hash = compute_canonical_poe_hash(cert_dict)
             cert_dict["receipt_hash"] = receipt_hash
@@ -654,6 +847,9 @@ class ByzantineConsensusOracle:
                 timestamp_ns=cert_dict["timestamp_ns"],
                 receipt_hash=receipt_hash,
                 duration_us=duration_us,
+                epoch=epoch,
+                committee_root=committee_root,
+                quorum_required=quorum_required,
             )
 
             self._phase_states[(view, seq)] = BftPhase.DECIDED
@@ -668,35 +864,46 @@ class ByzantineConsensusOracle:
         """
         Validates an existing Proof-of-Execution certificate.
         Checks:
-        1. Tamper-evident receipt hash matches canonical JSON digest.
-        2. Quorum count |signers| >= 2f + 1.
+        1. Tamper-evident receipt hash matches canonical JSON digest including epoch metadata.
+        2. Quorum count |signers| >= quorum_required.
         3. All signers are recognized, active validator nodes.
-        4. Signatures match message payload.
+        4. Signatures match message payload against registered public keys.
+        5. Committee root and epoch match oracle state.
         """
         with self._lock:
             # Verify receipt hash integrity
-            expected_hash = compute_canonical_poe_hash(cert.to_dict())
+            cert_dict = cert.to_dict() if hasattr(cert, "to_dict") else dict(cert)
+            expected_hash = compute_canonical_poe_hash(cert_dict)
             if not hmac.compare_digest(expected_hash, cert.receipt_hash):
                 return False
 
+            # Verify epoch and committee root match
+            if getattr(cert, "epoch", 1) != self._epoch:
+                return False
+            expected_committee_root = self.compute_committee_root()
+            cert_committee_root = getattr(cert, "committee_root", "")
+            if cert_committee_root and cert_committee_root != expected_committee_root:
+                return False
+
             # Verify quorum threshold
-            if len(cert.signers) < self.quorum_size_q:
+            req_quorum = getattr(cert, "quorum_required", self.quorum_size_q)
+            if len(cert.signers) < req_quorum:
                 return False
 
             # Verify distinct signers
             if len(set(cert.signers)) != len(cert.signers):
                 return False
 
-            # Verify each signer is active and signature is valid
+            # Verify each signer is active and signature is valid against public key
             for s_id in cert.signers:
                 node = self._nodes.get(s_id)
                 if not node or node.status == NodeStatus.SLASHED:
                     return False
                 sig = cert.signatures.get(s_id)
-                if not sig:
+                if not bool(sig):
                     return False
                 expected_content = f"{BftPhase.COMMIT.value}:{cert.view}:{cert.sequence_number}:{cert.proposal_id}:{cert.digest}:{s_id}"
-                valid = verify_bft_signature(node.public_key_hex, expected_content, sig, node.secret_key)
+                valid = verify_bft_signature(node.public_key_hex, expected_content, sig)
                 if not valid:
                     return False
 

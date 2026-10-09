@@ -310,7 +310,7 @@ export class RemediationGovernor {
     }
 
     // Automatic approval for Tier 0
-    let status = ProposalStatus.PROPOSED;
+    let status: ProposalStatusEnum = ProposalStatus.PROPOSED;
     let approver_role: string | null = null;
     if (tier === ApprovalTier.TIER_0_AUTOMATIC) {
       status = ProposalStatus.AUTHORIZED;

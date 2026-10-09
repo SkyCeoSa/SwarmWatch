@@ -17,6 +17,7 @@ import {
   MeshRoutingReceipt,
   generatePeerKeypair,
   signPeerData,
+  signPeerRegistration,
   MeshPeerAuthenticationError,
   MeshRoutingLoopError,
   MeshHopLimitExceededError,
@@ -41,6 +42,7 @@ test("Seam 72 Live Mesh Federation Full Lifecycle Simulation", () => {
   for (const n of nodes) {
     const { keyManager: km, publicKeyHex: pub } = generatePeerKeypair();
     keypairs.set(n.id, { km, pub });
+    const sig = signPeerRegistration(km, n.id, n.cluster, n.tenant, n.url, pub, n.role);
     const peer = router.registerPeer({
       node_id: n.id,
       cluster_id: n.cluster,
@@ -48,6 +50,7 @@ test("Seam 72 Live Mesh Federation Full Lifecycle Simulation", () => {
       endpoint_url: n.url,
       public_key_hex: pub,
       role: n.role,
+      signature: sig,
     });
     assert.equal(peer.status, MeshNodeStatus.ONLINE);
   }

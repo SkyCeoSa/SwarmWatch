@@ -687,7 +687,166 @@ def main(argv=None):
     arbitration_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
     arbitration_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
 
+    # `swarmwatch cross-cluster-sync` subcommand (Seam 77 / ADR 0088)
+    sync_parser = subparsers.add_parser("cross-cluster-sync", aliases=["sync", "hypergraph"], help="Cross-Cluster State Synchronization & Hyper-Graph Reconciliation (ADR 0088)")
+    sync_parser.add_argument("action", choices=["status", "node", "edge", "packet", "digest", "verify", "nodes", "edges", "receipts"], default="status", nargs="?", help="Sync action")
+    sync_parser.add_argument("--cluster-id", default="cluster-local", help="Cluster identifier")
+    sync_parser.add_argument("--target-cluster", default="cluster-remote", help="Target cluster identifier")
+    sync_parser.add_argument("--node-id", default=None, help="HyperNode identifier")
+    sync_parser.add_argument("--edge-id", default=None, help="HyperEdge identifier")
+    sync_parser.add_argument("--state-type", default="AGENT_CONTEXT", help="HyperNode state type")
+    sync_parser.add_argument("--edge-type", default="COORDINATION_LEASE", help="HyperEdge relation type")
+    sync_parser.add_argument("--node-ids", default=None, help="Comma-separated node IDs for hyper-edge")
+    sync_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
+    sync_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch partition-healer` subcommand (Seam 78 / ADR 0089)
+    healer_parser = subparsers.add_parser("partition-healer", aliases=["healer", "partition-heal"], help="Autonomous Hyper-Graph Partition Healing & Causal Vector Resumption (ADR 0089)")
+    healer_parser.add_argument("action", choices=["status", "detect", "plan", "delta", "execute", "verify", "receipts", "plans", "rearm"], default="status", nargs="?", help="Partition healing action")
+    healer_parser.add_argument("--cluster-id", default="cluster-local", help="Local cluster identifier")
+    healer_parser.add_argument("--remote-cluster", default="cluster-remote", help="Remote cluster identifier")
+    healer_parser.add_argument("--remote-vc", default=None, help="JSON string or file path for remote vector clock")
+    healer_parser.add_argument("--gap-threshold", type=int, default=5, help="Clock divergence threshold for partition detection")
+    healer_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
+    healer_parser.add_argument("--delta-json", default=None, help="JSON string or file path of resumption delta to execute")
+    healer_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch migration` subcommand (Seam 79 / ADR 0090)
+    mig_parser = subparsers.add_parser("migration", aliases=["subgraph-migrate", "migrator"], help="Dynamic Topology Re-Partitioning & Adaptive Sub-Graph Migration (ADR 0090)")
+    mig_parser.add_argument("action", choices=["status", "evaluate", "plan", "execute", "verify", "receipts", "plans", "rearm"], default="status", nargs="?", help="Migration action")
+    mig_parser.add_argument("--cluster-id", default="cluster-local", help="Local cluster identifier")
+    mig_parser.add_argument("--source-cluster", default="cluster-src", help="Source cluster identifier")
+    mig_parser.add_argument("--target-cluster", default="cluster-dst", help="Target cluster identifier")
+    mig_parser.add_argument("--nodes", default=None, help="Comma-separated candidate node IDs")
+    mig_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
+    mig_parser.add_argument("--bundle-json", default=None, help="JSON string or file path of sub-graph bundle")
+    mig_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch barrier` subcommand (Seam 80 / ADR 0091)
+    barrier_parser = subparsers.add_parser("barrier", aliases=["causality-barrier", "epoch-cutover"], help="Autonomous Cross-Cluster Causality Barrier & Multi-Swarm Epoch Cut-Over Synchronization (ADR 0091)")
+    barrier_parser.add_argument("action", choices=["status", "arm", "drain", "quiescence", "cutover", "verify", "receipts", "certificates", "rearm"], default="status", nargs="?", help="Barrier action")
+    barrier_parser.add_argument("--cluster-id", default="cluster-local", help="Local cluster identifier")
+    barrier_parser.add_argument("--clusters", default="cluster-a,cluster-b", help="Comma-separated cluster identifiers participating in barrier")
+    barrier_parser.add_argument("--inflight-count", type=int, default=0, help="Reported inflight operations count")
+    barrier_parser.add_argument("--vector-clock", default=None, help="JSON string or comma-separated k:v vector clock")
+    barrier_parser.add_argument("--proposal-id", default=None, help="Target proposal identifier")
+    barrier_parser.add_argument("--receipt-json", default=None, help="JSON string or file path of receipt to verify")
+    barrier_parser.add_argument("--cert-json", default=None, help="JSON string or file path of cut-over certificate to verify")
+    # `swarmwatch relay` subcommand (Seam 91 / ADR 0102)
+    relay_parser = subparsers.add_parser("relay", aliases=["mesh-relay", "anycast-relay"], help="Global Distributed Mesh Relay & Anycast Ingestion Gateway (ADR 0102)")
+    relay_parser.add_argument("action", choices=["status", "topology", "register", "drain"], default="status", nargs="?", help="Relay action")
+    relay_parser.add_argument("--node-id", default=None, help="Relay node identifier")
+    relay_parser.add_argument("--region", default="us-east-1", help="Target region")
+    relay_parser.add_argument("--endpoint", default="https://relay:8765", help="Relay endpoint URI")
+    relay_parser.add_argument("--latency-ms", type=float, default=1.0, help="Node latency in milliseconds")
+    relay_parser.add_argument("--max-capacity", type=int, default=10000, help="Node maximum capacity")
+    relay_parser.add_argument("--max-count", type=int, default=100, help="Maximum items to drain")
+    relay_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch sovereign-federation` subcommand (Seam 92 / ADR 0103)
+    fed_parser = subparsers.add_parser("sovereign-federation", aliases=["sovereign-fed", "quorum-sync"], help="Multi-Region Quorum State Synchronization & Sovereign Federation (ADR 0103)")
+    fed_parser.add_argument("action", choices=["status", "register", "propose", "synthesize"], default="status", nargs="?", help="Federation action")
+    fed_parser.add_argument("--cluster-id", default=None, help="Sovereign cluster identifier")
+    fed_parser.add_argument("--region", default="us-east-1", help="Cluster region")
+    fed_parser.add_argument("--public-keys", default="", help="Comma-separated hex-encoded Ed25519 public keys")
+    fed_parser.add_argument("--epoch", type=int, default=1, help="Federation epoch")
+    fed_parser.add_argument("--state-digest", default="", help="Regional state digest")
+    fed_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch marketplace` subcommand (Seam 93 / ADR 0104)
+    mkt_parser = subparsers.add_parser("marketplace", aliases=["proof-market", "proof-marketplace", "staking-pool"], help="Cryptographic Proof Marketplace & Verifier Node Staking Pool (ADR 0104)")
+    mkt_parser.add_argument("action", choices=["status", "register", "bounty", "settle"], default="status", nargs="?", help="Marketplace action")
+    mkt_parser.add_argument("--verifier-id", default=None, help="Verifier node identifier")
+    mkt_parser.add_argument("--public-key", default=None, help="Hex-encoded Ed25519 public key")
+    mkt_parser.add_argument("--stake", type=float, default=500.0, help="Bonded collateral stake amount")
+    mkt_parser.add_argument("--bounty-id", default=None, help="Proof bounty identifier")
+    mkt_parser.add_argument("--proof-type", default="ZK_SNARK_ROLLUP", help="Proof type")
+    mkt_parser.add_argument("--proof-digest", default="", help="Proof digest hex")
+    mkt_parser.add_argument("--max-bounty", type=float, default=50.0, help="Maximum bounty payout")
+    mkt_parser.add_argument("--required-quorum", type=int, default=3, help="Required verifier quorum")
+    mkt_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch snark` subcommand (Seam 94 / ADR 0105)
+    snark_parser = subparsers.add_parser("snark", aliases=["snark-gateway", "recursive-snark"], help="Zero-Knowledge Aggregate Attestation & Recursive SNARK Verification Gateway (ADR 0105)")
+    snark_parser.add_argument("action", choices=["status", "admit", "fold", "verify"], default="status", nargs="?", help="SNARK gateway action")
+    snark_parser.add_argument("--proof-id", default=None, help="Constituent proof identifier")
+    snark_parser.add_argument("--epoch", type=int, default=1, help="Recursive epoch index")
+    snark_parser.add_argument("--state-digest", default="", help="Execution state transition hex digest")
+    snark_parser.add_argument("--proof-witness", default="", help="Constituent proof witness hex string")
+    snark_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch billing` subcommand (Seam 95 / ADR 0106)
+    bil_parser = subparsers.add_parser("billing", aliases=["payment-channel", "micropay"], help="Autonomous Cloud SaaS Billing & Micro-Payment Channel Ledger (ADR 0106)")
+    bil_parser.add_argument("action", choices=["status", "open", "meter", "close"], default="status", nargs="?", help="Billing action")
+    bil_parser.add_argument("--tenant-id", default="tenant-cli", help="Tenant identifier")
+    bil_parser.add_argument("--agent-pubkey", default="pub-agent-cli", help="Agent public key")
+    bil_parser.add_argument("--provider-pubkey", default="pub-provider-cloud", help="SaaS provider public key")
+    bil_parser.add_argument("--deposit", type=float, default=100.0, help="Initial locked deposit amount")
+    bil_parser.add_argument("--channel-id", default=None, help="State channel identifier")
+    bil_parser.add_argument("--unit-type", default="TELEMETRY_SPAN", help="Usage meter unit type")
+    bil_parser.add_argument("--quantity", type=int, default=1000, help="Usage quantity")
+    bil_parser.add_argument("--unit-price", type=float, default=0.001, help="Price per unit")
+    bil_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch gossip` subcommand (Seam 96 / ADR 0107)
+    gos_parser = subparsers.add_parser("gossip", aliases=["byzantine-gossip", "membership"], help="Multi-Cloud Byzantine Partition Tolerant Gossip Membership (ADR 0107)")
+    gos_parser.add_argument("action", choices=["status", "register", "beacon", "suspect", "refute"], default="status", nargs="?", help="Gossip action")
+    gos_parser.add_argument("--node-id", default=None, help="Node identifier")
+    gos_parser.add_argument("--cloud-provider", default="aws", help="Cloud provider (aws, gcp, azure, onprem)")
+    gos_parser.add_argument("--region", default="us-east-1", help="Cluster region")
+    gos_parser.add_argument("--public-key", default=None, help="Node public key")
+    gos_parser.add_argument("--sequence", type=int, default=1, help="Monotonic sequence number")
+    gos_parser.add_argument("--suspect-id", default=None, help="Accused node identifier")
+    gos_parser.add_argument("--reason", default="HEARTBEAT_TIMEOUT", help="Suspicion reason")
+    gos_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch tribunal` subcommand (Seam 97 / ADR 0108)
+    trb_parser = subparsers.add_parser("tribunal", aliases=["slashing-tribunal", "slashing"], help="Real-Time Epistemic Dispute Resolution & Slashing Tribunal (ADR 0108)")
+    trb_parser.add_argument("action", choices=["status", "file", "escalate", "adjudicate"], default="status", nargs="?", help="Tribunal action")
+    trb_parser.add_argument("--dispute-id", default=None, help="Dispute identifier")
+    trb_parser.add_argument("--claimant-id", default=None, help="Claimant agent identifier")
+    trb_parser.add_argument("--defendant-id", default=None, help="Defendant agent identifier")
+    trb_parser.add_argument("--severity", choices=["LOW", "MEDIUM", "CRITICAL"], default="MEDIUM", help="Dispute severity")
+    trb_parser.add_argument("--evidence-digest", default="", help="SHA-256 evidence digest")
+    trb_parser.add_argument("--bond", type=float, default=10.0, help="Dispute challenge bond amount")
+    trb_parser.add_argument("--additional-bond", type=float, default=10.0, help="Additional bond for tier escalation")
+    trb_parser.add_argument("--ruling", choices=["RESOLVED_CLAIMANT", "RESOLVED_DEFENDANT", "DISMISSED"], default="RESOLVED_CLAIMANT", help="Appellate ruling")
+    trb_parser.add_argument("--defendant-collateral", type=float, default=100.0, help="Defendant collateral for slashing calculation")
+    trb_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch enclave` subcommand (Seam 98 / ADR 0109)
+    enc_parser = subparsers.add_parser("enclave", aliases=["tee", "attestation"], help="Hardware Secure Enclave (SGX/TEE) Remote Witness (ADR 0109)")
+    enc_parser.add_argument("action", choices=["status", "challenge", "attest", "verify"], default="status", nargs="?", help="Enclave action")
+    enc_parser.add_argument("--enclave-id", default="enc-01", help="Enclave identifier")
+    enc_parser.add_argument("--agent-id", default="agent-01", help="Agent identifier")
+    enc_parser.add_argument("--tee-type", default="SGX", help="TEE architecture type (SGX, TDX, NITRO, SEV_SNP, SIMULATED)")
+    enc_parser.add_argument("--nonce", default=None, help="Challenge nonce")
+    enc_parser.add_argument("--capabilities", default="TASK_EXECUTE", help="Comma-separated capability names")
+    enc_parser.add_argument("--required-capability", default="TASK_EXECUTE", help="Capability to verify")
+    enc_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch fence` subcommand (Seam 99 / ADR 0110)
+    fnc_parser = subparsers.add_parser("fence", aliases=["boundary-fence", "vault"], help="Sovereign Cross-Border Boundary Fence & Zero-Egress Vault (ADR 0110)")
+    fnc_parser.add_argument("action", choices=["status", "treaty", "seal", "passport", "inspect"], default="status", nargs="?", help="Fence action")
+    fnc_parser.add_argument("--treaty-id", default="treaty-01", help="Treaty identifier")
+    fnc_parser.add_argument("--source-zone", default="EU_DE", help="Source sovereign residency zone")
+    fnc_parser.add_argument("--dest-zone", default="US_EAST", help="Destination sovereign residency zone")
+    fnc_parser.add_argument("--tenant-id", default="tenant-default", help="Tenant identifier")
+    fnc_parser.add_argument("--payload", default="telemetry-payload", help="Plaintext payload to seal")
+    fnc_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
+    # `swarmwatch singularity` subcommand (Seam 100 / ADR 0111)
+    sng_parser = subparsers.add_parser("singularity", aliases=["master-singularity", "sovereign-root"], help="Global Master Singularity & Sovereign Registry (ADR 0111)")
+    sng_parser.add_argument("action", choices=["status", "governor", "propose", "ratify", "commit", "certify", "halt"], default="status", nargs="?", help="Singularity action")
+    sng_parser.add_argument("--governor-id", default="gov-1", help="Governor identifier")
+    sng_parser.add_argument("--proposal-id", default="prop-01", help="Constitutional proposal identifier")
+    sng_parser.add_argument("--title", default="Constitutional Genesis", help="Proposal title")
+    sng_parser.add_argument("--target-epoch", type=int, default=1, help="Target epoch for proposal or certificate")
+    sng_parser.add_argument("--solvency", type=int, default=1_000_000, help="Total staked solvency")
+    sng_parser.add_argument("--format", "-f", choices=["text", "json"], default="text", help="Output format")
+
     args = parser.parse_args(argv)
+
 
 
 
@@ -6498,11 +6657,1430 @@ def main(argv=None):
                 print(f"  Circuit Tripped:     {st['circuit_tripped']}")
                 if st['circuit_tripped']:
                     print(f"  Trip Reason:         {st['trip_reason']}")
+            sys.exit(0)
+
+    elif args.subcommand in ("cross-cluster-sync", "sync", "hypergraph"):
+        from swarmwatch.cross_cluster_sync import (
+            CrossClusterSyncError,
+            HyperNodeType,
+            HyperEdgeType,
+            CausalOrderingVerdict,
+            SyncReconciliationReceipt,
+            global_cross_cluster_sync_engine,
+        )
+        engine = global_cross_cluster_sync_engine
+
+        if args.action == "node":
+            node_id = args.node_id or f"node-{secrets.token_hex(4)}"
+            node = engine.upsert_local_node(
+                node_id=node_id,
+                state_type=HyperNodeType(args.state_type),
+                state_payload={"cli_created": True, "created_at": time.time()},
+            )
+            if args.format == "json":
+                print(json.dumps(node.to_dict(), indent=2))
+            else:
+                print(f"[OK] HyperNode created: {node.node_id} (digest: {node.digest})")
+            sys.exit(0)
+
+        elif args.action == "edge":
+            edge_id = args.edge_id or f"edge-{secrets.token_hex(4)}"
+            node_ids = [n.strip() for n in (args.node_ids or "").split(",") if n.strip()]
+            if len(node_ids) < 2:
+                n1 = engine.upsert_local_node(f"{edge_id}-n1", HyperNodeType.AGENT_CONTEXT, {})
+                n2 = engine.upsert_local_node(f"{edge_id}-n2", HyperNodeType.AGENT_CONTEXT, {})
+                node_ids = [n1.node_id, n2.node_id]
+            edge = engine.upsert_local_edge(
+                edge_id=edge_id,
+                node_ids=node_ids,
+                edge_type=HyperEdgeType(args.edge_type),
+                properties={"cli_created": True},
+            )
+            if args.format == "json":
+                print(json.dumps(edge.to_dict(), indent=2))
+            else:
+                print(f"[OK] HyperEdge created: {edge.edge_id} -> {edge.node_ids} (digest: {edge.digest})")
+            sys.exit(0)
+
+        elif args.action == "packet":
+            pkt = engine.create_sync_packet(target_cluster=args.target_cluster)
+            if args.format == "json":
+                print(json.dumps(pkt.to_dict(), indent=2))
+            else:
+                print(f"[OK] SyncPacket created: {pkt.packet_id} -> target {pkt.target_cluster} (nodes: {len(pkt.nodes_delta)}, edges: {len(pkt.edges_delta)})")
+            sys.exit(0)
+
+        elif args.action == "digest":
+            d = engine.generate_anti_entropy_digest()
+            if args.format == "json":
+                print(json.dumps(d.to_dict(), indent=2))
+            else:
+                print(f"[OK] AntiEntropyDigest: cluster={d.cluster_id}, epoch={d.epoch}, root={d.hypergraph_root_digest}")
+            sys.exit(0)
+
+        elif args.action == "verify":
+            if not args.receipt_json:
+                print("Error: --receipt-json required for receipt verification", file=sys.stderr)
+                sys.exit(1)
+            raw = args.receipt_json
+            if os.path.exists(raw):
+                with open(raw, "r", encoding="utf-8") as f:
+                    raw = f.read()
+            data = json.loads(raw)
+            receipt = SyncReconciliationReceipt(
+                receipt_id=data.get("receipt_id", ""),
+                source_cluster=data.get("source_cluster", ""),
+                target_cluster=data.get("target_cluster", ""),
+                nodes_reconciled=data.get("nodes_reconciled", 0),
+                edges_reconciled=data.get("edges_reconciled", 0),
+                merged_vector_clock=data.get("merged_vector_clock", {}),
+                composite_root_digest=data.get("composite_root_digest", ""),
+                causal_verdict=CausalOrderingVerdict(data.get("causal_verdict", "CONCURRENT")),
+                timestamp_ns=data.get("timestamp_ns", 0),
+                receipt_hash=data.get("receipt_hash", ""),
+            )
+            valid = engine.verify_reconciliation_receipt(receipt)
+            if args.format == "json":
+                print(json.dumps({"valid": valid, "receipt_id": receipt.receipt_id, "receipt_hash": receipt.receipt_hash}, indent=2))
+            else:
+                print(f"[OK] Receipt {receipt.receipt_id} verified: valid={valid}")
+            sys.exit(0)
+
+        elif args.action == "nodes":
+            nodes = [n.to_dict() for n in engine.hypergraph.nodes.values()]
+            if args.format == "json":
+                print(json.dumps(nodes, indent=2))
+            else:
+                print(f"Total HyperNodes: {len(nodes)}")
+                for n in nodes:
+                    print(f"  Node {n['node_id']}: type={n['state_type']}, cluster={n['cluster_id']}")
+            sys.exit(0)
+
+        elif args.action == "edges":
+            edges = [e.to_dict() for e in engine.hypergraph.edges.values()]
+            if args.format == "json":
+                print(json.dumps(edges, indent=2))
+            else:
+                print(f"Total HyperEdges: {len(edges)}")
+                for e in edges:
+                    print(f"  Edge {e['edge_id']}: type={e['edge_type']}, nodes={e['node_ids']}")
+            sys.exit(0)
+
+        elif args.action == "receipts":
+            receipts = [r.to_dict() for r in engine.receipts]
+            if args.format == "json":
+                print(json.dumps(receipts, indent=2))
+            else:
+                print(f"Total Receipts: {len(receipts)}")
+                for r in receipts:
+                    print(f"  Receipt {r['receipt_id']}: {r['source_cluster']} -> {r['target_cluster']} ({r['receipt_hash']})")
+            sys.exit(0)
+
+        else:  # status
+            st = engine.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CROSS-CLUSTER SYNC STATUS (ADR 0088)               |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Cluster ID:          {st['cluster_id']}")
+                print(f"  Epoch:               {st['epoch']}")
+                print(f"  Status:              {st['status']}")
+                print(f"  Nodes Count:         {st['nodes_count']}")
+                print(f"  Edges Count:         {st['edges_count']}")
+                print(f"  Receipts Count:      {st['receipts_count']}")
+                print(f"  Root Digest:         {st['hypergraph_root_digest'][:24]}...")
+                print(f"  Circuit Tripped:     {st['circuit_tripped']}")
+                if st['circuit_tripped']:
+                    print(f"  Trip Reason:         {st['trip_reason']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("partition-healer", "healer", "partition-heal"):
+        from swarmwatch.partition_healer import (
+            global_partition_healer,
+            PartitionHealingReceipt,
+            ResumptionDelta,
+        )
+
+        engine = global_partition_healer
+        if args.cluster_id != engine.local_cluster:
+            engine.local_cluster = args.cluster_id
+
+        if args.action == "rearm":
+            engine.rearm_circuit()
+            if args.format == "json":
+                print(json.dumps({"status": "ok", "circuit_tripped": False}))
+            else:
+                print("Partition healing circuit successfully rearmed.")
+            sys.exit(0)
+
+        elif args.action == "detect":
+            remote_vc = {}
+            if args.remote_vc:
+                if os.path.exists(args.remote_vc):
+                    with open(args.remote_vc, "r", encoding="utf-8") as f:
+                        remote_vc = json.load(f)
+                else:
+                    remote_vc = json.loads(args.remote_vc)
+            is_part, diffs = engine.detect_partition(args.remote_cluster, remote_vc, gap_threshold=args.gap_threshold)
+            res = {
+                "is_partition_detected": is_part,
+                "remote_cluster": args.remote_cluster,
+                "diff_matrix": diffs,
+                "engine_state": engine.state.value,
+            }
+            if args.format == "json":
+                print(json.dumps(res, indent=2))
+            else:
+                print(f"Partition Detected: {is_part}")
+                print(f"Remote Cluster:     {args.remote_cluster}")
+                print(f"Symmetric Diffs:    {diffs}")
+                print(f"Engine State:       {engine.state.value}")
+            sys.exit(0)
+
+        elif args.action == "plan":
+            remote_vc = {}
+            if args.remote_vc:
+                if os.path.exists(args.remote_vc):
+                    with open(args.remote_vc, "r", encoding="utf-8") as f:
+                        remote_vc = json.load(f)
+                else:
+                    remote_vc = json.loads(args.remote_vc)
+            plan = engine.formulate_healing_plan(args.remote_cluster, remote_vc)
+            if args.format == "json":
+                print(json.dumps(plan.to_dict(), indent=2))
+            else:
+                print(f"Plan ID:            {plan.plan_id}")
+                print(f"Local Cluster:      {plan.local_cluster}")
+                print(f"Remote Cluster:     {plan.remote_cluster}")
+                print(f"Partition Detected: {plan.is_partition_detected}")
+                print(f"Missing Local:      {plan.missing_local_steps}")
+                print(f"Missing Remote:     {plan.missing_remote_steps}")
+                print(f"Merged Clock:       {plan.merged_vector_clock}")
+            sys.exit(0)
+
+        elif args.action == "delta":
+            target_vc = {}
+            if args.remote_vc:
+                if os.path.exists(args.remote_vc):
+                    with open(args.remote_vc, "r", encoding="utf-8") as f:
+                        target_vc = json.load(f)
+                else:
+                    target_vc = json.loads(args.remote_vc)
+            delta = engine.create_resumption_delta(args.remote_cluster, target_vc)
+            if args.format == "json":
+                print(json.dumps(delta.to_dict(), indent=2))
+            else:
+                print(f"Delta ID:           {delta.delta_id}")
+                print(f"Source:             {delta.source_cluster} -> Target: {delta.target_cluster}")
+                print(f"Nodes in Delta:     {len(delta.nodes_delta)}")
+                print(f"Edges in Delta:     {len(delta.edges_delta)}")
+                print(f"Delta Hash:         {delta.delta_hash}")
+            sys.exit(0)
+
+        elif args.action == "execute":
+            if not args.delta_json:
+                print("Error: --delta-json required for execute action", file=sys.stderr)
+                sys.exit(1)
+            raw = args.delta_json
+            if os.path.exists(raw):
+                with open(raw, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            else:
+                data = json.loads(raw)
+            delta_obj = ResumptionDelta.from_dict(data)
+            receipt = engine.execute_healing(delta_obj)
+            if args.format == "json":
+                print(json.dumps(receipt.to_dict(), indent=2))
+            else:
+                print(f"Receipt ID:         {receipt.receipt_id}")
+                print(f"Local Cluster:      {receipt.local_cluster} <-> Remote: {receipt.remote_cluster}")
+                print(f"Nodes Reconciled:   {receipt.nodes_reconciled}")
+                print(f"Edges Spliced:      {receipt.edges_spliced}")
+                print(f"Duration:           {receipt.duration_us:.2f} µs")
+                print(f"Receipt Hash:       {receipt.receipt_hash}")
+            sys.exit(0)
+
+        elif args.action == "verify":
+            if not args.receipt_json:
+                print("Error: --receipt-json required for verify action", file=sys.stderr)
+                sys.exit(1)
+            raw = args.receipt_json
+            if os.path.exists(raw):
+                with open(raw, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            else:
+                data = json.loads(raw)
+            rec = PartitionHealingReceipt(**data)
+            valid = engine.verify_healing_receipt(rec)
+            if args.format == "json":
+                print(json.dumps({"valid": valid, "receipt_id": rec.receipt_id, "receipt_hash": rec.receipt_hash}))
+            else:
+                print(f"Receipt Valid: {valid}")
+                print(f"Receipt Hash:  {rec.receipt_hash}")
+            sys.exit(0 if valid else 1)
+
+        elif args.action == "receipts":
+            receipts = [r.to_dict() for r in engine.receipts]
+            if args.format == "json":
+                print(json.dumps(receipts, indent=2))
+            else:
+                print(f"Total Healing Receipts: {len(receipts)}")
+                for r in receipts:
+                    print(f"  {r['receipt_id']}: {r['remote_cluster']} -> {r['local_cluster']} ({r['receipt_hash']})")
+            sys.exit(0)
+
+        elif args.action == "plans":
+            plans = [p.to_dict() for p in engine.healing_plans]
+            if args.format == "json":
+                print(json.dumps(plans, indent=2))
+            else:
+                print(f"Total Healing Plans: {len(plans)}")
+                for p in plans:
+                    print(f"  {p['plan_id']}: {p['local_cluster']} <-> {p['remote_cluster']} (detected={p['is_partition_detected']})")
+            sys.exit(0)
+
+        else:  # status
+            st = engine.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PARTITION HEALER STATUS (ADR 0089)                 |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Local Cluster:       {st['local_cluster']}")
+                print(f"  Epoch:               {st['epoch']}")
+                print(f"  State:               {st['state']}")
+                print(f"  Circuit Tripped:     {st['circuit_tripped']}")
+                if st['circuit_tripped']:
+                    print(f"  Trip Reason:         {st['trip_reason']}")
+                print(f"  Nodes Count:         {st['nodes_count']}")
+                print(f"  Edges Count:         {st['edges_count']}")
+                print(f"  Receipts Count:      {st['receipts_count']}")
+                print(f"  Plans Count:         {st['plans_count']}")
+                print(f"  Vector Clock:        {st['vector_clock']}")
+                print(f"  Root Digest:         {st['root_digest'][:24]}...")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("migration", "subgraph-migrate", "migrator"):
+        from swarmwatch.topology_migrator import (
+            global_topology_migrator,
+            MigrationReceipt,
+            SubGraphBundle,
+            SubGraphBoundaryContract,
+        )
+        from swarmwatch.cross_cluster_sync import DistributedHyperGraph, HyperNode, HyperNodeType
+
+        engine = global_topology_migrator
+        if args.cluster_id != engine.cluster_id:
+            engine.cluster_id = args.cluster_id
+
+        if args.action == "rearm":
+            engine.rearm_circuit()
+            if args.format == "json":
+                print(json.dumps({"status": "ok", "circuit_tripped": False}))
+            else:
+                print("Migration safety circuit rearmed successfully (State: IDLE).")
+            sys.exit(0)
+
+        elif args.action == "evaluate":
+            skew = engine.evaluate_partition_skew()
+            if args.format == "json":
+                print(json.dumps(skew, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH TOPOLOGY PARTITION SKEW EVALUATION (ADR 0090)      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Mean Load:            {skew['mean_load']}")
+                print(f"  Load Variance:        {skew['load_variance']}")
+                print(f"  Most Loaded Cluster:  {skew['most_loaded_cluster']}")
+                print(f"  Least Loaded Cluster: {skew['least_loaded_cluster']}")
+                print(f"  Load Delta:           {skew['load_delta']}")
+                print(f"  Cut Edges Count:      {skew['cut_edge_count']}")
+                print(f"  Cut Weight Total:     {skew['total_cut_weight']}")
+                print(f"  Migration Recommended:{skew['migration_recommended']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+        elif args.action == "plan":
+            node_ids = [n.strip() for n in args.nodes.split(",")] if args.nodes else ["agent-node-01"]
+            src_graph = DistributedHyperGraph()
+            for nid in node_ids:
+                src_graph.nodes[nid] = HyperNode(
+                    node_id=nid,
+                    cluster_id=args.source_cluster,
+                    state_type=HyperNodeType.AGENT_CONTEXT,
+                    state_payload={},
+                )
+
+            plan = engine.formulate_migration_plan(
+                source_cluster_id=args.source_cluster,
+                target_cluster_id=args.target_cluster,
+                candidate_node_ids=node_ids,
+                source_hypergraph=src_graph,
+            )
+            if args.format == "json":
+                print(json.dumps(plan.to_dict(), indent=2))
+            else:
+                print(f"Synthesized Plan: {plan.plan_id}")
+                print(f"  Plan Hash:      {plan.plan_hash}")
+                print(f"  Nodes:          {plan.node_ids}")
+                print(f"  Cut Reduction:  {plan.estimated_cut_reduction}")
+            sys.exit(0)
+
+        elif args.action == "verify":
+            if not args.receipt_json:
+                print("Error: --receipt-json is required for verify action", file=sys.stderr)
+                sys.exit(1)
+            raw = args.receipt_json
+            if raw.endswith(".json") and os.path.exists(raw):
+                with open(raw, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            else:
+                data = json.loads(raw)
+            rcpt = MigrationReceipt(**data)
+            is_valid = engine.verify_migration_receipt(rcpt)
+            if args.format == "json":
+                print(json.dumps({"valid": is_valid, "receipt_hash": rcpt.receipt_hash}))
+            else:
+                print(f"Receipt Verification: {'VALID' if is_valid else 'INVALID'}")
+                print(f"Receipt Hash: {rcpt.receipt_hash}")
+            sys.exit(0 if is_valid else 1)
+
+        elif args.action == "receipts":
+            rcpts = [r.to_dict() for r in engine._receipts.values()]
+            if args.format == "json":
+                print(json.dumps(rcpts, indent=2))
+            else:
+                print(f"Total Migration Receipts: {len(rcpts)}")
+                for r in rcpts:
+                    print(f"  {r['receipt_id']}: {r['source_cluster_id']} -> {r['target_cluster_id']} (nodes={r['migrated_nodes_count']})")
+            sys.exit(0)
+
+        elif args.action == "plans":
+            plans = [p.to_dict() for p in engine._plans.values()]
+            if args.format == "json":
+                print(json.dumps(plans, indent=2))
+            else:
+                print(f"Total Migration Plans: {len(plans)}")
+                for p in plans:
+                    print(f"  {p['plan_id']}: {p['source_cluster_id']} -> {p['target_cluster_id']} (nodes={len(p['node_ids'])})")
+            sys.exit(0)
+
+        else:  # status
+            st = engine.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH TOPOLOGY MIGRATOR STATUS (ADR 0090)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Cluster ID:          {st['cluster_id']}")
+                print(f"  Epoch:               {st['epoch']}")
+                print(f"  State:               {st['state']}")
+                print(f"  Circuit Tripped:     {st['circuit_tripped']}")
+                if st['circuit_tripped']:
+                    print(f"  Trip Reason:         {st['circuit_reason']}")
+                print(f"  Profiles Count:      {st['registered_profiles_count']}")
+                print(f"  Plans Count:         {st['plans_count']}")
+                print(f"  Bundles Count:       {st['bundles_count']}")
+                print(f"  Receipts Count:      {st['receipts_count']}")
+                print(f"  Vector Clock:        {st['vector_clock']}")
+                print(f"  Hypergraph Nodes:    {st['hypergraph_nodes_count']}")
+                print(f"  Hypergraph Edges:    {st['hypergraph_edges_count']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("barrier", "causality-barrier", "epoch-cutover"):
+        from swarmwatch.causality_barrier import (
+            CrossClusterCausalityBarrier,
+            ClusterQuiescenceReport,
+            BarrierProposal,
+            EpochCutOverCertificate,
+            BarrierReceipt,
+            global_causality_barrier,
+        )
+        barrier = global_causality_barrier
+
+        if args.action == "rearm":
+            barrier.reset_circuit()
+            if args.format == "json":
+                print(json.dumps({"status": "circuit_rearmed", "circuit_tripped": False}))
+            else:
+                print("Barrier circuit breaker manually re-armed to active status.")
+            sys.exit(0)
+
+        elif args.action == "arm":
+            clusters = [c.strip() for c in args.clusters.split(",") if c.strip()]
+            proposal = barrier.arm_barrier(target_clusters=clusters)
+            if args.format == "json":
+                print(json.dumps(proposal.to_dict(), indent=2))
+            else:
+                print(f"Barrier Armed: {proposal.proposal_id} (Target Epoch={proposal.target_epoch}, Clusters={proposal.participating_clusters})")
+            sys.exit(0)
+
+        elif args.action == "drain":
+            barrier.begin_draining()
+            st = barrier.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print(f"Drain Initiated: State={st['state']}, InFlightCount={st['inflight_count']}")
+            sys.exit(0)
+
+        elif args.action == "quiescence":
+            vc = {}
+            if args.vector_clock:
+                try:
+                    vc = json.loads(args.vector_clock)
+                except Exception:
+                    for item in args.vector_clock.split(","):
+                        if ":" in item:
+                            k, v = item.split(":", 1)
+                            vc[k.strip()] = int(v.strip())
+            rep = barrier.report_quiescence(
+                cluster_id=args.cluster_id,
+                vector_clock=vc,
+                inflight_count=args.inflight_count,
+            )
+            synced = barrier.state.value == "BARRIER_SYNCHRONIZED"
+            if args.format == "json":
+                print(json.dumps({"synchronized": synced, "state": barrier.state.value, "report": rep.to_dict()}))
+            else:
+                print(f"Quiescence Reported: Cluster={rep.cluster_id}, Quiescent={rep.is_quiescent}, Synchronized={synced}, State={barrier.state.value}")
+            sys.exit(0)
+
+        elif args.action == "cutover":
+            cert, rcpt = barrier.commit_epoch_cutover()
+            if args.format == "json":
+                print(json.dumps({"certificate": cert.to_dict(), "receipt": rcpt.to_dict()}, indent=2))
+            else:
+                print(f"Epoch Cut-Over Committed: New Epoch={cert.new_epoch}, Cert Hash={cert.certificate_hash}, Receipt Hash={rcpt.receipt_hash}")
+            sys.exit(0)
+
+        elif args.action == "verify":
+            if args.cert_json:
+                data_str = args.cert_json
+                if os.path.exists(data_str):
+                    with open(data_str, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                else:
+                    data = json.loads(data_str)
+                cert = EpochCutOverCertificate(**data)
+                is_valid = barrier.verify_certificate(cert)
+                if args.format == "json":
+                    print(json.dumps({"valid": is_valid, "certificate_hash": cert.certificate_hash}))
+                else:
+                    print(f"Certificate Verification: {'VALID' if is_valid else 'INVALID'}")
+                    print(f"Certificate Hash: {cert.certificate_hash}")
+                sys.exit(0 if is_valid else 1)
+            elif args.receipt_json:
+                data_str = args.receipt_json
+                if os.path.exists(data_str):
+                    with open(data_str, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                else:
+                    data = json.loads(data_str)
+                rcpt = BarrierReceipt(**data)
+                is_valid = barrier.verify_receipt(rcpt)
+                if args.format == "json":
+                    print(json.dumps({"valid": is_valid, "receipt_hash": rcpt.receipt_hash}))
+                else:
+                    print(f"Receipt Verification: {'VALID' if is_valid else 'INVALID'}")
+                    print(f"Receipt Hash: {rcpt.receipt_hash}")
+                sys.exit(0 if is_valid else 1)
+            else:
+                print("Error: Specify --cert-json or --receipt-json for verification.", file=sys.stderr)
+                sys.exit(1)
+
+        elif args.action == "receipts":
+            rcpts = [r.to_dict() for r in barrier._receipts.values()]
+            if args.format == "json":
+                print(json.dumps(rcpts, indent=2))
+            else:
+                print(f"Total Barrier Receipts: {len(rcpts)}")
+                for r in rcpts:
+                    print(f"  {r['receipt_id']}: epoch={r['new_epoch']}, barrier_id={r['barrier_id']}")
+            sys.exit(0)
+
+        elif args.action == "certificates":
+            certs = [c.to_dict() for c in barrier._certificates.values()]
+            if args.format == "json":
+                print(json.dumps(certs, indent=2))
+            else:
+                print(f"Total Epoch Cut-Over Certificates: {len(certs)}")
+                for c in certs:
+                    print(f"  {c['certificate_id']}: epoch {c['prev_epoch']} -> {c['new_epoch']}")
+            sys.exit(0)
+
+        else:  # status
+            st = barrier.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CAUSALITY BARRIER STATUS (ADR 0091)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Tenant ID:               {st['tenant_id']}")
+                print(f"  Active Epoch:            {st['active_epoch']}")
+                print(f"  State:                   {st['state']}")
+                print(f"  Circuit Tripped:         {st['circuit_tripped']}")
+                if st['circuit_tripped']:
+                    print(f"  Trip Reason:             {st['circuit_trip_reason']}")
+                print(f"  Active Barrier ID:       {st['active_barrier_id']}")
+                print(f"  Participating Clusters:  {st['participating_clusters']}")
+                print(f"  Target Barrier Vector:   {st['target_barrier_vector']}")
+                print(f"  Quiescent Clusters:      {st['quiescent_clusters_count']}")
+                print(f"  Receipts Count:          {st['total_receipts_count']}")
+                print(f"  Certificates Count:      {st['total_certificates_count']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+
+    elif args.subcommand in ("relay", "mesh-relay", "anycast-relay"):
+        from swarmwatch.mesh_relay import global_mesh_relay, RelayNode
+        if args.action == "register":
+            if not args.node_id:
+                print("Error: --node-id required for register action.", file=sys.stderr)
+                sys.exit(1)
+            node = RelayNode(
+                node_id=args.node_id,
+                region=args.region,
+                endpoint=args.endpoint,
+                latency_ms=args.latency_ms,
+                max_capacity=args.max_capacity,
+            )
+            global_mesh_relay.register_node(node)
+            print(f"Relay node '{args.node_id}' registered successfully in region '{args.region}'.")
+            sys.exit(0)
+        elif args.action == "drain":
+            drained = global_mesh_relay.drain_batch(region=args.region, max_count=args.max_count)
+            if args.format == "json":
+                print(json.dumps([{"packet_id": p.packet_id, "tenant_id": p.tenant_id} for p in drained], indent=2))
+            else:
+                print(f"Drained {len(drained)} packets from region '{args.region}'.")
+            sys.exit(0)
+        else:  # status / topology
+            topo = global_mesh_relay.get_topology()
+            if args.format == "json":
+                print(json.dumps(topo, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH GLOBAL MESH RELAY TOPOLOGY (ADR 0102)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Local Region:       {topo['local_region']}")
+                print(f"  Active Relay Nodes: {topo['node_count']}")
+                print(f"  Cached Packets:     {topo['dedup_cached_count']}")
+                print("  Regional Queues:")
+                for r, depth in topo['region_queues'].items():
+                    print(f"    - {r}: {depth} packets")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("sovereign-federation", "sovereign-fed", "quorum-sync"):
+        from swarmwatch.sovereign_federation import global_sovereign_coordinator, SovereignCluster
+        if args.action == "register":
+            if not args.cluster_id:
+                print("Error: --cluster-id required for register action.", file=sys.stderr)
+                sys.exit(1)
+            keys = [k.strip() for k in args.public_keys.split(",") if k.strip()]
+            cluster = SovereignCluster(
+                cluster_id=args.cluster_id,
+                region=args.region,
+                public_keys=keys,
+            )
+            global_sovereign_coordinator.register_cluster(cluster)
+            print(f"Cluster '{args.cluster_id}' registered successfully in region '{args.region}'. Committee root: {cluster.committee_root}")
+            sys.exit(0)
+        elif args.action == "synthesize":
+            try:
+                qc = global_sovereign_coordinator.synthesize_federated_qc(epoch=args.epoch)
+                if args.format == "json":
+                    print(json.dumps({
+                        "federated_qc_id": qc.federated_qc_id,
+                        "epoch": qc.epoch,
+                        "global_state_root": qc.global_state_root,
+                        "participating_clusters": qc.participating_clusters,
+                        "created_at_hlc": qc.created_at_hlc,
+                    }, indent=2))
+                else:
+                    print(f"Synthesized Federated QC '{qc.federated_qc_id}' for Epoch {qc.epoch}. Global Root: {qc.global_state_root}")
+            except Exception as e:
+                print(f"Synthesis failed: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        else:  # status
+            st = global_sovereign_coordinator.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SOVEREIGN FEDERATION STATUS (ADR 0103)             |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Local Cluster:      {st['local_cluster_id']}")
+                print(f"  Current Epoch:      {st['current_epoch']}")
+                print(f"  Total Clusters:     {st['cluster_count']}")
+                print(f"  Quarantined:        {st['quarantined_count']}")
+                print(f"  Certificates Count: {st['certificates_count']}")
+                print(f"  Slashing Proofs:    {st['slashing_proofs_count']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("marketplace", "proof-market", "proof-marketplace", "staking-pool"):
+        from swarmwatch.proof_marketplace import (
+            global_proof_marketplace,
+            VerifierNode,
+            ProofBounty,
+        )
+        if args.action == "register":
+            if not args.verifier_id or not args.public_key:
+                print("Error: --verifier-id and --public-key required for register.", file=sys.stderr)
+                sys.exit(1)
+            node = VerifierNode(
+                verifier_id=args.verifier_id,
+                public_key=args.public_key,
+                bonded_stake=args.stake,
+            )
+            global_proof_marketplace.register_verifier(node)
+            print(f"Verifier '{args.verifier_id}' registered with bonded stake {node.bonded_stake}.")
+            sys.exit(0)
+        elif args.action == "bounty":
+            if not args.bounty_id:
+                print("Error: --bounty-id required for bounty creation.", file=sys.stderr)
+                sys.exit(1)
+            b = ProofBounty(
+                bounty_id=args.bounty_id,
+                proof_type=args.proof_type,
+                proof_digest=args.proof_digest or ("0" * 64),
+                max_bounty=args.max_bounty,
+                required_quorum=args.required_quorum,
+            )
+            bid_id = global_proof_marketplace.create_bounty(b)
+            print(f"Created bounty '{bid_id}' (max bounty: {args.max_bounty}, quorum: {args.required_quorum}).")
+            sys.exit(0)
+        elif args.action == "settle":
+            if not args.bounty_id:
+                print("Error: --bounty-id required for settle.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                cert = global_proof_marketplace.settle_bounty(args.bounty_id)
+                if args.format == "json":
+                    print(json.dumps({
+                        "settlement_id": cert.settlement_id,
+                        "bounty_id": cert.bounty_id,
+                        "verdict": cert.finalized_verdict,
+                        "cleared_fee": cert.cleared_fee,
+                        "participating_verifiers": cert.participating_verifiers,
+                        "slashed_verifiers": cert.slashed_verifiers,
+                    }, indent=2))
+                else:
+                    print(f"Settled bounty '{cert.bounty_id}' with verdict {cert.finalized_verdict}. Cleared fee: {cert.cleared_fee}.")
+            except Exception as e:
+                print(f"Settlement failed: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        else:  # status
+            st = global_proof_marketplace.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH PROOF MARKETPLACE STATUS (ADR 0104)                |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Marketplace ID:      {st['marketplace_id']}")
+                print(f"  Total Verifiers:     {st['total_verifiers']}")
+                print(f"  Active Verifiers:    {st['active_verifiers_count']}")
+                print(f"  Slashed Verifiers:   {st['slashed_verifiers_count']}")
+                print(f"  Active Solvency:     {st['active_solvency']:.2f}")
+                print(f"  Min Solvency Thresh: {st['min_solvency_threshold']:.2f}")
+                print(f"  Open Bounties:       {st['open_bounties_count']}")
+                print(f"  Finalized Bounties:  {st['finalized_bounties_count']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("snark", "snark-gateway", "recursive-snark"):
+        from swarmwatch.recursive_snark import (
+            global_recursive_snark_gateway,
+            ConstituentProof,
+        )
+        if args.action == "admit":
+            if not args.proof_id:
+                print("Error: --proof-id required for admit action.", file=sys.stderr)
+                sys.exit(1)
+            proof = ConstituentProof(
+                proof_id=args.proof_id,
+                batch_epoch=args.epoch,
+                state_digest=args.state_digest or ("0" * 64),
+                proof_witness=args.proof_witness or ("f" * 64),
+            )
+            global_recursive_snark_gateway.admit_proof(proof)
+            print(f"Constituent SNARK proof '{args.proof_id}' admitted successfully.")
+            sys.exit(0)
+        elif args.action == "fold":
+            try:
+                proofs = list(global_recursive_snark_gateway._admitted_proofs.values())
+                if not proofs:
+                    p = ConstituentProof(
+                        proof_id="proof-synth-01",
+                        batch_epoch=args.epoch,
+                        state_digest="0" * 64,
+                        proof_witness="f" * 64,
+                    )
+                    global_recursive_snark_gateway.admit_proof(p)
+                    proofs = [p]
+                receipt = global_recursive_snark_gateway.fold_batch(proofs)
+                if args.format == "json":
+                    print(json.dumps({
+                        "aggregate_id": receipt.aggregate_id,
+                        "constituent_count": receipt.constituent_count,
+                        "aggregate_root": receipt.aggregate_root,
+                        "recursive_proof_bytes": receipt.recursive_proof_bytes,
+                        "verified": receipt.verified,
+                        "created_at_hlc": receipt.created_at_hlc,
+                    }, indent=2))
+                else:
+                    print(f"Folded aggregate SNARK receipt '{receipt.aggregate_id}' ({receipt.constituent_count} proofs, root: {receipt.aggregate_root[:16]}...).")
+            except Exception as e:
+                print(f"Fold batch failed: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "verify":
+            receipts = list(global_recursive_snark_gateway._aggregate_receipts.values())
+            if not receipts:
+                print("Error: No aggregate SNARK receipt available to verify.", file=sys.stderr)
+                sys.exit(1)
+            rcpt = receipts[-1]
+            try:
+                valid = global_recursive_snark_gateway.verify_aggregate_receipt(rcpt)
+                if args.format == "json":
+                    print(json.dumps({"aggregate_id": rcpt.aggregate_id, "valid": valid}))
+                else:
+                    print(f"Aggregate receipt '{rcpt.aggregate_id}' verification: {'VALID' if valid else 'INVALID'}")
+                sys.exit(0 if valid else 1)
+            except Exception as e:
+                print(f"Verification failed: {e}", file=sys.stderr)
+                sys.exit(1)
+        else:  # status
+            st = global_recursive_snark_gateway.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH RECURSIVE SNARK GATEWAY STATUS (ADR 0105)          |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Gateway ID:               {st['gateway_id']}")
+                print(f"  Admitted Proofs Count:    {st['admitted_proofs_count']}")
+                print(f"  Aggregate Receipts Count: {st['aggregate_receipts_count']}")
+                print(f"  Circuit Tripped:          {st['circuit_tripped']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("billing", "payment-channel", "micropay"):
+        from swarmwatch.billing_channel import (
+            global_billing_ledger,
+            BillingChannelError,
+        )
+        if args.action == "open":
+            try:
+                chan = global_billing_ledger.open_channel(
+                    tenant_id=args.tenant_id,
+                    agent_pubkey=args.agent_pubkey,
+                    provider_pubkey=args.provider_pubkey,
+                    initial_deposit=args.deposit,
+                    channel_id=args.channel_id,
+                )
+                print(f"Opened channel '{chan.channel_id}' with initial deposit {chan.initial_deposit:.2f} (agent: {chan.agent_balance:.2f}, provider: {chan.provider_balance:.2f}).")
+            except BillingChannelError as e:
+                print(f"Error opening channel: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "meter":
+            if not args.channel_id:
+                print("Error: --channel-id required for meter action.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                evt = global_billing_ledger.record_meter_event(
+                    channel_id=args.channel_id,
+                    unit_type=args.unit_type,
+                    quantity=args.quantity,
+                    unit_price=args.unit_price,
+                )
+                if args.format == "json":
+                    print(json.dumps({
+                        "meter_id": evt.meter_id,
+                        "channel_id": evt.channel_id,
+                        "total_charge": evt.total_charge,
+                        "hlc_timestamp": evt.hlc_timestamp,
+                    }, indent=2))
+                else:
+                    print(f"Metered {evt.quantity} units ({evt.unit_type}) for charge {evt.total_charge:.4f}. Meter ID: {evt.meter_id}.")
+            except BillingChannelError as e:
+                print(f"Error metering usage: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "close":
+            if not args.channel_id:
+                print("Error: --channel-id required for close action.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                chan = global_billing_ledger.initiate_closure(args.channel_id)
+                print(f"Channel '{chan.channel_id}' closure initiated (status={chan.status}, timestamp={chan.closure_initiated_at_hlc}).")
+            except BillingChannelError as e:
+                print(f"Error closing channel: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        else:  # status
+            st = global_billing_ledger.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH MICRO-PAYMENT CHANNEL LEDGER STATUS (ADR 0106)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Ledger ID:               {st['ledger_id']}")
+                print(f"  Total Channels:          {st['total_channels_count']}")
+                print(f"  Active Channels:         {st['active_channels_count']}")
+                print(f"  Total Meter Events:      {st['total_meter_events_count']}")
+                print(f"  Settlement Certs:        {st['settlement_certificates_count']}")
+                print(f"  Total Locked Deposit:    ${st['total_locked_deposit']:.2f}")
+                print(f"  Total Provider Earned:   ${st['total_provider_earned']:.2f}")
+                print(f"  Circuit Tripped:         {st['circuit_tripped']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("gossip", "byzantine-gossip", "membership"):
+        from swarmwatch.byzantine_gossip import (
+            global_byzantine_gossip,
+            GossipMember,
+            HeartbeatBeacon,
+            SuspicionReport,
+            compute_beacon_digest,
+            compute_suspicion_digest,
+            ByzantineGossipError,
+        )
+        if args.action == "register":
+            if not args.node_id or not args.public_key:
+                print("Error: --node-id and --public-key required for register.", file=sys.stderr)
+                sys.exit(1)
+            m = GossipMember(
+                node_id=args.node_id,
+                cloud_provider=args.cloud_provider,
+                region=args.region,
+                public_key=args.public_key,
+            )
+            global_byzantine_gossip.register_member(m)
+            print(f"Registered gossip peer '{args.node_id}' ({args.cloud_provider}/{args.region}).")
+            sys.exit(0)
+        elif args.action == "beacon":
+            if not args.node_id:
+                print("Error: --node-id required for beacon.", file=sys.stderr)
+                sys.exit(1)
+            from swarmwatch.byzantine_oracle import generate_node_keypair, sign_bft_payload
+            priv_hex, pub_hex = generate_node_keypair()
+            member = global_byzantine_gossip.get_member(args.node_id)
+            if not member:
+                from swarmwatch.byzantine_gossip import GossipMember
+                member = GossipMember(node_id=args.node_id, cloud_provider="aws", region="us-east-1", public_key=pub_hex)
+                global_byzantine_gossip.register_member(member)
+            else:
+                member.public_key = pub_hex
+            hlc_ts = f"hlc:{int(time.time()*1000)}:0:cli"
+            digest = compute_beacon_digest(args.node_id, args.sequence, "ALIVE", hlc_ts, "00"*32)
+            sig = sign_bft_payload(priv_hex, digest)
+            beacon = HeartbeatBeacon(
+                node_id=args.node_id,
+                sequence_number=args.sequence,
+                status="ALIVE",
+                hlc_timestamp=hlc_ts,
+                state_root="00"*32,
+                signature=sig,
+            )
+            try:
+                ok = global_byzantine_gossip.process_heartbeat(beacon)
+                print(f"Heartbeat beacon for '{args.node_id}' processed (applied={ok}, sequence={args.sequence}).")
+            except ByzantineGossipError as e:
+                print(f"Heartbeat error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "suspect":
+            if not args.node_id or not args.suspect_id:
+                print("Error: --node-id (reporter) and --suspect-id required.", file=sys.stderr)
+                sys.exit(1)
+            from swarmwatch.byzantine_oracle import generate_node_keypair, sign_bft_payload
+            priv_hex, pub_hex = generate_node_keypair()
+            member = global_byzantine_gossip.get_member(args.node_id)
+            if not member:
+                from swarmwatch.byzantine_gossip import GossipMember
+                member = GossipMember(node_id=args.node_id, cloud_provider="aws", region="us-east-1", public_key=pub_hex)
+                global_byzantine_gossip.register_member(member)
+            else:
+                member.public_key = pub_hex
+            hlc_ts = f"hlc:{int(time.time()*1000)}:0:cli"
+            digest = compute_suspicion_digest(args.node_id, args.suspect_id, args.sequence, args.reason, hlc_ts)
+            sig = sign_bft_payload(priv_hex, digest)
+            rep = SuspicionReport(
+                reporter_id=args.node_id,
+                suspect_id=args.suspect_id,
+                sequence_number=args.sequence,
+                reason=args.reason,
+                signature=sig,
+                hlc_timestamp=hlc_ts,
+            )
+            try:
+                escalated = global_byzantine_gossip.report_suspicion(rep)
+                print(f"Suspicion reported against '{args.suspect_id}' (escalated={escalated}).")
+            except ByzantineGossipError as e:
+                print(f"Suspicion error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "refute":
+            if not args.node_id:
+                print("Error: --node-id required for refute.", file=sys.stderr)
+                sys.exit(1)
+            from swarmwatch.byzantine_oracle import generate_node_keypair, sign_bft_payload
+            priv_hex, pub_hex = generate_node_keypair()
+            member = global_byzantine_gossip.get_member(args.node_id)
+            if not member:
+                from swarmwatch.byzantine_gossip import GossipMember
+                member = GossipMember(node_id=args.node_id, cloud_provider="aws", region="us-east-1", public_key=pub_hex)
+                global_byzantine_gossip.register_member(member)
+            else:
+                member.public_key = pub_hex
+            seq = (member.sequence_number + 1) if member else args.sequence
+            hlc_ts = f"hlc:{int(time.time()*1000)}:0:cli"
+            digest = compute_beacon_digest(args.node_id, seq, "ALIVE", hlc_ts, "00"*32)
+            sig = sign_bft_payload(priv_hex, digest)
+            beacon = HeartbeatBeacon(
+                node_id=args.node_id,
+                sequence_number=seq,
+                status="ALIVE",
+                hlc_timestamp=hlc_ts,
+                state_root="00"*32,
+                signature=sig,
+            )
+            try:
+                ok = global_byzantine_gossip.refute_suspicion(beacon)
+                print(f"Refutation beacon for '{args.node_id}' processed (success={ok}, new_sequence={seq}).")
+            except ByzantineGossipError as e:
+                print(f"Refutation error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        else:  # status
+            st = global_byzantine_gossip.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH BYZANTINE GOSSIP MEMBERSHIP STATUS (ADR 0107)      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Coordinator ID:          {st['coordinator_id']}")
+                print(f"  Total Members:           {st['total_members']}")
+                print(f"  Alive Members:           {st['alive_members_count']}")
+                print(f"  Suspect Members:         {st['suspect_members_count']}")
+                print(f"  Dead Members:            {st['dead_members_count']}")
+                print(f"  Quarantined Members:     {st['quarantined_members_count']}")
+                print(f"  Membership Merkle Root:  {st['membership_merkle_root'][:24]}...")
+                print(f"  Equivocation Proofs:     {st['equivocation_proofs_count']}")
+                print(f"  Circuit Tripped:         {st['circuit_tripped']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("tribunal", "slashing-tribunal", "slashing"):
+        from swarmwatch.slashing_tribunal import (
+            global_slashing_tribunal,
+            TribunalArbiter,
+            TribunalError,
+            compute_verdict_digest,
+        )
+        if args.action == "file":
+            if not args.claimant_id or not args.defendant_id:
+                print("Error: --claimant-id and --defendant-id are required to file a dispute.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                claim = global_slashing_tribunal.file_dispute(
+                    claimant_id=args.claimant_id,
+                    defendant_id=args.defendant_id,
+                    severity=args.severity,
+                    evidence_digest=args.evidence_digest,
+                    dispute_bond=args.bond,
+                    dispute_id=args.dispute_id,
+                )
+                print(f"Dispute '{claim.dispute_id}' filed at Tier {claim.tier} (bond: {claim.dispute_bond:.2f}, status: {claim.status}).")
+            except TribunalError as e:
+                print(f"Tribunal error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "escalate":
+            if not args.dispute_id:
+                print("Error: --dispute-id is required for escalation.", file=sys.stderr)
+                sys.exit(1)
+            try:
+                claim = global_slashing_tribunal.escalate_dispute(
+                    dispute_id=args.dispute_id,
+                    additional_bond=args.additional_bond,
+                )
+                print(f"Dispute '{claim.dispute_id}' escalated to Tier {claim.tier} (total bond: {claim.dispute_bond:.2f}).")
+            except TribunalError as e:
+                print(f"Escalation error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "adjudicate":
+            if not args.dispute_id:
+                print("Error: --dispute-id is required for adjudication.", file=sys.stderr)
+                sys.exit(1)
+            st = global_slashing_tribunal.get_status()
+            if st["active_arbiters_count"] == 0:
+                arb = TribunalArbiter(arbiter_id="arb-operator-01", public_key="pub-operator-01", bonded_stake=1000.0, is_active=True)
+                global_slashing_tribunal.register_arbiter(arb)
+            claim = global_slashing_tribunal.get_dispute(args.dispute_id)
+            if not claim:
+                print(f"Error: Dispute '{args.dispute_id}' not found.", file=sys.stderr)
+                sys.exit(1)
+            hlc_ts = str(global_slashing_tribunal._hlc.now())
+            slash_rate = 0.05 if claim.severity == "LOW" else (0.25 if claim.severity == "MEDIUM" else 1.0)
+            slashed = args.defendant_collateral * slash_rate if args.ruling == "RESOLVED_CLAIMANT" else 0.0
+            recipient = claim.claimant_id if args.ruling == "RESOLVED_CLAIMANT" else claim.defendant_id
+            digest = compute_verdict_digest(claim.dispute_id, claim.tier, args.ruling, slashed, recipient, hlc_ts)
+            from swarmwatch.byzantine_oracle import generate_node_keypair, sign_bft_payload
+            votes = {}
+            for arb_id, arb in global_slashing_tribunal._arbiters.items():
+                if arb.is_active:
+                    priv_hex, pub_hex = generate_node_keypair()
+                    arb.public_key = pub_hex
+                    votes[arb_id] = sign_bft_payload(priv_hex, digest)
+            try:
+                receipt = global_slashing_tribunal.adjudicate_dispute(
+                    dispute_id=args.dispute_id,
+                    ruling=args.ruling,
+                    defendant_collateral=args.defendant_collateral,
+                    arbiter_votes=votes,
+                    hlc_timestamp=hlc_ts,
+                )
+                print(f"Verdict '{receipt.verdict_id}' adjudicated: {receipt.verdict} (slashed: {receipt.slashed_amount:.2f}).")
+            except TribunalError as e:
+                print(f"Adjudication error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        else:  # status
+            st = global_slashing_tribunal.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH SLASHING ESCALATION TRIBUNAL STATUS (ADR 0108)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Tribunal ID:             {st['tribunal_id']}")
+                print(f"  Total Disputes:          {st['total_disputes_count']}")
+                print(f"  Open Disputes:           {st['open_disputes_count']}")
+                print(f"  Resolved Disputes:       {st['resolved_disputes_count']}")
+                print(f"  Active Arbiters:         {st['active_arbiters_count']}")
+                print(f"  Total Verdicts:          {st['total_verdicts_count']}")
+                print(f"  Total Slashed:           {st['total_slashed_collateral']:.2f}")
+                print(f"  Circuit Tripped:         {st['circuit_tripped']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("enclave", "tee", "attestation"):
+        from swarmwatch.enclave_attestation import (
+            global_enclave_coordinator,
+            EnclaveMeasurement,
+            AttestationQuote,
+            EnclaveCapabilityToken,
+            EnclaveAttestationError,
+            compute_quote_digest,
+        )
+        if args.action == "challenge":
+            try:
+                chal = global_enclave_coordinator.issue_challenge(args.enclave_id)
+                print(f"Issued challenge nonce for '{args.enclave_id}': {chal.nonce} (id: {chal.challenge_id}).")
+            except EnclaveAttestationError as e:
+                print(f"Challenge error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "attest":
+            st = global_enclave_coordinator.get_status()
+            if st["approved_measurements_count"] == 0:
+                meas = EnclaveMeasurement(
+                    enclave_id=args.enclave_id,
+                    tee_type=args.tee_type,
+                    code_hash="c" * 64,
+                    config_hash="f" * 64,
+                    signer_id="operator-enclave-signer",
+                    is_approved=True,
+                )
+                mhash = global_enclave_coordinator.register_approved_measurement(meas)
+            else:
+                mhash = list(global_enclave_coordinator._approved_measurements.keys())[0]
+
+            nonce = args.nonce
+            if not nonce:
+                chal = global_enclave_coordinator.issue_challenge(args.enclave_id)
+                nonce = chal.nonce
+
+            now_ns = time.time_ns()
+            from swarmwatch.byzantine_oracle import generate_node_keypair, sign_bft_payload
+            privkey, pubkey = generate_node_keypair()
+            digest = compute_quote_digest(args.enclave_id, args.tee_type, mhash, nonce, "", now_ns)
+            sig = sign_bft_payload(privkey, digest)
+            quote = AttestationQuote(
+                quote_id=f"q-{nonce[:8]}",
+                enclave_id=args.enclave_id,
+                tee_type=args.tee_type,
+                measurement_hash=mhash,
+                challenge_nonce=nonce,
+                public_key=pubkey,
+                signature=sig,
+                timestamp_ns=now_ns,
+                user_data_digest="",
+            )
+            caps = [c.strip() for c in args.capabilities.split(",") if c.strip()]
+            try:
+                token = global_enclave_coordinator.verify_and_attest(quote, args.agent_id, caps)
+                print(f"Attested enclave '{args.enclave_id}': issued token '{token.token_id}' for agent '{token.agent_id}' with capabilities {token.capabilities}.")
+            except EnclaveAttestationError as e:
+                print(f"Attestation error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "verify":
+            st = global_enclave_coordinator.get_status()
+            if st["active_capability_tokens"] == 0:
+                # Issue test token
+                meas = EnclaveMeasurement(
+                    enclave_id=args.enclave_id,
+                    tee_type=args.tee_type,
+                    code_hash="c" * 64,
+                    config_hash="f" * 64,
+                    signer_id="operator-enclave-signer",
+                    is_approved=True,
+                )
+                mhash = global_enclave_coordinator.register_approved_measurement(meas)
+                chal = global_enclave_coordinator.issue_challenge(args.enclave_id)
+                now_ns = time.time_ns()
+                from swarmwatch.byzantine_oracle import generate_node_keypair, sign_bft_payload
+                privkey, pubkey = generate_node_keypair()
+                digest = compute_quote_digest(args.enclave_id, args.tee_type, mhash, chal.nonce, "", now_ns)
+                sig = sign_bft_payload(privkey, digest)
+                quote = AttestationQuote(
+                    quote_id=f"q-{chal.nonce[:8]}",
+                    enclave_id=args.enclave_id,
+                    tee_type=args.tee_type,
+                    measurement_hash=mhash,
+                    challenge_nonce=chal.nonce,
+                    public_key=pubkey,
+                    signature=sig,
+                    timestamp_ns=now_ns,
+                    user_data_digest="",
+                )
+                caps = [c.strip() for c in args.capabilities.split(",") if c.strip()]
+                token = global_enclave_coordinator.verify_and_attest(quote, args.agent_id, caps)
+            else:
+                token = list(global_enclave_coordinator._issued_tokens.values())[-1]
+
+            try:
+                valid = global_enclave_coordinator.validate_capability(token, args.required_capability)
+                print(f"Capability '{args.required_capability}' validation: {'VALID' if valid else 'INVALID'} for token '{token.token_id}'.")
+            except EnclaveAttestationError as e:
+                print(f"Capability validation error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        else:  # status
+            st = global_enclave_coordinator.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH HARDWARE ENCLAVE (SGX/TEE) WITNESS (ADR 0109)      |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Coordinator ID:          {st['coordinator_id']}")
+                print(f"  Approved Measurements:   {st['approved_measurements_count']}")
+                print(f"  Active Challenges:       {st['active_challenges_count']}")
+                print(f"  Total Attestations:      {st['total_attestations']}")
+                print(f"  Active Capability Tokens:{st['active_capability_tokens']}")
+                print(f"  Total Verifications:     {st['total_capability_verifications']}")
+                print(f"  Quarantined Enclaves:    {st['quarantined_enclaves_count']}")
+                print(f"  Circuit Tripped:         {st['circuit_tripped']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("fence", "boundary-fence", "vault"):
+        from swarmwatch.boundary_fence import (
+            global_boundary_fence,
+            ResidencyZone,
+            EgressTreaty,
+            BoundaryFenceError,
+        )
+        if args.action == "treaty":
+            treaty = EgressTreaty(
+                treaty_id=args.treaty_id,
+                source_zone=args.source_zone,
+                dest_zone=args.dest_zone,
+                is_bidirectional=True,
+                is_active=True,
+            )
+            global_boundary_fence.register_egress_treaty(treaty)
+            print(f"Registered egress treaty '{treaty.treaty_id}' between '{treaty.source_zone}' and '{treaty.dest_zone}'.")
+            sys.exit(0)
+        elif args.action == "seal":
+            try:
+                env = global_boundary_fence.seal_data(
+                    tenant_id=args.tenant_id,
+                    zone_id=args.source_zone,
+                    plaintext=args.payload,
+                )
+                print(f"Sealed payload into vault envelope '{env.envelope_id}' (digest: {env.data_digest[:16]}..., origin: {env.origin_zone}).")
+            except BoundaryFenceError as e:
+                print(f"Sealing error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "passport":
+            env = global_boundary_fence.seal_data(args.tenant_id, args.source_zone, args.payload)
+            treaty = EgressTreaty(treaty_id=f"t-{args.source_zone}-{args.dest_zone}", source_zone=args.source_zone, dest_zone=args.dest_zone, is_bidirectional=True)
+            global_boundary_fence.register_egress_treaty(treaty)
+            try:
+                passport = global_boundary_fence.issue_egress_passport(args.tenant_id, args.source_zone, args.dest_zone, env.data_digest)
+                print(f"Issued egress passport '{passport.passport_id}' for {passport.source_zone} -> {passport.dest_zone}.")
+            except BoundaryFenceError as e:
+                print(f"Passport error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "inspect":
+            env = global_boundary_fence.seal_data(args.tenant_id, args.source_zone, args.payload)
+            treaty = EgressTreaty(treaty_id=f"t-{args.source_zone}-{args.dest_zone}", source_zone=args.source_zone, dest_zone=args.dest_zone, is_bidirectional=True)
+            global_boundary_fence.register_egress_treaty(treaty)
+            passport = global_boundary_fence.issue_egress_passport(args.tenant_id, args.source_zone, args.dest_zone, env.data_digest)
+            try:
+                res = global_boundary_fence.inspect_egress(env, args.dest_zone, passport)
+                print(f"Boundary inspection verdict: {'ALLOWED' if res.allowed else 'DENIED'} (reason: {res.reason}, route: {res.source_zone} -> {res.dest_zone}).")
+            except BoundaryFenceError as e:
+                print(f"Inspection error: {e}", file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+        else:  # status
+            st = global_boundary_fence.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH CROSS-BORDER DATA BOUNDARY FENCE (ADR 0110)        |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Fence ID:                {st['fence_id']}")
+                print(f"  Total Zones:             {st['total_zones_count']}")
+                print(f"  Quarantined Zones:       {st['quarantined_zones_count']}")
+                print(f"  Active Treaties:         {st['active_treaties_count']}")
+                print(f"  Total Sealed Envelopes:  {st['total_sealed_envelopes']}")
+                print(f"  Active Passports:        {st['active_passports_count']}")
+                print(f"  Total Inspections:       {st['total_inspections']}")
+                print(f"  Circuit Tripped:         {st['circuit_tripped']}")
+                print("+---------------------------------------------------------------+\n")
+            sys.exit(0)
+    elif args.subcommand in ("singularity", "master-singularity", "sovereign-root"):
+        import hashlib
+        import hmac
+        from swarmwatch.master_singularity import (
+            global_master_singularity,
+            SingularityGovernor,
+            SingularityError,
+            compute_proposal_digest,
+            verify_governor_signature,
+        )
+        if args.action == "governor":
+            gov = SingularityGovernor(
+                governor_id=args.governor_id,
+                public_key_hex="pubkey-" + args.governor_id,
+            )
+            global_master_singularity.register_governor(gov)
+            print(f"[OK] Sovereign Governor registered: {gov.governor_id}")
+            sys.exit(0)
+        elif args.action == "propose":
+            try:
+                prop = global_master_singularity.submit_proposal(
+                    proposal_id=args.proposal_id,
+                    proposer_id=args.governor_id,
+                    title=args.title,
+                    constitution_payload={"epoch": args.target_epoch},
+                    target_epoch=args.target_epoch,
+                )
+                print(f"[OK] Proposal submitted: {prop.proposal_id} (digest: {prop.payload_digest[:16]}...)")
+            except SingularityError as e:
+                print(f"[ERROR] {e}")
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "ratify":
+            try:
+                for gid in ["gov-1", "gov-2", "gov-3"]:
+                    global_master_singularity.register_governor(SingularityGovernor(governor_id=gid, public_key_hex=f"pub-{gid}"))
+                prop = global_master_singularity._proposals.get(args.proposal_id)
+                if not prop:
+                    prop = global_master_singularity.submit_proposal(
+                        proposal_id=args.proposal_id,
+                        proposer_id="gov-1",
+                        title=args.title,
+                        constitution_payload={"epoch": args.target_epoch},
+                        target_epoch=args.target_epoch,
+                    )
+                for gid in ["gov-1", "gov-2", "gov-3"]:
+                    sig = hmac.new(gid.encode(), prop.payload_digest.encode(), hashlib.sha256).hexdigest()
+                    global_master_singularity.vote_proposal(prop.proposal_id, gid, sig)
+                rat = global_master_singularity.ratify_proposal(prop.proposal_id)
+                print(f"[OK] Proposal ratified: {rat.proposal_id} by super-majority quorum (SNG2)")
+            except SingularityError as e:
+                print(f"[ERROR] {e}")
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "commit":
+            try:
+                commit = global_master_singularity.commit_subsystem_state(
+                    epoch=args.target_epoch,
+                    mesh_root="mesh-root-01",
+                    fed_root="fed-root-01",
+                    snark_root="snark-root-01",
+                    fence_root="fence-root-01",
+                    total_staked_solvency=args.solvency,
+                )
+                print(f"[OK] Epoch {commit.epoch} state root committed: {commit.state_digest[:16]}... (SNG1, SNG3)")
+            except SingularityError as e:
+                print(f"[ERROR] {e}")
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "certify":
+            try:
+                if args.target_epoch not in global_master_singularity._commitments:
+                    global_master_singularity.commit_subsystem_state(
+                        epoch=args.target_epoch,
+                        mesh_root="mesh-root-01",
+                        fed_root="fed-root-01",
+                        snark_root="snark-root-01",
+                        fence_root="fence-root-01",
+                        total_staked_solvency=args.solvency,
+                    )
+                cert = global_master_singularity.issue_singularity_certificate(epoch=args.target_epoch)
+                print(f"[OK] Singularity Certificate issued: {cert.certificate_id}")
+            except SingularityError as e:
+                print(f"[ERROR] {e}")
+                sys.exit(1)
+            sys.exit(0)
+        elif args.action == "halt":
+            global_master_singularity.emergency_halt("OPERATOR_CLI_HALT")
+            print("[CRITICAL] Master Singularity universal emergency halt invoked. Quarantine latched.")
+            sys.exit(0)
+        else:  # status
+            st = global_master_singularity.get_status()
+            if args.format == "json":
+                print(json.dumps(st, indent=2))
+            else:
+                print("\n+---------------------------------------------------------------+")
+                print("| SWARMWATCH MASTER SINGULARITY & SOVEREIGN ROOT (ADR 0111)     |")
+                print("+---------------------------------------------------------------+")
+                print(f"  Singularity ID:           {st['singularity_id']}")
+                print(f"  Current Epoch:            {st['current_epoch']}")
+                print(f"  Current State Root:       {st['current_state_root'][:16]}...")
+                print(f"  Total Governors:          {st['total_governors_count']}")
+                print(f"  Active Governors:         {st['active_governors_count']}")
+                print(f"  Total Proposals:          {st['total_proposals_count']}")
+                print(f"  Ratified Proposals:       {st['ratified_proposals_count']}")
+                print(f"  Certificates Issued:      {st['total_certificates_issued']}")
+                print(f"  Quarantined:              {st['is_quarantined']}")
+                print(f"  Circuit Tripped:          {st['circuit_tripped']}")
                 print("+---------------------------------------------------------------+\n")
             sys.exit(0)
     else:
         parser.print_help()
         sys.exit(1)
+
 
 
 

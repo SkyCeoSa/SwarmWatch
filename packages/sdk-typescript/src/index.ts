@@ -433,7 +433,7 @@ export type {
   AgentTransition,
   AgentTransitionModel,
   CounterexampleStep,
-  VerificationResult,
+  VerificationResult as ModelCheckerVerificationResult,
 } from "./model_checker.ts";
 export {
   VerificationInvariant,
@@ -508,8 +508,8 @@ export {
 // Autonomous Semantic Schema Migration & State Translation Engine (Seam 47 / ADR 0058)
 export type {
   FieldTransformActionType,
-  MigrationPlan,
-  MigrationResult,
+  MigrationPlan as SchemaMigrationPlan,
+  MigrationResult as SchemaMigrationResult,
 } from "./schema_migration.ts";
 export {
   FieldTransformAction,
@@ -1029,6 +1029,9 @@ export {
   generatePeerKeypair,
   signPeerData,
   verifyPeerData,
+  isValidPeerPublicKey,
+  computePeerRegistrationPayload,
+  signPeerRegistration,
 } from "./mesh_federation.ts";
 
 // Multi-Modal Cognitive Grounding & Vector Evidence Fusion (Seam 73 / ADR 0084)
@@ -1058,7 +1061,7 @@ export {
 // Cross-Cluster Byzantine Consensus & Proof-of-Execution Oracle (Seam 74 / ADR 0085)
 export type {
   BftPhase,
-  NodeRole,
+  NodeRole as ByzantineNodeRole,
   NodeStatus,
 } from "./byzantine_oracle.ts";
 export {
@@ -1070,7 +1073,7 @@ export {
   InvalidViewSequenceError,
   ConsensusTimeoutError,
   BftPhase as BftPhaseConst,
-  NodeRole as NodeRoleConst,
+  NodeRole as ByzantineNodeRoleConst,
   NodeStatus as NodeStatusConst,
   ProposalPayload,
   BftMessage,
@@ -1142,4 +1145,469 @@ export {
   EpistemicArbitrationEngine,
   globalEpistemicArbitrator,
 } from "./epistemic_arbitration.ts";
+
+// Autonomous Cross-Cluster State Synchronization & Distributed Hyper-Graph Reconciliation (Seam 77 / ADR 0088)
+export type {
+  SyncStatus as SyncStatusType,
+  CausalOrderingVerdict as CausalOrderingVerdictType,
+  HyperNodeType as HyperNodeTypeType,
+  HyperEdgeType as HyperEdgeTypeType,
+} from "./cross_cluster_sync.ts";
+export {
+  CrossClusterSyncError,
+  SyncCircuitTrippedError,
+  UnverifiableCertificateError,
+  CausalDiscontinuityError,
+  SplitBrainForkError as SyncSplitBrainForkError,
+  HyperGraphIntegrityError,
+  SyncStatus,
+  CausalOrderingVerdict,
+  HyperNodeType,
+  HyperEdgeType,
+  HyperNode,
+  HyperEdge,
+  DistributedHyperGraph,
+  SyncPacket,
+  SyncReconciliationReceipt,
+  AntiEntropyDigest,
+  compareVectorClocks as compareSyncVectorClocks,
+  computeCanonicalPoeSignedMessage,
+  computeCanonicalPoeDigest,
+  signCrossClusterPoe,
+  verifyCrossClusterPoe,
+  CrossClusterSyncEngine,
+  globalCrossClusterSyncEngine,
+} from "./cross_cluster_sync.ts";
+
+// Autonomous Distributed Hyper-Graph Partition Healing & Causal Vector Resumption (Seam 78 / ADR 0089)
+export type { PartitionStateType } from "./partition_healer.ts";
+export {
+  PartitionHealingError,
+  UnhealedPartitionConflictError,
+  InvalidResumptionProofError,
+  ResumptionVectorRegressionError,
+  HealingCircuitTrippedError,
+  PartitionState,
+  ResumptionDelta,
+  PartitionHealingPlan,
+  PartitionHealingReceipt,
+  PartitionHealingEngine,
+  globalPartitionHealer,
+} from "./partition_healer.ts";
+
+// Dynamic Topology Re-Partitioning & Adaptive Sub-Graph Migration (Seam 79 / ADR 0090)
+export type { MigrationStateType } from "./topology_migrator.ts";
+export {
+  TopologyMigrationError,
+  MigrationCircuitTrippedError,
+  MigrationCausalRegressionError,
+  OrphanSubGraphEdgeError,
+  InvalidMigrationProofError,
+  SubGraphNotFoundError,
+  InvalidMigrationPlanError,
+  MigrationState,
+  ClusterLoadProfile,
+  SubGraphBoundaryContract,
+  SubGraphBundle,
+  MigrationPlan as TopologyMigrationPlan,
+  MigrationReceipt,
+  DynamicTopologyMigrator,
+  globalTopologyMigrator,
+} from "./topology_migrator.ts";
+
+// Autonomous Cross-Cluster Causality Barrier & Multi-Swarm Epoch Cut-Over Synchronization (Seam 80 / ADR 0091)
+export type { BarrierStateType, BarrierDrainStatusType } from "./causality_barrier.ts";
+export {
+  CausalityBarrierError,
+  BarrierCircuitTrippedError,
+  StaleCausalityBarrierError,
+  InvalidEpochCutOverError,
+  BarrierQuiescenceTimeoutError,
+  InvalidBarrierProofError,
+  BarrierParticipantMismatchError,
+  BarrierState,
+  BarrierDrainStatus,
+  ClusterQuiescenceReport,
+  BarrierProposal,
+  EpochCutOverCertificate,
+  BarrierReceipt,
+  CrossClusterCausalityBarrier,
+  globalCausalityBarrier,
+} from "./causality_barrier.ts";
+
+// Committee Key Ceremony & Threshold Quorum Certificates (Seam 81 / ADR 0092)
+export type {
+  CommitteeMember,
+  CommitteeRoster,
+  ThresholdQuorumCertificate,
+  QuorumVerdict,
+} from "./qc.ts";
+export {
+  QuorumCertificateError,
+  InsufficientQuorumError,
+  InvalidCommitteeRootError,
+  ForgedCertificateSignatureError,
+  UnauthorizedSignerError,
+  KeyRotationViolationError,
+  computeByzantineQuorum,
+  computeMerkleRoot as computeQcMerkleRoot,
+  computeCommitteeRoot,
+  formatAttestationPayload,
+  createCommitteeRoster,
+  attestQuorum,
+  verifyQuorumCertificate,
+  rotateCommittee,
+} from "./qc.ts";
+
+// Unified Safety Circuit Bus & Quorum-Gated Rearm (Seam 82 / ADR 0093)
+export type {
+  CircuitStateType,
+  CircuitTripEvent,
+  CircuitBusStatus,
+} from "./circuit_bus.ts";
+export {
+  CircuitBusError,
+  CircuitBusTrippedError,
+  UnauthorizedRearmError,
+  InvalidSnapshotHashError,
+  CircuitState,
+  SafetyCircuitBus,
+  globalCircuitBus,
+} from "./circuit_bus.ts";
+
+// Hybrid Logical Clocks & Bounded-Skew Causal Timestamps (Seam 83 / ADR 0094)
+export type { HybridLogicalTimestamp } from "./hlc.ts";
+export {
+  HlcError,
+  BoundedSkewViolationError,
+  compareHlc,
+  formatHlc,
+  parseHlc,
+  HybridLogicalClock,
+  globalHlc,
+} from "./hlc.ts";
+
+// Property-Verified δ-CRDT Kernel with Causal Delivery (Seam 84 / ADR 0095)
+export type {
+  LwwElement,
+  EdgeRecord,
+  HyperGraphDelta,
+} from "./crdt_kernel.ts";
+export {
+  CrdtKernelError,
+  MalformedDeltaError,
+  mergeLwwProps,
+  DeltaCrdtKernel,
+} from "./crdt_kernel.ts";
+
+// Barrier Leases, Liveness & Atomic Abort (Seam 85 / ADR 0096)
+export type {
+  BarrierDecisionType,
+  BarrierAbortProof,
+  BarrierCutoverResult,
+  CutoverOptions,
+} from "./barrier_lease.ts";
+export {
+  BarrierLeaseError,
+  BarrierLeaseExpiredError,
+  InvalidTargetEpochError,
+  BarrierDecision,
+  LeasedBarrierCoordinator,
+  globalLeasedBarrier,
+} from "./barrier_lease.ts";
+
+// Durable Causal Stream Segments & Crash-Consistent Recovery (Seam 86 / ADR 0097)
+export type { StreamRecord, StreamHead } from "./durable_stream.ts";
+export {
+  DurableStreamError,
+  CorruptRecordError,
+  DurableCausalStream,
+} from "./durable_stream.ts";
+
+// BFT View-Change & Accountable Primary Rotation (Seam 87 / ADR 0098)
+export type {
+  ViewChangeVote,
+  NewViewCertificate,
+  SlashingProof,
+} from "./bft_view_change.ts";
+export {
+  BftViewError,
+  InsufficientViewVotesError,
+  InvalidVoteSignatureError,
+  InvalidSlashingProofError,
+  getPrimary,
+  formatViewVotePayload,
+  BftViewCoordinator,
+} from "./bft_view_change.ts";
+
+// Fraud-Provable Optimistic State Attestation (Seam 88 / ADR 0099)
+export type {
+  TransitionStep as OptimisticTransitionStep,
+  OptimisticAttestation,
+  FraudProof,
+  FinalizedStateReceipt,
+} from "./optimistic_attestation.ts";
+export {
+  AttestationError,
+  UnauthorizedProverError,
+  PrematureFinalizationError,
+  BatchChallengedError,
+  executeTransitionStep,
+  OptimisticAttestationEngine,
+} from "./optimistic_attestation.ts";
+
+// Tenant-Scoped Engine Registry & Non-Interference (Seam 89 / ADR 0100)
+export {
+  EngineRegistryError,
+  UnknownEngineKindError,
+  TenantEngineRegistry,
+  globalEngineRegistry,
+} from "./engine_registry.ts";
+
+// Deterministic Simulation & Model-Checked Protocol Harness (Seam 90 / ADR 0101)
+export type {
+  SimulationEvent,
+  SimulationTrace,
+  ModelCheckVerdict,
+} from "./deterministic_sim.ts";
+export {
+  ProtocolSimulator,
+  checkTraceInvariants,
+  replaySimulation,
+} from "./deterministic_sim.ts";
+
+// Global Distributed Mesh Relay & Anycast Ingestion Gateway (Seam 91 / ADR 0102)
+export type {
+  MeshRelayPacket,
+  RelayNode,
+  IngestionReceipt,
+} from "./mesh_relay.ts";
+export {
+  MeshRelayError,
+  MeshIngestionAdmissionError,
+  MeshRelayCapacityExceededError,
+  MeshRouteNotFoundError,
+  MeshRelayCircuitTrippedError,
+  computeMeshPacketId,
+  computePacketSignature,
+  verifyPacketSignature,
+  MeshRelayGateway,
+  globalMeshRelay,
+} from "./mesh_relay.ts";
+
+// Multi-Region Quorum State Synchronization & Sovereign Cluster Federation (Seam 92 / ADR 0103)
+export type {
+  SovereignCluster,
+  RegionalStateCommitment,
+  FederatedQuorumCertificate,
+  SovereignSlashingProof,
+} from "./sovereign_federation.ts";
+export {
+  SovereignFederationError,
+  StaleFederationEpochError,
+  InsufficientRegionalQuorumError,
+  InsufficientFederatedClustersError,
+  SovereignClusterQuarantinedError,
+  SovereignEquivocationDetectedError,
+  computeClusterCommitteeRoot,
+  computeCommitmentDigest,
+  verifyEd25519Signature,
+  SovereignFederationCoordinator,
+  globalSovereignFederation,
+  globalSovereignCoordinator,
+} from "./sovereign_federation.ts";
+
+export type {
+  VerifierNode,
+  ProofBounty,
+  VerifierBid,
+  ProofVerificationReceipt,
+  SettlementCertificate,
+} from "./proof_marketplace.ts";
+export {
+  ProofMarketplaceError,
+  InsufficientStakeError,
+  VerifierSlashedError,
+  BountyNotFoundError,
+  BountyExpiredError,
+  InvalidReceiptSignatureError,
+  InsufficientVerificationQuorumError,
+  MarketplaceSolvencyBreachError,
+  computeBidDigest,
+  computeReceiptDigest,
+  verifyEd25519Signature as verifyMarketplaceEd25519Signature,
+  ProofMarketplaceCoordinator,
+  globalProofMarketplace,
+  globalMarketplaceCoordinator,
+} from "./proof_marketplace.ts";
+
+export type {
+  ConstituentProof,
+  FoldingStep,
+  AggregateSnarkReceipt,
+} from "./recursive_snark.ts";
+export {
+  RecursiveSnarkError,
+  RecursiveProofSoundnessBreachError,
+  EmptyProofBatchError,
+  RecursiveVerificationFailedError,
+  RecursiveCircuitTrippedError,
+  foldProofPair,
+  computeRecursiveProofBytes,
+  RecursiveSnarkGateway,
+  globalRecursiveSnarkGateway,
+  globalSnarkGateway,
+} from "./recursive_snark.ts";
+
+export type {
+  ChannelStateCommitment,
+  MicroPaymentChannel,
+  UsageMeterEvent,
+  ChannelSettlementCertificate,
+} from "./billing_channel.ts";
+export {
+  BillingChannelError,
+  ChannelNotFoundError,
+  ChannelBalanceConservationError,
+  StaleChannelNonceError,
+  InvalidChannelSignatureError,
+  ChannelDisputeActiveError,
+  BillingChannelExhaustedError,
+  BillingCircuitTrippedError,
+  computeChannelCommitmentDigest,
+  verifyChannelSignature,
+  MicroPaymentChannelLedger,
+  globalBillingLedger,
+  globalPaymentChannelLedger,
+} from "./billing_channel.ts";
+
+export type {
+  GossipMember,
+  HeartbeatBeacon,
+  SuspicionReport,
+  GossipEquivocationProof,
+  GossipAntiEntropyDigest,
+} from "./byzantine_gossip.ts";
+export {
+  ByzantineGossipError,
+  UnauthenticatedGossipBeaconError,
+  InsufficientSuspicionQuorumError,
+  GossipPeerQuarantinedError,
+  GossipEquivocationDetectedError,
+  GossipCircuitTrippedError,
+  computeBeaconDigest,
+  computeSuspicionDigest,
+  verifyGossipSignature,
+  computeMembershipMerkleRoot,
+  ByzantineGossipCoordinator,
+  globalByzantineGossip,
+  globalGossipMembership,
+} from "./byzantine_gossip.ts";
+
+export type {
+  DisputeClaim,
+  TribunalArbiter,
+  TribunalVerdictReceipt,
+  TribunalEscalationRecord,
+  TribunalStatus,
+} from "./slashing_tribunal.ts";
+export {
+  TribunalError,
+  DisputeNotFoundError,
+  InvalidDisputeTierError,
+  InsufficientArbiterQuorumError,
+  TribunalArbiterQuarantinedError,
+  TribunalCircuitTrippedError,
+  computeVerdictDigest,
+  verifyArbiterSignature,
+  SlashingEscalationTribunal,
+  globalSlashingTribunal,
+  globalTribunal,
+} from "./slashing_tribunal.ts";
+
+export type {
+  EnclaveMeasurement,
+  EnclaveChallenge,
+  AttestationQuote,
+  EnclaveCapabilityToken,
+  EnclaveStatus,
+} from "./enclave_attestation.ts";
+export {
+  EnclaveAttestationError,
+  EnclaveMeasurementMismatchError,
+  StaleAttestationReportError,
+  UnauthorizedCapabilityError,
+  EnclaveQuarantinedError,
+  EnclaveCircuitTrippedError,
+  computeEnclaveMeasurementHash,
+  computeQuoteDigest,
+  computeTokenDigest,
+  verifyEnclaveSignature,
+  EnclaveAttestationCoordinator,
+  globalEnclaveCoordinator,
+  globalEnclaveAttestation,
+} from "./enclave_attestation.ts";
+
+export type {
+  ResidencyZone,
+  EgressTreaty,
+  VaultEnvelope,
+  EgressExportPassport,
+  BoundaryInspectionResult,
+  FenceStatus,
+} from "./boundary_fence.ts";
+export {
+  BoundaryFenceError,
+  CrossBorderResidencyViolationError,
+  UnsealedDataEgressError,
+  InvalidEgressPassportError,
+  FenceZoneQuarantinedError,
+  FenceCircuitTrippedError,
+  computePassportDigest,
+  verifyPassportSignature,
+  DataBoundaryFence,
+  globalBoundaryFence,
+  globalDataFence,
+} from "./boundary_fence.ts";
+
+export type {
+  SingularityGovernor,
+  ConstitutionalProposal,
+  SingularityStateCommitment,
+  SingularityCertificate,
+  SingularityStatus,
+} from "./master_singularity.ts";
+export {
+  SingularityError,
+  GovernorKeyOverwriteError,
+  StaleSingularityEpochError,
+  InsufficientGovernanceQuorumError,
+  SingularitySolvencyBreachError,
+  SingularityQuarantinedError,
+  SingularityCircuitTrippedError,
+  computeSingularityDigest,
+  computeProposalDigest,
+  verifyGovernorSignature,
+  verifySingularityCertificate,
+  MasterSingularityCoordinator,
+  globalMasterSingularity,
+  globalSingularityCoordinator,
+} from "./master_singularity.ts";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
