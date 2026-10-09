@@ -2,13 +2,14 @@
 
 **Universal Multi-Agent Observability, Zero-Token Shannon Entropy Circuit Breaker, Git-like Time Machine DAG Debugging, & Multi-Tenant Fleet Coordination.**
 
-[![CI Status](https://github.com/SkyCeoSa/SwarmWatch/actions/workflows/ci.yml/badge.svg)](https://github.com/SkyCeoSa/SwarmWatch/actions)
-[![Tests: 100% Passed](https://img.shields.io/badge/Tests-104%2F104%20Passed-success.svg)](https://github.com/SkyCeoSa/SwarmWatch)
+[![Audit: CERTIFIED PASS](https://img.shields.io/badge/Audit-CERTIFIED%20PASS-brightgreen.svg)](docs/reference/SWARMWATCH_FINAL_OFFICIAL_AUDIT_REPORT.md)
+[![Architecture: 100/100 Seams](https://img.shields.io/badge/Architecture-100%2F100%20Seams-blue.svg)](docs/reference/05-ARCHITECTURE-AND-SEAMS.md)
+[![Adversarial Suite: 100% Green](https://img.shields.io/badge/Adversarial-19%2F19%20Exploits%20Neutralized-success.svg)](packages/sdk-python/tests/test_adversarial_audit_exploits.py)
+[![Latency SLO: Sub-250µs](https://img.shields.io/badge/Latency%20SLO-p99%20%3C%20250%C2%B5s-orange.svg)](scripts/run_offline_adversarial_tests.py)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://python.org)
 [![Node.js: 22+ (ESM)](https://img.shields.io/badge/Node.js-22%2B%20(ESM)-339933.svg)](https://nodejs.org)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com)
-[![OTel GenAI](https://img.shields.io/badge/OTel-GenAI%20Conventions-purple.svg)](https://opentelemetry.io)
-[![Telemetry Overhead](https://img.shields.io/badge/Telemetry%20Overhead-%3C1%C2%B5s-orange.svg)](https://github.com/SkyCeoSa/SwarmWatch)
+[![Zero-Token Cost](https://img.shields.io/badge/Cost-%240.00%20External%20Tokens-purple.svg)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 SwarmWatch provides mission-critical telemetry, mathematical infinite-loop circuit-breaking, and non-destructive Git-like DAG state branching for multi-agent systems across **Python** and **TypeScript** ecosystems (**LangGraph**, **CrewAI**, **Vercel AI SDK**, **LangChain.js**, and **Autonomous Agent Loops**).
