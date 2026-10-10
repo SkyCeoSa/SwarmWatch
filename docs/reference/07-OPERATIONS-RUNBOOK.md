@@ -68,8 +68,8 @@ Total test coverage: **104 automated tests passing (100%)**.
 
 Run the Impeccable mechanical detector on `dashboard.html`:
 
-```powershell
-C:\Users\skyrocket\.gemini\config\skills\impeccable\scripts\impeccable.cmd detect --json dashboard.html
+```bash
+python -c "from swarmwatch.acceptance import global_acceptance_harness; print(global_acceptance_harness.audit_dashboard_artifact('dashboard.html'))"
 ```
 
 Expected output:

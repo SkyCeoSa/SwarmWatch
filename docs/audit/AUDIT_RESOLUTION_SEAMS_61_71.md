@@ -2,7 +2,7 @@
 ## Formal Resolution of External Audit Directives (Seams 61–71 / ADR 0072–0082)
 
 - **Audit Target**: SwarmWatch Distributed Multi-Agent Safety Control Plane
-- **Reference Audit Document**: `C:\Users\skyrocket\Desktop\AUDIT REPORT.md` (Dated 2026-09-28)
+- **Reference Audit Document**: `docs/audit/AUDIT_REPORT_BASELINE.md` (Dated 2026-09-28)
 - **Certification Date**: 2026-10-03
 - **Certification Status**: **100% CERTIFIED PASS (All 5 Audit Dimensions & 8 Foundational Gaps Resolved)**
 - **Automated Verification Baseline**: **1,122 / 1,122 Tests Passing 100% Locally** (616 Python 3.12+ tests + 506 Node 22 TypeScript tests across 63 test suites)

@@ -7,13 +7,16 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+*.tgz
+*.tar.gz
+*.whl
 
 # Virtual Environments
 .venv/
 env/
 venv/
 
-# Database files
+# Database & Runtime State files
 *.db
 *.db-journal
 *.db-wal
@@ -39,7 +42,11 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Audit Exports
+# Internal Planning & Audit Scratch
+.scratch/
+launch/
+SWARMWATCH_AUDIT_PROMPT.md
 SWARMWATCH_MASTER_AUDIT_COMPENDIUM.md
 swarmwatch_audit_package*
-
+*.zip
+temp_*
