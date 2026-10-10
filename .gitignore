@@ -44,6 +44,7 @@ htmlcov/
 
 # Internal Planning & Audit Scratch
 .scratch/
+.impeccable/
 launch/
 SWARMWATCH_AUDIT_PROMPT.md
 SWARMWATCH_MASTER_AUDIT_COMPENDIUM.md
