@@ -20,7 +20,11 @@
 SwarmWatch provides mission-critical telemetry, mathematical infinite-loop circuit-breaking, and non-destructive Git-like DAG state branching for multi-agent systems across **Python** and **TypeScript** ecosystems (**LangGraph**, **CrewAI**, **Vercel AI SDK**, **LangChain.js**, and **Autonomous Agent Loops**).
 
 <p align="center">
-  <img src="docs/assets/swarmwatch_demo.gif" alt="SwarmWatch Live Observability Console & Circuit Breaker Demo" width="100%">
+  <img src="https://raw.githubusercontent.com/SkyCeoSa/SwarmWatch/main/docs/assets/swarmwatch_demo.gif" alt="SwarmWatch Live Observability Console & Circuit Breaker Demo" width="100%" />
+</p>
+<p align="center">
+  <em>Live Telemetry Stream &bull; Shannon Entropy Collapse &bull; Circuit Breaker Trip &bull; Topology DAG &bull; Time-Machine</em><br>
+  <a href="https://raw.githubusercontent.com/SkyCeoSa/SwarmWatch/main/docs/assets/swarmwatch_demo.mp4">▶️ Direct Video (MP4)</a> &bull; <a href="https://swarmwatch.onrender.com">🌐 Interactive Cloud Console</a>
 </p>
 
 ---
