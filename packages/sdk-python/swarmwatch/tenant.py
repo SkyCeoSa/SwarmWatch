@@ -115,6 +115,22 @@ class ApiKeyManager:
         self._cache[key_hash] = api_key
         return raw_key, api_key
 
+    def create_key(
+        self,
+        project_id: str,
+        name: str = "Default Key",
+        is_test: bool = False,
+        scopes: Optional[List[str]] = None,
+    ) -> tuple[ApiKey, str]:
+        """Convenience alias returning (api_key_model, raw_secret_key)."""
+        raw_key, api_key = self.create_api_key_record(
+            project_id=project_id,
+            name=name,
+            is_test=is_test,
+            scopes=scopes,
+        )
+        return api_key, raw_key
+
     def verify_raw_key(self, raw_key: str) -> Optional[ApiKey]:
         """
         Verifies a raw API key using constant-time digest comparison.

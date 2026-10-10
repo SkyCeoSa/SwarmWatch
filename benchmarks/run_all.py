@@ -2,11 +2,12 @@
 """
 SwarmWatch Unified Multi-Language Performance Benchmark Harness.
 Executes both Python and TypeScript performance benchmarks,
-aggregates latency and throughput metrics, and generates an Impeccable tabular report.
+aggregates latency and throughput metrics, and generates an institutional high-density tabular report.
 """
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -38,7 +39,8 @@ def main():
     py_res = run_py_benchmark()
 
     print("2/2 Benchmarking TypeScript SDK...")
-    ts_cmd = ["node.exe", "--experimental-strip-types", os.path.join(root_dir, "benchmarks", "benchmark_typescript.js"), "--json"]
+    node_bin = shutil.which("node") or "node"
+    ts_cmd = [node_bin, "--experimental-strip-types", os.path.join(root_dir, "benchmarks", "benchmark_typescript.js"), "--json"]
     ts_res = run_benchmark_cmd(ts_cmd)
 
     # Format side-by-side comparison report

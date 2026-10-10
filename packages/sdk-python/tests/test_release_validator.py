@@ -14,7 +14,8 @@ from swarmwatch.release_validator import (
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 PYTHON_DIST = ROOT_DIR / "packages" / "sdk-python" / "dist"
 WHEEL_PATH = next(PYTHON_DIST.glob("*.whl"), None)
-TS_TARBALL_PATH = ROOT_DIR / "packages" / "sdk-typescript" / "swarmwatch-sdk-0.1.0.tgz"
+TS_DIST = ROOT_DIR / "packages" / "sdk-typescript" / "dist"
+TS_TARBALL_PATH = next(TS_DIST.glob("*.tgz"), ROOT_DIR / "packages" / "sdk-typescript" / "swarmwatch-sdk-0.1.0.tgz")
 
 
 def test_wheel_validation_real_package():

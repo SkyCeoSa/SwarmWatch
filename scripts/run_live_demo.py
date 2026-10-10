@@ -6,7 +6,7 @@ Demonstrates:
 - Project provisioning ("AlphaQuant Arbitrage") & Cryptographic API Key generation
 - Multi-agent swarm telemetry ingestion
 - Shannon entropy evaluation and circuit breaker trip on runaway loop
-- Live WebSocket stream & Impeccable console UI
+- Live WebSocket stream & High-density observability console UI
 """
 
 import asyncio

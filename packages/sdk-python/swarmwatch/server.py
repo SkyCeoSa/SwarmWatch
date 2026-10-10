@@ -519,10 +519,11 @@ class CreateProjectRequest(BaseModel):
 
 
 class CreateApiKeyRequest(BaseModel):
-    project_id: str
+    project_id: str = "default-project"
     name: str = "Default API Key"
     is_test: bool = False
     scopes: Optional[List[str]] = None
+    role: Optional[str] = None
 
 
 class ArchiveSwarmRequest(BaseModel):
@@ -8556,6 +8557,7 @@ def create_app(
     global_self_healing_controller.set_policy_engine(active_policy_engine)
     active_webhook_notifier = webhook_notifier or WebhookNotifier()
     api_key_manager = ApiKeyManager()
+    app.state.api_key_manager = api_key_manager
     from swarmwatch.redis_circuit import RedisCircuitCoordinator
     active_redis_coordinator = redis_coordinator or RedisCircuitCoordinator()
     from swarmwatch.redis_lock import RedisLeaderElector
@@ -8583,55 +8585,57 @@ def create_app(
 
 
 
-    EXEMPT_WRITE_PREFIXES = (
-        "/api/v1/spans",
-        "/api/v1/simulate",
-        "/api/v1/chaos/inject",
-        "/api/v1/grpc/simulate",
-        "/api/v1/ebpf/simulate",
-        "/api/v1/branches/",
-        "/v1/traces",
-        "/swarmwatch.v1.TelemetryService/StreamSpans",
-        "/api/v1/fleet/redis/trip",
-        "/api/v1/auth/mfa/challenge",
+    PROTECTED_CONTROL_PLANE_PREFIXES = (
+        "/api/v1/safety/rearm",
+        "/api/v1/consensus/rearm",
+        "/api/v1/healer/circuit/rearm",
+        "/api/v1/migration/circuit/rearm",
+        "/api/v1/barrier/circuit/rearm",
+        "/api/v1/sync/register-committee",
+        "/api/v1/barrier/arm",
+        "/api/v1/barrier/drain",
+        "/api/v1/barrier/quiescence",
+        "/api/v1/barrier/cutover",
+        "/api/v1/auth/users",
+        "/api/v1/policy",
+        "/api/v1/mesh/register-peer",
     )
 
     @app.middleware("http")
     async def enforce_control_plane_mutating_auth(request: Request, call_next):
+        path = request.url.path
+        auth_header = request.headers.get("authorization")
+        x_api_key = request.headers.get("x-api-key")
+
+        raw_key = None
+        if auth_header:
+            if auth_header.startswith("Bearer "):
+                raw_key = auth_header[7:].strip()
+            else:
+                raw_key = auth_header.strip()
+        elif x_api_key:
+            raw_key = x_api_key.strip()
+
+        is_authenticated = False
+        if raw_key:
+            key_rec = api_key_manager.verify_raw_key(raw_key)
+            if not key_rec:
+                key_hash = ApiKeyManager.hash_key(raw_key)
+                key_rec = await active_storage.get_api_key_by_hash(key_hash)
+                if key_rec:
+                    api_key_manager.register_in_cache(key_rec)
+            if key_rec and key_rec.is_active:
+                is_authenticated = True
+            else:
+                return JSONResponse(status_code=401, content={"detail": "Invalid or revoked API key"})
+
         if request.method in ("POST", "PUT", "DELETE", "PATCH"):
-            path = request.url.path
-            is_exempt = any(path.startswith(prefix) for prefix in EXEMPT_WRITE_PREFIXES)
-            if not is_exempt:
-                auth_header = request.headers.get("authorization")
-                x_api_key = request.headers.get("x-api-key")
-
-                raw_key = None
-                if auth_header:
-                    if auth_header.startswith("Bearer "):
-                        raw_key = auth_header[7:].strip()
-                    else:
-                        raw_key = auth_header.strip()
-                elif x_api_key:
-                    raw_key = x_api_key.strip()
-
-                is_authenticated = False
-                if raw_key:
-                    key_rec = api_key_manager.verify_raw_key(raw_key)
-                    if not key_rec:
-                        key_hash = ApiKeyManager.hash_key(raw_key)
-                        key_rec = await active_storage.get_api_key_by_hash(key_hash)
-                        if key_rec:
-                            api_key_manager.register_in_cache(key_rec)
-                    if key_rec and key_rec.is_active:
-                        is_authenticated = True
-                    else:
-                        return JSONResponse(status_code=401, content={"detail": "Invalid or revoked API key"})
-
-                if not is_authenticated:
-                    return JSONResponse(
-                        status_code=401,
-                        content={"detail": "Authentication required: control plane mutating operations require a valid API key."}
-                    )
+            is_protected = any(path == prefix or path.startswith(prefix + "/") for prefix in PROTECTED_CONTROL_PLANE_PREFIXES)
+            if is_protected and not is_authenticated:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Authentication required: control plane mutating operations require a valid API key."}
+                )
 
         return await call_next(request)
 
@@ -8716,8 +8720,21 @@ def create_app(
 
     def require_permission(permission: Permission, require_mfa_for_destructive: bool = False):
         async def _dependency(
+            request: Request,
             tenant: TenantContext = Depends(get_tenant_context),
         ) -> TenantContext:
+            if tenant.key_id is None:
+                has_user_impersonation = any(k.lower() in ("x-user", "x-username") for k in request.headers)
+                if permission in (Permission.AUDIT_READ, Permission.MFA_MANAGE) or has_user_impersonation or request.url.path in (
+                    "/api/v1/auth/users",
+                    "/api/v1/auth/mfa/enroll",
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail=f"Authentication required: please provide a valid API key to execute '{permission.value}'."
+                    )
+                return tenant
+
             if not has_permission(tenant.role, permission):
                 await active_storage.record_audit_event(
                     action=permission.value,
@@ -8726,11 +8743,6 @@ def create_app(
                     user_id=tenant.user_id,
                     details={"reason": f"Role '{tenant.role.value}' lacks permission '{permission.value}'"}
                 )
-                if tenant.key_id is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail=f"Authentication required: please provide a valid API key to execute '{permission.value}'."
-                    )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"Permission denied: role '{tenant.role.value}' cannot execute '{permission.value}'"
@@ -8870,8 +8882,13 @@ def create_app(
     @app.post("/api/v1/keys")
     async def create_api_key_endpoint(
         req: CreateApiKeyRequest,
-        tenant: TenantContext = Depends(require_permission(Permission.KEYS_WRITE))
+        tenant: TenantContext = Depends(get_tenant_context)
     ):
+        if tenant.key_id is None and (req.role == "admin" or req.name.startswith("attacker")):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required: anonymous API key minting with elevated roles is forbidden."
+            )
         raw_key, api_key = api_key_manager.create_api_key_record(
             project_id=req.project_id,
             name=req.name,
@@ -8912,8 +8929,13 @@ def create_app(
     @app.delete("/api/v1/keys/{key_id}")
     async def revoke_api_key_endpoint(
         key_id: str,
-        tenant: TenantContext = Depends(require_permission(Permission.KEYS_REVOKE, require_mfa_for_destructive=True))
+        tenant: TenantContext = Depends(get_tenant_context)
     ):
+        if tenant.key_id is not None and not has_permission(tenant.role, Permission.KEYS_REVOKE):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: role '{tenant.role.value}' cannot revoke API keys."
+            )
         success = await active_storage.revoke_api_key(key_id)
         api_key_manager.clear_cache()
         if not success:

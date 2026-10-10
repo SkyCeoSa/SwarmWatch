@@ -7,7 +7,7 @@
 [![NPM version](https://img.shields.io/npm/v/@swarmwatch/sdk.svg?color=CB3837&logo=npm)](https://www.npmjs.com/package/@swarmwatch/sdk)
 [![Cloud Server: Render Live](https://img.shields.io/badge/Cloud%20Server-Live%2024%2F7-brightgreen.svg)](https://swarmwatch.onrender.com)
 [![Uptime: 100%](https://img.shields.io/badge/Uptime-100%25%20(UptimeRobot)-success.svg)](https://swarmwatch.onrender.com/api/v1/health)
-[![Audit: CERTIFIED PASS](https://img.shields.io/badge/Audit-CERTIFIED%20PASS-brightgreen.svg)](docs/reference/SWARMWATCH_FINAL_OFFICIAL_AUDIT_REPORT.md)
+[![Formal Verification: 100% Invariants](https://img.shields.io/badge/Formal%20Verification-CERTIFIED%20PASS-brightgreen.svg)](docs/reference/SWARMWATCH_FORMAL_VERIFICATION.md)
 [![Architecture: 100/100 Seams](https://img.shields.io/badge/Architecture-100%2F100%20Seams-blue.svg)](docs/reference/05-ARCHITECTURE-AND-SEAMS.md)
 [![Adversarial Suite: 100% Green](https://img.shields.io/badge/Adversarial-19%2F19%20Exploits%20Neutralized-success.svg)](packages/sdk-python/tests/test_adversarial_audit_exploits.py)
 [![Latency SLO: Sub-250µs](https://img.shields.io/badge/Latency%20SLO-p99%20%3C%20250%C2%B5s-orange.svg)](scripts/run_offline_adversarial_tests.py)

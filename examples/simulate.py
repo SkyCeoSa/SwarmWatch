@@ -67,8 +67,10 @@ def main():
 
     # Helper to invoke TypeScript SecurityReviewer Agent in Node.js
     def call_typescript_agent(spec_dict: dict, branch: str = "main") -> dict:
+        import shutil
+        node_bin = shutil.which("node") or "node"
         cmd = [
-            "node.exe",
+            node_bin,
             "--experimental-strip-types",
             os.path.join(os.path.dirname(__file__), "cross_language_evaluator.js"),
             swarm_id,
