@@ -152,6 +152,48 @@ npm install packages/sdk-typescript/swarmwatch-sdk-0.1.0.tgz
 
 ---
 
+## ⚡ 10-Second Live Terminal Execution
+
+Verify SwarmWatch's real-world in-process telemetry capture and zero-token Shannon entropy circuit breaker directly on your machine:
+
+```bash
+# 1. Install SwarmWatch from PyPI
+pip install swarmwatch
+
+# 2. Run the included multi-framework live execution demo
+python examples/langgraph_crewai_demo.py
+```
+
+```text
+=================================================================
+  👁️ SwarmWatch Multi-Framework Ecosystem Demonstration
+=================================================================
+
+ 1. LangGraph / LangChain Swarm Integration
+-----------------------------------------------------------------
+[LangGraph] Starting chain execution with SwarmWatchCallbackHandler...
+[LangGraph] Chain completed and traced successfully into causal DAG.
+
+ 2. CrewAI Multi-Agent Swarm with Circuit-Breaker Protection
+-----------------------------------------------------------------
+[CrewAI] Simulating stalled agent caught in repetitive retry loop...
+  -> Agent loop attempt #1: 'I need to query the migration table agai...'
+  -> Agent loop attempt #2: 'I need to query the migration table agai...'
+  -> Agent loop attempt #3: 'I need to query the migration table agai...'
+
+ [CIRCUIT BREAKER TRIGGERED!]
+   Reason: High lexical repetition detected (1.00 >= 0.70)
+   Action: Terminated runaway loop immediately. Zero LLM tokens wasted!
+=================================================================
+>> All traces & state snapshots stored in SQLite WAL ('swarmwatch.db').
+>> Launch the visual dashboard to inspect live swimlanes:
+   $ swarmwatch ui --port 8765
+```
+
+> 📖 **Looking for production integration patterns?** Check out the **[Real-World Production Cookbook](docs/REAL_WORLD_COOKBOOK.md)** for Algorithmic Trading & Financial Desks, LangGraph Supervisors, and Vercel AI SDK Edge setups.
+
+---
+
 ## 🚀 Quickstart
 
 ### 1. Python SDK
