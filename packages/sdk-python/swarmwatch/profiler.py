@@ -208,7 +208,7 @@ class TelemetryProfiler:
                 "query": f"heavy_task_{index}",
                 "history": [f"query_{i}" for i in range(10)],
                 "tools": [{"name": f"tool_{j}", "type": "function"} for j in range(5)],
-                "api_key": "sk-live-synthetic-secret-key-12345",
+                "api_key": "dummy_test_api_key_example",
                 "raw_context": "x" * 1024,
             }
             output_payload = {
@@ -222,7 +222,7 @@ class TelemetryProfiler:
             input_payload = {
                 "agent_id": f"agent-{index % 4}",
                 "query": "Execute portfolio rebalance query",
-                "secret_token": "Bearer sw_live_99887766554433221100",
+                "secret_token": "dummy_auth_token_example",
             }
             output_payload = {
                 "decision": "rebalance",

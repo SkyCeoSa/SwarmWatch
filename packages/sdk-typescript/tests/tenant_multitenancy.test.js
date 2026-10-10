@@ -78,12 +78,12 @@ test("HttpStorageSink Tenant Headers & Multi-Tenancy", async (t) => {
     try {
       const sink = new HttpStorageSink({
         endpoint: "http://localhost:8765",
-        apiKey: "sw_live_sec123456",
+        apiKey: "sw_test_local_key",
         projectId: "proj-risk-gate",
       });
 
       assert.equal(sink.endpoint, "http://localhost:8765");
-      assert.equal(sink.apiKey, "sw_live_sec123456");
+      assert.equal(sink.apiKey, "sw_test_local_key");
       assert.equal(sink.projectId, "proj-risk-gate");
 
       const span = {
@@ -99,8 +99,8 @@ test("HttpStorageSink Tenant Headers & Multi-Tenancy", async (t) => {
 
       assert.equal(capturedHeaders.length, 1);
       const headers = capturedHeaders[0];
-      assert.equal(headers["Authorization"], "Bearer sw_live_sec123456");
-      assert.equal(headers["X-API-Key"], "sw_live_sec123456");
+      assert.equal(headers["Authorization"], "Bearer sw_test_local_key");
+      assert.equal(headers["X-API-Key"], "sw_test_local_key");
       assert.equal(headers["X-Project-ID"], "proj-risk-gate");
 
       // Verify span was stamped with project_id

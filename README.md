@@ -319,7 +319,7 @@ SwarmWatch provides cloud-grade multi-tenancy partitioned at the database row le
 Ingest spans securely from any remote worker:
 ```bash
 curl -X POST http://localhost:8765/api/v1/spans \
-  -H "Authorization: Bearer sw_live_9xK2mP4vL8nQ1wZ7eR3tY6uI" \
+  -H "Authorization: Bearer <YOUR_SWARMWATCH_API_KEY>" \
   -H "X-Project-ID: prod-cluster-01" \
   -H "Content-Type: application/json" \
   -d '[{

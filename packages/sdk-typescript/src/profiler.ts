@@ -192,7 +192,7 @@ export class TelemetryProfiler {
         query: `heavy_task_${index}`,
         history: Array.from({ length: 10 }, (_, i) => `query_${i}`),
         tools: Array.from({ length: 5 }, (_, j) => ({ name: `tool_${j}`, type: "function" })),
-        api_key: "sk-live-synthetic-secret-key-12345",
+        api_key: "dummy_test_api_key_example",
         raw_context: "x".repeat(1024),
       };
       outputPayload = {
@@ -206,7 +206,7 @@ export class TelemetryProfiler {
       inputPayload = {
         agent_id: `agent-${index % 4}`,
         query: "Execute portfolio rebalance query",
-        secret_token: "Bearer sw_live_99887766554433221100",
+        secret_token: "dummy_auth_token_example",
       };
       outputPayload = {
         decision: "rebalance",

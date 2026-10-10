@@ -24,7 +24,7 @@ test("TimeMachine State Snapshot & Verification (Seam 14 TS Parity)", async (t) 
   await t.test("captures state snapshot with deterministic SHA-256 hash and secret redaction", async () => {
     const rawState = {
       user: "quant_trader_01",
-      api_key: "sk-live-super-secret-key-12345",
+      api_key: "dummy-super-secret-key-12345",
       password: "database-password-xyz",
       active_positions: [
         { symbol: "BTC-USD", size: 1.5, entry: 64200 },

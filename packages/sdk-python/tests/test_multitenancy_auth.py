@@ -116,7 +116,7 @@ def test_server_authentication_and_key_revocation(tmp_path):
     # 3. Ingest span with INVALID Authorization header -> 401
     bad_resp = client.post(
         "/api/v1/spans",
-        headers={"Authorization": "Bearer sw_live_badkey00000000000000"},
+        headers={"Authorization": "Bearer invalid_test_token"},
         json=[{
             "id": "bad-span",
             "swarm_id": "auth-swarm",
