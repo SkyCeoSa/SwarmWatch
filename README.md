@@ -39,9 +39,9 @@ SwarmWatch provides mission-critical telemetry, mathematical infinite-loop circu
 
 ---
 
-## 📺 Live Visual Tour: Impeccable Developer Console
+## 📺 Live Visual Tour: SwarmWatch Observability Console
 
-The SwarmWatch Observability Console is engineered according to the **Impeccable Craft Standard**—an austere `#080B11` slate theme with zero neon glows, tabular mono numerals, and **0 anti-patterns on mechanical browser detection**:
+The SwarmWatch Observability Console is engineered according to the **High-Craft Mission-Critical Standard**—an austere `#080B11` slate theme with zero neon glows, tabular mono numerals, and **0 anti-patterns on mechanical browser detection**:
 
 ### 1. Initial Calm State
 *Austere high-density workstation monitoring 4 active swarm agents, causal spans, baseline Shannon entropy (1.92 bits), and zero-cost armed circuit.*
@@ -90,7 +90,7 @@ flowchart TB
         AUTH["FastAPI Auth Middleware\n(Constant-Time SHA-256 API Keys)"]
         COORD["Distributed Fleet Coordinator\n(Cross-Worker Token Quota Sync)"]
         WS["WebSocket & SSE Streaming Plane"]
-        UI["Impeccable Developer Console\n(Single-File dashboard.html)"]
+        UI["SwarmWatch Developer Console\n(Single-File dashboard.html)"]
     end
 
     LG --> RB
@@ -391,8 +391,8 @@ SwarmWatch maintains an exhaustive Test-Driven Development (TDD) harness across 
 Python Test Suite (pytest):    53 / 53 PASSED (100%)
 TypeScript Test Suite (node):  51 / 51 PASSED (100%)
 TOTAL AUTOMATED TESTS:        104 / 104 PASSED (100% GREEN)
-Impeccable Static Scan:       0 Anti-Patterns ([])
-Impeccable Chromium Detect:   0 Anti-Patterns ([])
+Static UI Quality Scan:       0 Anti-Patterns ([])
+Chromium Headless Scan:   0 Anti-Patterns ([])
 Zero-Token Guarantee:         100% Local Math (0 External LLM Calls)
 ================================================================
 ```

@@ -55,7 +55,7 @@ The hash ring maps 32-bit integer keys into a circular coordinate space $[0, 2^{
 - **Web Console**:
   - `#shardBadge` in `.fleet-left-group` of `#fleetBar` in `dashboard.html`.
   - Dynamic status indicator: Balanced (`SHARDING: BALANCED (N NODES)` in green), Spillover (`SHARDING: SPILLOVER` in amber), Saturated (`SHARDING: SATURATED` in red).
-  - 100% compliant with Impeccable Craft Floor (0 anti-patterns `[]`).
+  - 100% compliant with High-Density Craft Standard (0 anti-patterns `[]`).
 
 ## Consequences
 ### Positive

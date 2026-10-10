@@ -53,7 +53,7 @@ We implement Seam 47: Autonomous Semantic Schema Migration & Backward-Compatible
 - **Web Console**:
   - `#schemaBadge` in `.fleet-left-group` of `#fleetBar` in `dashboard.html`.
   - Dynamic status indicator: Compatible (`SCHEMA: V2.1 (CONVERGED)` in green), Migrating (`SCHEMA: MIGRATING (N STEPS)` in amber).
-  - 100% compliant with Impeccable Craft Floor (0 anti-patterns `[]`).
+  - 100% compliant with High-Density Craft Standard (0 anti-patterns `[]`).
 
 ## Consequences
 ### Positive

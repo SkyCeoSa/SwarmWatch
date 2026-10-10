@@ -56,7 +56,7 @@ We implement an in-process, deterministic **Topological Graph Clustering & Dynam
      - `swarmwatch coalition cluster <swarm_id>`: Execute clustering epoch.
    - Web Console (`dashboard.html`):
      - Added `#coalitionBadge` inside `.fleet-left-group` in `#fleetBar`.
-     - 100% compliant with Impeccable Craft Floor (0 anti-patterns `[]`).
+     - 100% compliant with High-Density Craft Standard (0 anti-patterns `[]`).
 
 ## Consequences
 

@@ -60,7 +60,7 @@ We implement an in-process, deterministic **Adaptive Dynamic Quota Rebalancer** 
      - `swarmwatch rebalance run <swarm_id>`: Trigger immediate rebalance.
    - Web Console:
      - Add `#rebalancerBadge` in `#fleetBar` of `dashboard.html`.
-     - 100% compliant with Impeccable Craft Floor (0 anti-patterns `[]`).
+     - 100% compliant with High-Density Craft Standard (0 anti-patterns `[]`).
 
 ## Consequences
 

@@ -32,7 +32,7 @@ We implement the **High-Frequency Telemetry Ingestion Micro-Benchmark & Flamegra
 
 2. **CLI Subcommand (`swarmwatch benchmark`)**:
    - Integrated terminal runner accepting flags `--spans`, `--concurrency`, `--payload`, `--flamegraph`, `--output`, `--format`.
-   - Renders an austere, monospace ASCII table conforming strictly to SwarmWatch Impeccable craft floor standards (tabular numerals, zero emojis, zero neon glows).
+   - Renders an austere, monospace ASCII table conforming strictly to SwarmWatch high-density craft standard standards (tabular numerals, zero emojis, zero neon glows).
 
 3. **Dual-SDK Parity in TypeScript (`@swarmwatch/sdk`)**:
    - `packages/sdk-typescript/src/profiler.ts`: Implements `TelemetryProfiler` in TypeScript with Node.js high-resolution timers (`performance.now()`) and heap tracking (`process.memoryUsage()`).

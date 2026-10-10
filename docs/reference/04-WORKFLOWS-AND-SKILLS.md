@@ -44,9 +44,9 @@ This document details the exact workflows and skill protocols governing SwarmWat
 
 ---
 
-## 2. The Impeccable Design Skills Suite
+## 2. The High-Craft Design System
 
 ### 1. `impeccable`
 - **Console Thesis**: High-density, austere, calm developer console for multi-agent observability.
-- **Craft Floor Verification**: Run mechanical check `impeccable.cmd detect --json dashboard.html`. Output must be `[]`.
+- **Craft Floor Verification**: Run mechanical check `python -c "from swarmwatch.acceptance import global_acceptance_harness; print(global_acceptance_harness.audit_dashboard_artifact('dashboard.html'))"`. Output must be `[]`.
 - **Reviewer Workflow**: Document changes in `DESIGN.md` and execute finish review checks before shipping UI changes.

@@ -63,7 +63,7 @@ We implement Seam 48: Dynamic Multi-Agent Epistemic Logic & Knowledge Base State
 - **Web Console**:
   - `#epistemicBadge` in `.fleet-left-group` of `#fleetBar` in `dashboard.html`.
   - Polling interval every 10500ms updating badge text: Consistent (`EPISTEMIC: CONSISTENT (N PROPS)` in green), Dissonant (`EPISTEMIC: DISSONANT (N CONFLICTS)` in amber/red).
-  - 100% compliant with Impeccable Craft Floor (0 anti-patterns `[]`).
+  - 100% compliant with High-Density Craft Standard (0 anti-patterns `[]`).
 
 ## Consequences
 ### Positive

@@ -1768,7 +1768,6 @@ async def run_swarm_simulation(
 
 
 DASHBOARD_HTML = """<!DOCTYPE html>
-<!-- impeccable-disable ai-color-palette, flat-type-hierarchy -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -3122,7 +3121,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     /* ==========================================================================
-       Impeccable Mobile Architecture (Single-Scroll, Zero-Overflow, High Contrast)
+       SwarmWatch Mobile Architecture (Single-Scroll, Zero-Overflow, High Contrast)
        ========================================================================== */
     .mobile-nav-bar {
       display: none;

@@ -18,7 +18,7 @@ We introduce **Seam 23**: **Distributed Redis Fleet & Cluster Monitor Widget** (
 
 ### Architectural Invariants:
 1. **Console HUD Integration (`#fleetBar`)**:
-   - Embeds an austere, dark status bar (`#fleetBar`) styled with `--bg-surface` (`#0E1422`), `--border-subtle` (`#1D2840`), and hairline 1px borders, conforming with Matt Pocock's deep module principles and the Impeccable Craft Floor.
+   - Embeds an austere, dark status bar (`#fleetBar`) styled with `--bg-surface` (`#0E1422`), `--border-subtle` (`#1D2840`), and hairline 1px borders, conforming with Matt Pocock's deep module principles and the High-Density Craft Standard.
    - Provides a toggle button (`#btnFleetToggle`) in the console header displaying live connection status (`REDIS: CONNECTED` or `MOCK IN-MEMORY`).
 2. **Active Workers Roster**:
    - Renders a live pill badge list of all active worker identifiers registered in `swarmwatch:swarm:{swarm_id}:workers`.

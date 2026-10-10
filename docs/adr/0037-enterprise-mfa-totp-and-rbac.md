@@ -97,7 +97,7 @@ In unauthenticated local development mode (e.g. `swarmwatch ui` run locally with
 ### Positive
 - **Enterprise Compliance**: Delivers immediate alignment with SOC 2, ISO 27001, and Zero Trust security architectures.
 - **Zero-Dependency Footprint**: Zero external libraries needed for TOTP, QR URIs, or RBAC evaluation.
-- **Impeccable Safety**: Prevents accidental or unauthorized cluster-wide halts, policy tampering, or local data purges.
+- **Authoritative Safety**: Prevents accidental or unauthorized cluster-wide halts, policy tampering, or local data purges.
 - **Dual-SDK Parity**: TypeScript and Python SDKs share identical permission models and TOTP cryptographic engines.
 
 ### Neutral / Trade-Offs

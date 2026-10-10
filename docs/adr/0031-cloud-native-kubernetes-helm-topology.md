@@ -57,7 +57,7 @@ We implement `packages/sdk-python/tests/test_helm_kubernetes_topology.py` to val
 ### Positive
 - One-command enterprise installation: `helm install swarmwatch ./deploy/helm/swarmwatch`.
 - Native compatibility with cloud Kubernetes platforms (EKS, GKE, AKS, OpenShift) and GitOps tooling (ArgoCD, Flux).
-- Strict adherence to Impeccable standards (zero emojis, austere ASCII NOTES.txt, clean tabular configuration).
+- Strict adherence to high-density standards (zero emojis, austere ASCII NOTES.txt, clean tabular configuration).
 
 ### Negative
 - Helm template files must be maintained in sync with backend configuration environment variables and port mappings.

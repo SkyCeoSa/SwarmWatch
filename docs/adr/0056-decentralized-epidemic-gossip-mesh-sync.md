@@ -59,7 +59,7 @@ The mesh manager operates two complementary gossip protocols:
 - **Web Console**:
   - `#meshBadge` in `.fleet-left-group` of `#fleetBar` in `dashboard.html`.
   - Dynamic status indicator: Converged (`MESH: CONVERGED (N PEERS)` in green), Syncing (`MESH: SYNCING` in accent), Partitioned (`MESH: PARTITIONED` in red).
-  - 100% compliant with Impeccable Craft Floor (0 anti-patterns `[]`).
+  - 100% compliant with High-Density Craft Standard (0 anti-patterns `[]`).
 
 ## Consequences
 ### Positive

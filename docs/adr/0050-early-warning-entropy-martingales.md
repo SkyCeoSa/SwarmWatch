@@ -45,7 +45,7 @@ We implement **Seam 39: Predictive Multi-Agent Failure Forecasting & Early-Warni
 3. **Control Plane & Web Console**:
    - REST Endpoints: `GET /api/v1/swarms/{id}/forecast`, `POST /api/v1/swarms/{id}/forecast/evaluate`, `POST /api/v1/swarms/{id}/forecast/reset`.
    - CLI Subcommand: `swarmwatch forecast status|predict`.
-   - Web Console: `#forecastBadge` in `#fleetBar` conforming strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+   - Web Console: `#forecastBadge` in `#fleetBar` conforming strictly to High-Density Craft Standard (0 anti-patterns `[]`).
 
 ## Consequences
 ### Positive

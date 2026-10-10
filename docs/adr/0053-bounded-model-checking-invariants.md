@@ -34,7 +34,7 @@ We implement `BoundedModelChecker`, `AgentTransitionModel`, and `StateSpaceExplo
 4. **Zero-Token Cost & Sub-Millisecond Execution**:
    - 100% in-process deterministic graph traversal ($<1.0\text{ms}$ for hundreds of states). Zero external cloud solvers or LLM calls.
 
-5. **Dual-SDK Parity & Impeccable Craft Floor**:
+5. **Dual-SDK Parity & High-Density Craft Standard**:
    - Python: `packages/sdk-python/swarmwatch/model_checker.py`
    - TypeScript: `packages/sdk-typescript/src/model_checker.ts` adhering strictly to Node 22 type-stripping rules (`node --experimental-strip-types`).
    - Web Console: `#modelCheckBadge` in `#fleetBar` of `dashboard.html` with 0 anti-patterns (`[]`).

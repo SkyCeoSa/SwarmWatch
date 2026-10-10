@@ -26,7 +26,7 @@ We implement a lightweight, non-blocking **Visual Causal DAG Graph View** in the
    - Features view switching (`Stream`, `DAG Graph`, `Split View`).
    - Visualizes cyclic loops with high-contrast alert strokes (`#EF4444`) and subtle animated dash offsets.
 
-3. **Impeccable Craft Floor Adherence**:
+3. **High-Density Craft Standard Adherence**:
    - Pinned `#080B11` canvas palette and `#0E1422` card surfaces.
    - Hairline borders (`1px solid var(--border-subtle)`), tabular numbers (`tnum`), zero neon glows, zero emojis.
    - Mechanical scan with `impeccable detect` must pass with 0 findings (`[]`).

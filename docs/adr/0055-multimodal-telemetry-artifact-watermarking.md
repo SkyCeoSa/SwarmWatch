@@ -58,7 +58,7 @@ For every inspected artifact, SwarmWatch synthesizes an `ArtifactWatermark`:
   - `swarmwatch artifact verify <filepath> --signature <sig>`
 - **Web Console**:
   - `#artifactBadge` in `.fleet-left-group` of `#fleetBar` in `dashboard.html`.
-  - Impeccable Craft Floor: 100% compliant with 0 anti-patterns (`[]`).
+  - High-Density Craft Standard: 100% compliant with 0 anti-patterns (`[]`).
 
 ## Consequences
 - Multi-agent swarms exchanging audio, visual, and document assets obtain guaranteed tamper-evident provenance.

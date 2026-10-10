@@ -55,7 +55,7 @@ Patch synthesis is strictly deterministic and graph-theoretic. It operates direc
   - `swarmwatch heal status|apply|revert --swarm-id <id>`
 - **Web Console**:
   - `#topologyHealBadge` in `.fleet-left-group` of `#fleetBar` in `dashboard.html` with real-time polling.
-  - Impeccable Craft Floor: 100% compliant with 0 anti-patterns (`[]`).
+  - High-Density Craft Standard: 100% compliant with 0 anti-patterns (`[]`).
 
 ## Consequences
 - Multi-agent interaction graphs can self-correct dynamically when encountering unexpected deadlocks or cycles.

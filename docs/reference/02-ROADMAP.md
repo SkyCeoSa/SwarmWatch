@@ -34,7 +34,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
 - **DAG State Branching**: Non-destructive `TimeMachine.snapshot` and `TimeMachine.step_back` state rewinds.
 
 ### Phase 3: Real-Time Console & Ecosystem Adapters (Delivered)
-- **Impeccable Developer Console**: Austere `#080B11` slate theme, zero glows, tabular numerals, and 0 anti-patterns on mechanical detector.
+- **SwarmWatch Developer Console**: Austere `#080B11` slate theme, zero glows, tabular numerals, and 0 anti-patterns on mechanical detector.
 - **WebSocket Control Plane**: Live span streaming with 350ms pacing and remote command handling (`CMD_PAUSE`, `CMD_FORK_BRANCH`).
 - **Framework Adapters**:
   - `SwarmWatchCallbackHandler` for LangGraph & LangChain.
@@ -114,7 +114,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
 - **Interactive Chaos & Loop Simulator (Seam 6 / Seam 5 Extension & ADR 0016)**:
   - Deep module `ChaosSimulator` in `swarmwatch/chaos.py` supporting 4 deterministic failure modes: `entropy_collapse`, `infinite_tool_recursion`, `budget_quota_exhaustion`, and `conversational_deadlock`.
   - Backend control plane injection endpoint `POST /api/v1/chaos/inject` streaming causal spans, state snapshots, and circuit halts over WebSocket.
-  - Austere Developer Console UI trigger panel in `dashboard.html` conforming strictly to Impeccable craft floor standards.
+  - Austere Developer Console UI trigger panel in `dashboard.html` conforming strictly to high-density craft standard standards.
 - **Visual Causal DAG Graph View (Seam 9 & ADR 0017)**:
   - Deep module `CausalTopologyGraph` in `swarmwatch/topology.py` computing agent adjacency networks, token/latency metrics, and deterministic cycle detection.
   - Non-blocking vector SVG graph rendering in `dashboard.html` with stream/DAG/split view toggling and animated loop trip highlights.
@@ -148,7 +148,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Interactive branch fork dialog (`#forkModal`) displaying origin turn, causal agents, state snapshot hash, and sanitized state preview.
   - Server-side antecedent span replication on `POST /api/v1/branches/fork` preserving historical context in the new branch timeline.
   - Backend snapshot query endpoint `GET /api/v1/swarms/{swarm_id}/snapshots` and real-time WebSocket `branch_forked` broadcast.
-  - Non-blocking in-app toast notification system (`#toastContainer`) replacing jarring browser alerts, strictly compliant with Impeccable Craft Floor (#080B11 palette, tabular numerals, zero emojis).
+  - Non-blocking in-app toast notification system (`#toastContainer`) replacing jarring browser alerts, strictly compliant with High-Density Craft Standard (#080B11 palette, tabular numerals, zero emojis).
   - Single-key keyboard triage navigation: `[` (Step-Back), `]` (Step-Forward), `f` / `F` (Fork modal), `Escape` (Close modals).
 - **TypeScript TimeMachine & State Branching Parity (Seam 14 TS Parity & ADR 0025)**:
   - Deep module `TimeMachine` in `@swarmwatch/sdk` (`packages/sdk-typescript/src/timemachine.ts`) providing zero-dependency state snapshotting, deterministic SHA-256 state hashing, non-destructive `stepBack()`, and DAG `forkBranch()`.
@@ -171,7 +171,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
     - Unified inline delta and Split side-by-side view toggling.
     - Filter chips (`All`, `Changed`, `Added`, `Modified`, `Removed`, `Redacted`).
     - SHA-256 fingerprint delta indicator (`hash_a -> hash_b`).
-    - Zero external LLM token expenditure, zero emoji, flat elevation hierarchy strictly compliant with Impeccable Craft Floor.
+    - Zero external LLM token expenditure, zero emoji, flat elevation hierarchy strictly compliant with High-Density Craft Standard.
 - **Industrial Production Monitoring Stack & Grafana Dashboard Topology (Seam 17 & ADR 0028)**:
   - Multi-service Docker Compose topology (`docker-compose.monitoring.yml`) orchestrating `swarmwatch`, `prometheus` (v2.54.1), and `grafana` (v11.2.0) with zero manual configuration.
   - Automated Prometheus scrape configuration (`deploy/prometheus/prometheus.yml`) scraping `swarmwatch:8765/metrics` every 5s with static environment labels.
@@ -233,7 +233,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Active cluster roster tracking in `swarmwatch:cluster:nodes` with heartbeat epoch timestamps and metadata.
   - Control plane REST endpoints (`GET /api/v1/cluster/leader`, `POST /api/v1/cluster/leader/step-down`), WebSocket leader change broadcasts, and CLI subcommand (`swarmwatch cluster status|step-down`).
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) implementing `RedisDistributedLock` and `RedisLeaderElector`.
-  - Console leader status indicator in `#fleetBar` adhering to the Impeccable Craft Floor.
+  - Console leader status indicator in `#fleetBar` adhering to the High-Density Craft Standard.
 - **S3 / Google Cloud Storage Streaming Log Archival & Cold Storage Tier (Seam 25 & ADR 0036)**:
   - Pluggable object storage interface `ObjectStorageClient` with zero-dependency `MockObjectStorageClient` (in-memory) and `S3ObjectStorageClient` (pure stdlib HTTP/SigV4).
   - Deep module `ColdStorageArchiver` coordinating gzip streaming compression, time-partitioned key hierarchy, and deterministic cryptographic manifest generation (`ArchiveManifest`).
@@ -241,7 +241,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Control plane REST endpoints: `POST /api/v1/storage/archive/{swarm_id}`, `POST /api/v1/storage/restore/{swarm_id}`, `GET /api/v1/storage/archives`, `GET /api/v1/storage/archives/{swarm_id}/manifest`.
   - Interactive CLI subcommand: `swarmwatch archive list|export|restore|manifest`.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) implementing `ObjectStorageClient`, `MockObjectStorageClient`, and `ColdStorageArchiver`.
-  - Developer console cold archive action button and status badge adhering to the Impeccable Craft Floor.
+  - Developer console cold archive action button and status badge adhering to the High-Density Craft Standard.
 - **Enterprise Multi-Factor Authentication (MFA / TOTP) & Strict RBAC Engine (Seam 26 & ADR 0037)**:
   - Zero-dependency RFC 6238 TOTP engine (`TotpEngine`) implementing HMAC-SHA1 dynamic truncation across 30-second steps and configurable clock drift tolerance (+/- 1 window = 90s).
   - Single-use SHA-256 hashed recovery backup codes (`XXXX-XXXX`) burned immediately upon verification.
@@ -250,7 +250,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Storage persistence for users and audit logs (`users` and `audit_events` tables in SQLite).
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/rbac.ts`) tested with Node 22 type-stripping rules.
   - Interactive CLI subcommands: `swarmwatch mfa generate|verify` and `swarmwatch rbac check|matrix`.
-  - Developer console integration: `#fleetRoleBadge`, `#fleetMfaBadge`, and `#mfaModal` strictly adhering to Impeccable Craft Floor (0 anti-patterns).
+  - Developer console integration: `#fleetRoleBadge`, `#fleetMfaBadge`, and `#mfaModal` strictly adhering to High-Density Craft Standard (0 anti-patterns).
 - **OpenTelemetry OTLP Ingestion Gateway (Seam 27 & ADR 0038 Dual-SDK Parity)**:
   - Official OpenTelemetry 1.0+ HTTP trace specification receiver (`POST /v1/traces` & `POST /api/v1/otlp/traces`).
   - Zero-dependency binary protobuf wire format decoder (`ProtobufWireDecoder`) and proto3 JSON mapper (`OtelTraceParser`).
@@ -259,7 +259,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Multi-tenant project context resolution via standard OTel headers (`x-swarmwatch-project-id`, `X-API-Key`, `Authorization`).
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/otlp.ts`) supporting `toOtelGenAiSpan`, `formatOtlpTracesPayload`, `parseOtlpTracesPayload`, and `OtlpTraceExporter`.
   - CLI subcommands: `swarmwatch otlp ingest` and `swarmwatch otlp validate`.
-  - Web Console integration: `#otlpGatewayBadge` and `#otlpSpansCount` adhering strictly to Impeccable Craft Floor.
+  - Web Console integration: `#otlpGatewayBadge` and `#otlpSpansCount` adhering strictly to High-Density Craft Standard.
 - **Enterprise WebPush & Server-Sent Events (SSE) Real-Time Alerts (Seam 28 & ADR 0039 Dual-SDK Parity)**:
   - Standards-compliant W3C Server-Sent Events endpoint (`GET /api/v1/events/stream` & `GET /api/v1/swarms/{id}/events/stream`) with automatic 15s keep-alive pings and `Last-Event-ID` ring-buffer replay.
   - Zero-dependency RFC 8292 VAPID cryptographic engine (`VapidKeyManager`) implementing NIST P-256 (secp256r1) integer arithmetic and ES256 JWT signing in pure Python standard library.
@@ -267,7 +267,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Persistent SQLite WAL storage for push subscriptions (`push_subscriptions` table).
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk`) providing `SwarmEventSource`, `VapidSigner` (using `node:crypto`), and `client.listenEvents()`.
   - CLI subcommands: `swarmwatch events listen` and `swarmwatch push keys|test|subscriptions`.
-  - Web Console integration: `#sseStatusBadge` in `#fleetBar` and `#btnPushNotify` header toggle strictly adhering to Impeccable Craft Floor.
+  - Web Console integration: `#sseStatusBadge` in `#fleetBar` and `#btnPushNotify` header toggle strictly adhering to High-Density Craft Standard.
 - **Kernel-Level Network Socket LLM Interception Gateway (Seam 29 & ADR 0040 Dual-SDK Parity)**:
   - Deep module `EbpfSocketGateway` managing transparent socket interception, packet sniffing/forwarding, protocol decoding, and kernel-level circuit enforcement.
   - Zero-dependency stream protocol disassembler `SocketStreamDecoder` extracting HTTP/1.1 request bodies, JSON payloads, and Server-Sent Events (SSE) streaming tokens from raw TCP byte streams without external HTTP libraries.
@@ -275,21 +275,21 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Zero-dependency cross-platform architecture with Linux eBPF filter generation, transparent asyncio proxy gateway, and thread-safe `MockEbpfEngine` for deterministic sub-10ms testing on any OS.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/ebpf.ts`) with Node.js `net.Socket` interception.
   - Control plane REST endpoints (`GET /api/v1/ebpf/status`, `GET/POST/DELETE /api/v1/ebpf/rules`, `POST /api/v1/ebpf/simulate`) and CLI subcommand (`swarmwatch ebpf`).
-  - Web Console integration: `#ebpfGatewayBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+  - Web Console integration: `#ebpfGatewayBadge` in `#fleetBar` adhering strictly to High-Density Craft Standard (0 anti-patterns `[]`).
 - **Multi-Cluster High-Availability Raft Consensus Engine (Seam 30 & ADR 0041 Dual-SDK Parity)**:
   - Deep module `RaftConsensusEngine` implementing pure standard-library distributed consensus, term progression, randomized election timers (150-300ms), and periodic heartbeats (50ms) without Redis or external key-value stores.
   - Replicated state machine `RaftStateMachine` applying committed log entries for atomic fleet quotas, cluster-wide circuit trips, and policy updates across all nodes with strict quorum guarantees ($N/2 + 1$).
   - Zero-dependency dual-transport architecture: in-memory message bus for deterministic sub-50ms testing and REST RPC inter-node communication (`RequestVoteRpc`, `AppendEntriesRpc`).
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/raft.ts`) tested with Node 22 type-stripping rules.
   - Control plane REST endpoints (`GET /api/v1/raft/status`, `POST /api/v1/raft/propose`, `POST /api/v1/raft/rpc/request-vote`, `POST /api/v1/raft/rpc/append-entries`, `POST /api/v1/raft/step-down`) and CLI subcommand (`swarmwatch raft status|propose|cluster`).
-  - Web Console integration: `#raftConsensusBadge` in `#fleetBar` displaying live node role (`RAFT: LEADER` / `RAFT: FOLLOWER`), term, and commit index conforming strictly to Impeccable Craft Floor.
+  - Web Console integration: `#raftConsensusBadge` in `#fleetBar` displaying live node role (`RAFT: LEADER` / `RAFT: FOLLOWER`), term, and commit index conforming strictly to High-Density Craft Standard.
 - **Autonomous Counterfactual Swarm Optimization & Self-Healing Policy Controller (Seam 31 & ADR 0042 Dual-SDK Parity)**:
   - Deep module `SwarmSelfHealingController` executing continuous in-process telemetry observation, multi-agent anomaly detection (`REPEATED_TOOL_FAILURES`, `ENTROPY_VOLATILITY`, `BUDGET_RUNAWAY`, `CASCADE_ERROR`, `LATENCY_SPIKE`), and mathematical counterfactual optimization calculus with zero remote LLM token usage.
   - Reversible remediation taxonomy (`SelfHealingActionType`): dynamic tool blacklisting (`BLACKLIST_TOOL`), automatic model down-routing fallback (`ROUTE_MODEL_FALLBACK`), proactive quota clamping (`CLAMP_QUOTA`), stabilization probation resets (`AUTO_RESET_ON_STABILIZATION`), and backoff throttling (`INJECT_BACKOFF`).
   - Full state preservation (`original_state`) enabling instantaneous automatic or operator-driven rollbacks.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/selfhealing.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/self-healing/status`, `GET /api/v1/self-healing/actions`, `POST /api/v1/self-healing/remediate`, `POST /api/v1/self-healing/rollback`, `POST /api/v1/self-healing/toggle`) and CLI subcommand (`swarmwatch heal status|actions|trigger|rollback`).
-  - Web Console integration: `#selfHealingBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+  - Web Console integration: `#selfHealingBadge` in `#fleetBar` adhering strictly to High-Density Craft Standard (0 anti-patterns `[]`).
 - **Distributed Multi-Agent Root-Cause Causal Inference Engine (Seam 32 & ADR 0043 Dual-SDK Parity)**:
   - Deep module `CausalInferenceEngine` implementing Structural Causal Models (SCM), backward ancestral DAG graph traversal, and Judea Pearl Do-Calculus counterfactual reasoning across swarm executions with zero external LLM token overhead.
   - Causal fault attribution (`RootCauseAttribution`): identifies the true origin agent, trigger span, turn index, symptom agent, propagation depth, and confidence score ($[0.0, 1.0]$).
@@ -298,7 +298,7 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Automatic Time-Machine fork point recommendation (`recommended_fork_turn = root_cause_turn - 1`) for seamless, non-destructive branching and recovery.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/causal_inference.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/swarms/{swarm_id}/root-cause`, `GET /api/v1/swarms/{swarm_id}/causal-path`, `GET /api/v1/swarms/{swarm_id}/context-poisoning`) and CLI subcommand (`swarmwatch rootcause`).
-  - Web Console integration: `#rootCauseBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+  - Web Console integration: `#rootCauseBadge` in `#fleetBar` adhering strictly to High-Density Craft Standard (0 anti-patterns `[]`).
 - **Ultra-High-Throughput gRPC Streaming Ingestion Gateway (Seam 33 & ADR 0044 Dual-SDK Parity)**:
   - Deep module `GrpcStreamingGateway` and `GrpcMessageFramer` implementing 5-byte binary gRPC wire framing (`[compression(1B)][length(4B uint32 BE)][payload]`) with zero external C-dependencies or `grpcio` requirements.
   - Supports standard services `/swarmwatch.v1.TelemetryService/StreamSpans`, `/swarmwatch.v1.TelemetryService/IngestBatch`, and `/opentelemetry.proto.collector.trace.v1.TraceService/Export` for ultra-high-throughput telemetry streaming (>50,000 spans/sec).
@@ -306,27 +306,27 @@ This document charts the development milestones of **SwarmWatch**, from local fo
   - Dual gateway topology: HTTP/2 ASGI endpoint handler (`application/grpc`) and standalone pure Python asyncio TCP server (`GrpcStreamServer`) on port 50051.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/grpc.ts`) with Node 22 type-stripping support.
   - Control plane REST endpoints (`GET /api/v1/grpc/status`, `POST /api/v1/grpc/simulate`) and CLI subcommand (`swarmwatch grpc status|simulate`).
-  - Web Console integration: `#grpcGatewayBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+  - Web Console integration: `#grpcGatewayBadge` in `#fleetBar` adhering strictly to High-Density Craft Standard (0 anti-patterns `[]`).
 - **Embedding-Free Vector Semantic Drift & Hallucination Divergence Detector (Seam 34 & ADR 0045 Dual-SDK Parity)**:
   - Deep module `SemanticDriftDetector` and `MinHashSigner` implementing 64-bit universal MinHash LSH, character/word n-gram shingling, and Type-Token Ratio vocabulary compression calculus with zero external LLM token overhead ($<50\mu\text{s}$ per turn).
   - Quantifies composite semantic drift ($\Delta_{\text{drift}} = 1.0 - (0.6 \cdot J(t, t_0) + 0.4 \cdot J(t, t-1))$) against both root task anchor and preceding turns.
   - Real-time in-flight circuit breaking tripping on persistent drift ($\Delta_{\text{drift}} > 0.72$) or echo-chamber collapse ($VCR < 0.20$), arresting runaway multi-agent trajectories and logging counterfactual savings.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/drift.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/swarms/{swarm_id}/drift`, `POST /api/v1/swarms/{swarm_id}/drift/evaluate`) and CLI subcommand (`swarmwatch drift status|analyze`).
-  - Web Console integration: `#driftBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+  - Web Console integration: `#driftBadge` in `#fleetBar` adhering strictly to High-Density Craft Standard (0 anti-patterns `[]`).
 - **Adaptive Dynamic Quota Re-balancing across Distributed Fleets (Seam 35 & ADR 0046 Dual-SDK Parity)**:
   - Deep module `AdaptiveQuotaRebalancer` implementing real-time composite utility evaluation ($U_a \in [0.0, 1.0]$) combining semantic drift, vocabulary compression ratio, Shannon entropy stability, and fault resilience.
   - 4-Tier Agent Classification (`BOOSTED`, `NOMINAL`, `THROTTLED`, `QUARANTINED`): dynamically re-allocates token/turn quotas, reclaiming buffer from rogue/idle agents and granting surge slices to converging agents.
   - In-flight non-blocking quota enforcement with zero LLM API costs ($<50\mu\text{s}$ per turn).
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/rebalancer.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/swarms/{id}/rebalancer`, `POST /api/v1/swarms/{id}/rebalancer/rebalance`) and CLI subcommand (`swarmwatch rebalance status|run`).
-  - Web Console integration: `#rebalancerBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+  - Web Console integration: `#rebalancerBadge` in `#fleetBar` adhering strictly to High-Density Craft Standard (0 anti-patterns `[]`).
 - **Real-Time Topological Graph Clustering & Dynamic Agent Coalitions (Seam 36 & ADR 0047 Dual-SDK Parity)**:
   - Deep module `TopologicalCoalitionEngine` implementing in-process directed causal interaction graph analysis, degree centrality, bottleneck transit detection ($B(v)$), and modularity-based community clustering ($Q \ge 0.30$) with zero LLM token overhead ($<50\mu\text{s}$ per turn).
   - Autonomous dynamic coalition formation (`AgentCoalition`) partitioning densely interacting agents ($\ge 0.50$ density) into isolated sub-collectives with designated Coalition Leaders to alleviate conversational deadlocks and traffic bottlenecks.
   - Dual-SDK parity in TypeScript (`@swarmwatch/sdk/src/coalition.ts`) adhering to Node 22 type-stripping.
   - Control plane REST endpoints (`GET /api/v1/swarms/{id}/coalitions`, `POST /api/v1/swarms/{id}/coalitions/cluster`) and CLI subcommand (`swarmwatch coalition status|cluster`).
-  - Web Console integration: `#coalitionBadge` in `#fleetBar` adhering strictly to Impeccable Craft Floor (0 anti-patterns `[]`).
+  - Web Console integration: `#coalitionBadge` in `#fleetBar` adhering strictly to High-Density Craft Standard (0 anti-patterns `[]`).
 - **Zero-Copy Shared-Memory Ring Buffer IPC Gateway (Seam 37 & ADR 0048 Dual-SDK Parity)**:
   - High-performance memory-mapped circular ring buffer (`ShmRingBuffer`) with fixed 64-byte binary header (`SWRB`), atomic write/read sequence pointers, and fixed slot framing for zero-copy IPC telemetry exchange.
   - Sub-microsecond span publication ($<1.0\mu\text{s}$) directly into shared physical memory without socket or kernel transitions, exceeding 500,000 spans/sec throughput.

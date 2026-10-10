@@ -19,9 +19,9 @@ All contributors and AI pairing sessions must strictly adhere to the following n
 
 ---
 
-## 3. Impeccable Craft Floor & UI Rules
+## 3. High-Density Craft Standard & UI Rules
 
-Every UI surface must conform to the Impeccable craft floor standard:
+Every UI surface must conform to the high-density craft standard standard:
 1. **Palette**: Strictly dark slate console (`#080B11` canvas, `#0E1422` surface, `#1D2840` border, `#38BDF8` accent).
 2. **Zero Forbidden Elements**:
    - Zero dark glows or blurred neon box-shadows (`box-shadow: 0 0 20px rgba(...)`).
@@ -33,7 +33,7 @@ Every UI surface must conform to the Impeccable craft floor standard:
    - Minimum font size: 12px.
    - Tabular numerals (`font-variant-numeric: tabular-nums`) for all metrics and durations.
    - Code and payloads formatted in monospace (`JetBrains Mono`, `SF Mono`).
-4. **Mechanical Detector Compliance**: `impeccable.cmd detect --json dashboard.html` must return 0 findings (`[]`).
+4. **Mechanical Detector Compliance**: `python -c "from swarmwatch.acceptance import global_acceptance_harness; print(global_acceptance_harness.audit_dashboard_artifact('dashboard.html'))"` must return 0 findings (`[]`).
 
 ---
 

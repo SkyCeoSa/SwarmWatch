@@ -23,7 +23,7 @@ We introduce **Seam 21**: Live Terminal User Interface (TUI) & Headless Cluster 
 4. **Dual Operational Modes**:
    - *Live Interactive TUI* (Default): Alternate screen buffer (`\033[?1049h`), periodic auto-refresh, keyboard triage (`q`, `r`, `p`, `s`, `h`), and terminal resize adaptation.
    - *Snapshot Mode* (`--once`): Prints a single formatted frame directly to standard output without clearing the screen, enabling automated CI validation, cron health probes, and shell pipes (`swarmwatch top --once | grep HALTED`).
-5. **Impeccable Monospace Craft Floor**:
+5. **Austere Monospace Craft Standard**:
    Austere developer console aesthetics matching SwarmWatch design tokens: `#080B11` slate background, instrument cyan accents, emerald green running status, crimson circuit halts, amber warning indicators, tabular numerals (`tnum`), clean ASCII box lines, and zero emojis.
 
 ## Consequences

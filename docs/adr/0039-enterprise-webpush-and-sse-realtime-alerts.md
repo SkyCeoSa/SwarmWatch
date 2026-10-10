@@ -79,7 +79,7 @@ To comply with SwarmWatch's strict zero-external-dependency policy (no external 
 - **Web Console (`dashboard.html`)**:
   - `#sseStatusBadge` in `#fleetBar` indicating active SSE connectivity.
   - `#btnPushNotify` toggle in header for desktop notifications via browser Notification API.
-  - Strict compliance with Impeccable Craft Floor (0 anti-patterns).
+  - Strict compliance with High-Density Craft Standard (0 anti-patterns).
 
 ---
 

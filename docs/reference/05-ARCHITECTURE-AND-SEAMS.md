@@ -40,7 +40,7 @@ This document details the architectural topology, defined seams, and runtime dat
                                     │
                                     ▼ WebSocket Stream
 ┌────────────────────────────────────────────────────────────────────────┐
-│               [Seam 6] Impeccable Developer Console                    │
+│               [Seam 6] SwarmWatch Developer Console                    │
 │   - Live Execution Stream (350ms Cadence)                              │
 │   - Real-Time Shannon Entropy & Metric Cards                           │
 │   - Time-Machine Turn Inspector & State Forking                        │
@@ -96,7 +96,7 @@ This document details the architectural topology, defined seams, and runtime dat
 14. **Visual Time-Machine Controls & State Branching Seam (Dual-SDK Parity / ADR 0024 & ADR 0025)**:
     - Primitives (Python & Console): `#timeMachineBar` (Step-Back, Step-Forward, Scrubber, Branch Selector, Fork Action), `#forkModal`, `TimeMachine` (`serializer.py`), `GET /api/v1/swarms/{swarm_id}/snapshots`, `POST /api/v1/branches/fork` (with antecedent span replication), `StorageAdapter.get_snapshots_for_swarm()`, `StorageAdapter.list_branches()`, WebSocket `branch_forked` event.
     - Primitives (TypeScript): `TimeMachine` (`timemachine.ts`), `ForkBranchResult`, `StorageSink` extensions (`getSnapshot`, `getSnapshotsForSwarm`, `forkBranch`, `listBranches`), `InMemoryStorageSink`, `HttpStorageSink`, and `SwarmClient` contextual helpers (`snapshot`, `stepBack`, `forkBranch`, `listBranches`, `listSnapshots`).
-    - Invariant: Non-destructive historical state navigation with zero latency; antecedent spans preserved and replicated into new branch namespace; in-app non-blocking toasts (`showToast()`) replacing modal popups; single-key keyboard navigation (`[`, `]`, `f`, `Esc`); Impeccable Craft Floor design standards (#080B11 palette, tabular numerals, zero emojis, zero neon glows); 100% parity across Python and TypeScript SDKs.
+    - Invariant: Non-destructive historical state navigation with zero latency; antecedent spans preserved and replicated into new branch namespace; in-app non-blocking toasts (`showToast()`) replacing modal popups; single-key keyboard navigation (`[`, `]`, `f`, `Esc`); High-Density Craft Standard design standards (#080B11 palette, tabular numerals, zero emojis, zero neon glows); 100% parity across Python and TypeScript SDKs.
 15. **Live Fork Resumption Runner Seam (Dual-SDK Parity / ADR 0026)**:
     - Primitives (Python): `ForkRunner` (`runner.py`), `ForkResumptionContext`, `ForkResumptionResult`, `client.resume_from_fork()`, `client.resume_from_fork_sync()`, REST endpoint `POST /api/v1/branches/{branch_id}/resume`, and WebSocket `branch_resumed` broadcast.
     - Primitives (TypeScript): `ForkRunner` (`runner.ts`), `ForkResumptionContext`, `ForkResumptionResult`, `client.resumeFromFork()`, `resumeFromFork()`.
@@ -105,7 +105,7 @@ This document details the architectural topology, defined seams, and runtime dat
     - Primitives (Python): `compute_state_diff()` (`serializer.py`), `StateDiffReport`, `DiffEntry`, `DiffSummary`, REST endpoint `GET /api/v1/swarms/{swarm_id}/snapshots/diff`.
     - Primitives (TypeScript): `computeStateDiff()` (`timemachine.ts`), `StateDiffReport`, `DiffEntry`, `DiffSummary`.
     - Primitives (Console): Inspector tab bar (`#tabPayload`, `#tabSnapshot`, `#tabDiff`), `#diffViewContainer`, `#diffTargetSelector`, `#diffModeSelector` (Unified vs Split), delta counter badges (`#diffBadgeAdded`, `#diffBadgeModified`, `#diffBadgeRemoved`), filter chips (`#diffFilterAll`, `#diffFilterChanged`, `#diffFilterRedacted`).
-    - Invariant: 100% deterministic recursive object comparison; sub-millisecond execution dispatch; deep secret mask awareness (`is_redacted`); SHA-256 fingerprint tracking; Impeccable Craft Floor design standards (#080B11 canvas, #0E1422 surfaces, #1D2840 borders, monospace tabular numerals, zero emojis, zero neon glows); zero remote LLM token usage.
+    - Invariant: 100% deterministic recursive object comparison; sub-millisecond execution dispatch; deep secret mask awareness (`is_redacted`); SHA-256 fingerprint tracking; High-Density Craft Standard design standards (#080B11 canvas, #0E1422 surfaces, #1D2840 borders, monospace tabular numerals, zero emojis, zero neon glows); zero remote LLM token usage.
 17. **Industrial Production Monitoring Stack & Grafana Preset Seam (ADR 0028)**:
     - Primitives: `docker-compose.monitoring.yml`, `deploy/prometheus/prometheus.yml`, `deploy/grafana/provisioning/datasources/datasources.yml`, `deploy/grafana/provisioning/dashboards/dashboards.yml`, `deploy/grafana/dashboards/swarmwatch-overview.json`.
     - Invariant: Zero-configuration single-command orchestration (`docker compose -f docker-compose.monitoring.yml up -d`); automatic Prometheus datasource registration and dashboard provisioning; dark-mode Grafana panels styled strictly to SwarmWatch design tokens (#080B11 canvas, tabular numerals, instrument cyan, emerald green, amber, crimson); zero external cloud dependencies.
@@ -128,7 +128,7 @@ This document details the architectural topology, defined seams, and runtime dat
 23. **Distributed Redis Fleet & Cluster Monitor Widget Seam (ADR 0034)**:
     - Primitives (Console): `RedisFleetWidget` (`dashboard.html`), `#fleetBar`, `#btnFleetToggle`, `#fleetWorkersList`, `#fleetTurnsMeter`, `#fleetTokensMeter`, `#fleetCostMeter`, `#fleetTripAlert`, `#btnFleetTrip`, `#btnFleetReset`.
     - Primitives (Server): WebSocket broadcast integration (`ws_manager`) emitting `fleet_metric_update`, `fleet_trip_broadcast`, and `fleet_state_reset` events from `RedisCircuitCoordinator`.
-    - Invariant: Live visualization of cluster backend connection, active worker roster, and cumulative atomic quota meters; immediate full-console trip alert banner on broadcast receipt; remote emergency trip and state reset control plane actions; strict adherence to Impeccable Craft Floor (#080B11 palette, tabular-nums, zero emojis, zero neon glows); zero-token cost guarantee.
+    - Invariant: Live visualization of cluster backend connection, active worker roster, and cumulative atomic quota meters; immediate full-console trip alert banner on broadcast receipt; remote emergency trip and state reset control plane actions; strict adherence to High-Density Craft Standard (#080B11 palette, tabular-nums, zero emojis, zero neon glows); zero-token cost guarantee.
 24. **Distributed Redis Lock & Leader Election Seam (ADR 0035 Dual-SDK Parity)**:
     - Primitives (Python): `RedisDistributedLock` (`redis_lock.py`), `RedisLeaderElector`, `ServerNodeRole`, REST endpoints `GET /api/v1/cluster/leader`, `POST /api/v1/cluster/leader/step-down`, CLI `swarmwatch cluster`.
     - Primitives (TypeScript): `RedisDistributedLock` (`redis_lock.ts`), `RedisLeaderElector`, `ServerNodeRole`.

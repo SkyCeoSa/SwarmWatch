@@ -8,9 +8,9 @@ This repository strictly adheres to Matt Pocock's software engineering and auton
   ```powershell
   .venv\Scripts\pytest.exe packages\sdk-python\tests\
   ```
-- **Console & Design Contract**: High-density Impeccable console documented in [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Must pass zero-finding detector:
+- **Console & Design Contract**: High-density SwarmWatch console documented in [PRODUCT.md](./PRODUCT.md) and [DESIGN.md](./DESIGN.md). Must pass zero-finding detector:
   ```powershell
-  impeccable.cmd detect --json dashboard.html
+  python -c "from swarmwatch.acceptance import global_acceptance_harness; print(global_acceptance_harness.audit_dashboard_artifact('dashboard.html'))"
   ```
 - **Package Release & Distribution Integrity**: Zero-dependency validation of Python wheel and npm tarball packages per [ADR 0013](./docs/adr/0013-zero-cloud-distribution-package-validation.md). Must exit 0 with all checks passing:
   ```powershell

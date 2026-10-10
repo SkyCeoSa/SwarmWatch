@@ -65,7 +65,7 @@ We implement an in-process, deterministic **Embedding-Free Vector Semantic Drift
    - Web Console:
      - `#driftBadge` added to `#fleetBar` in `dashboard.html`.
      - Real-time polling via `refreshDriftStatus()` every 8500ms.
-     - Conforms 100% to Impeccable Craft Floor (0 anti-patterns `[]`).
+     - Conforms 100% to High-Density Craft Standard (0 anti-patterns `[]`).
 
 ## Consequences
 

@@ -11,7 +11,7 @@ To elevate developer experience and operational triage during autonomous agent m
 2. Direct integration with backend state snapshot archives (`GET /api/v1/swarms/{swarm_id}/snapshots`) to surface exact state hashes and sanitized memory payloads per turn.
 3. An interactive modal dialog (`#forkModal`) allowing operators to inspect origin turns, causal agents, state snapshot previews, configure new branch identifiers, and execute server-side branching.
 4. Server-side antecedent span replication into the newly forked branch timeline, accompanied by real-time WebSocket broadcast (`branch_forked`).
-5. An in-app, non-blocking toast notification system (`showToast()`) replacing jarring standard browser `alert()` popups in compliance with the **Impeccable Craft Floor** design standard (#080B11 palette, tabular numbers, zero emojis, zero neon glows).
+5. An in-app, non-blocking toast notification system (`showToast()`) replacing jarring standard browser `alert()` popups in compliance with the **High-Density Craft Standard** design standard (#080B11 palette, tabular numbers, zero emojis, zero neon glows).
 6. Single-key keyboard navigation shortcuts (`[`, `]`, `f`, `Esc`) for lightning-fast operator triage.
 
 ## Decision
@@ -43,6 +43,6 @@ To elevate developer experience and operational triage during autonomous agent m
   - Operators can visually scrub through hundreds of multi-agent execution turns with instantaneous DOM updates and zero backend latency.
   - Failures and loops can be debugged and branched in seconds directly from the browser UI.
   - Zero modal lockup in headless automation test environments thanks to native in-app toasts.
-  - Strict compliance with Impeccable Craft Floor guidelines and Matt Pocock software engineering standards.
+  - Strict compliance with High-Density Craft Standard guidelines and Matt Pocock software engineering standards.
 - **Negative**:
   - Branching duplicates antecedent spans in storage for isolation, increasing SQLite storage linearly with the number of forks created.

@@ -41,7 +41,7 @@ We established **Seam 16: State Snapshot Diff Inspector & Dual-SDK Diff Engine**
      - `Split`: Side-by-side comparison table showing antecedent vs subsequent states.
    - Filter Controls:
      - Quick filter chips for `All`, `Changed`, `Added`, `Modified`, `Removed`, and `Redacted`.
-   - Visual Semantics strictly conforming to Impeccable Craft Floor:
+   - Visual Semantics strictly conforming to High-Density Craft Standard:
      - Canvas `#080B11`, surface `#0E1422`, hairline borders `#1D2840`.
      - Added: Emerald green (`#10B981` / background `#064e3b22`).
      - Modified: Amber (`#F59E0B` / background `#78350f22`).

@@ -13,7 +13,7 @@ Whenever beginning a new session or designing new features, consult this index t
 2. [02. Project Roadmap & Milestones](./02-ROADMAP.md)
    - Completed milestones (Core Engine, Circuit Breaker, Real-time Console, Columnar ClickHouse Storage, TypeScript SDK, Multi-Tenant Architecture & Distributed Fleet Sync) and SaaS horizons.
 3. [03. Project Policies & Engineering Standards](./03-POLICIES.md)
-   - Deep module code standards, zero-token cost guarantees, Impeccable craft floor rules, and data privacy/secret redaction policies.
+   - Deep module code standards, zero-token cost guarantees, high-density craft standard rules, and data privacy/secret redaction policies.
 4. [04. Mandatory Workflows & Skills](./04-WORKFLOWS-AND-SKILLS.md)
    - Exhaustive operational guide for Matt Pocock's skills (`diagnosing-bugs`, `domain-modeling`, `codebase-design`, `tdd`, `writing-for-agents`) and the Impeccable design suite.
 5. [05. System Architecture & Seams](./05-ARCHITECTURE-AND-SEAMS.md)

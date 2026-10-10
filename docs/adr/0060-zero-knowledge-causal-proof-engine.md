@@ -51,7 +51,7 @@ We implement Seam 49: Zero-Knowledge Causal Proof Generation & Cryptographic Aud
 - **Web Console (`dashboard.html`)**:
   - `#zkProofBadge` in `.fleet-left-group` of `#fleetBar`.
   - Dynamic status polling every 11000ms: displays `ZK-PROOF: VERIFIED (N)` in green.
-  - 100% compliant with Impeccable Craft Floor.
+  - 100% compliant with High-Density Craft Standard.
 
 ## Consequences
 ### Positive

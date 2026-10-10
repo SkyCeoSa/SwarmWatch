@@ -47,7 +47,7 @@ We implement an in-process, zero-external-dependency **Ultra-High-Throughput gRP
    - Emits OpenMetrics: `swarmwatch_grpc_spans_received_total`, `swarmwatch_grpc_bytes_received_total`, `swarmwatch_grpc_active_streams`, `swarmwatch_grpc_trips_triggered_total`.
    - Control plane endpoints: `GET /api/v1/grpc/status` and `POST /api/v1/grpc/simulate`.
    - CLI subcommands: `swarmwatch grpc status` and `swarmwatch grpc simulate`.
-   - Web Console widget: `#grpcGatewayBadge` in `#fleetBar` adhering to the Impeccable Craft Floor.
+   - Web Console widget: `#grpcGatewayBadge` in `#fleetBar` adhering to the High-Density Craft Standard.
 
 ## Consequences
 

@@ -30,7 +30,7 @@ We implement `HoneypotManager`, `DeceptionSandbox`, and `HoneytokenGenerator` as
    - 100% in-process local execution (<50µs per turn).
    - Zero remote LLM inference calls for canary generation, shadow state emulation, or payload profiling.
 
-5. **Dual-SDK Parity & Impeccable Craft Floor**:
+5. **Dual-SDK Parity & High-Density Craft Standard**:
    - Python: `packages/sdk-python/swarmwatch/honeypot.py`
    - TypeScript: `packages/sdk-typescript/src/honeypot.ts` adhering strictly to Node 22 type-stripping rules (`node --experimental-strip-types`).
    - Web Console: `#honeypotBadge` in `#fleetBar` of `dashboard.html` with 0 anti-patterns (`[]`).

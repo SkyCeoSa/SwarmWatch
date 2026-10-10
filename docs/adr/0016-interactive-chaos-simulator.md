@@ -28,7 +28,7 @@ We implement the **Interactive Chaos & Loop Simulator** as a deep module (`packa
    - Emits spans into `StorageAdapter`, broadcasts updates via `WebSocketManager`, and records Prometheus counters (`swarmwatch_spans_total`, `swarmwatch_circuit_trips_total`, `swarmwatch_tokens_saved_total`).
 
 3. **Developer Web Console Integration (`dashboard.html`)**:
-   - Built to Impeccable craft floor standards (`#080B11` palette, tabular nums, zero emojis, zero neon glows, zero nested cards).
+   - Built to high-density craft standard standards (`#080B11` palette, tabular nums, zero emojis, zero neon glows, zero nested cards).
    - Provides quick-action scenario triggers with real-time visual feedback, circuit trip banners, and direct URL query support (`?chaos={scenario}`) for automated browser inspection.
 
 ## Consequences
