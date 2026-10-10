@@ -1,6 +1,6 @@
 ---
 name: SwarmWatch Observability Console
-description: An austere, calm, high-density developer console for multi-agent LLM systems observability and runtime circuit-breaking.
+description: An austere, high-density developer console for multi-agent LLM systems observability and runtime circuit-breaking.
 colors:
   canvas: "#080B11"
   surface: "#0E1422"
