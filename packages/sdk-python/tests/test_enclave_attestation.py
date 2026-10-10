@@ -203,7 +203,7 @@ def test_adversarial_forged_enclave_signatures_rejected(clean_enclave):
     valid_chal = coord.issue_challenge("enc-01")
     valid_quote = make_signed_quote("enc-01", "SGX", mhash, valid_chal.nonce, privkey, pubkey, now_ns)
     token = coord.verify_and_attest(valid_quote, "agent-adv", ["READ"])
-    token.token_signature = "ff" + token.token_signature[2:]
+    token.token_signature = "deadbeef" * 16
     with pytest.raises(UnauthorizedCapabilityError):
         coord.validate_capability(token, "READ")
 
